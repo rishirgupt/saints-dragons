@@ -57,3 +57,5 @@ Requires Java 25 and the assets described above.
 ## Reporting problems
 
 Problems that only happen on 26.2 belong in this repository's issues; please do not bother the original author with them.
+
+*Parts of this port were made with the help of Claude (Anthropic).*
