@@ -1,0 +1,15 @@
+{
+  "structures": [
+    {
+      "structure": "saintsdragons:varasuchus_roost",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 20,
+    "separation": 10,
+    "spread_type": "triangular",
+    "salt": 14739281
+  }
+}

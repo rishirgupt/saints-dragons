@@ -1,0 +1,563 @@
+package com.leon.saintsdragons.server.data;
+
+import com.leon.saintsdragons.common.codex.DragonCodexRegistry;
+import net.minecraft.core.UUIDUtil;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.level.saveddata.SavedData;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
+public class DragonCodexSavedData extends SavedData {
+    // 26.x: saved data is codec-based; the existing tag save/load code is reused through a compound codec.
+    private static final com.mojang.serialization.Codec<DragonCodexSavedData> CODEC = CompoundTag.CODEC.xmap(
+            DragonCodexSavedData::load, data -> data.save(new CompoundTag()));
+    private static final net.minecraft.world.level.saveddata.SavedDataType<DragonCodexSavedData> TYPE =
+            new net.minecraft.world.level.saveddata.SavedDataType<>(
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath("saintsdragons", "draconic_codex"),
+                    DragonCodexSavedData::new, CODEC, net.minecraft.util.datafix.DataFixTypes.SAVED_DATA_COMMAND_STORAGE);
+
+    private static final String DATA_NAME = "saintsdragons_draconic_codex";
+
+    private final Map<UUID, List<DragonCodexEntry>> entriesByOwner = new HashMap<>();
+
+    public static DragonCodexSavedData get(ServerLevel level) {
+        ServerLevel storageLevel = level.getServer() != null ? level.getServer().overworld() : level;
+        return storageLevel.getDataStorage().computeIfAbsent(TYPE);
+    }
+
+    public void addDragon(ServerPlayer owner, DragonEntity dragon) {
+        if (owner == null || dragon == null) {
+            return;
+        }
+        addDragon(owner.getUUID(), dragon);
+    }
+
+    public void addDragon(UUID ownerId, DragonEntity dragon) {
+        if (ownerId == null || dragon == null) {
+            return;
+        }
+        if (!isValidCodexDragon(dragon)) {
+            removeDragon(ownerId, dragon.getUUID());
+            return;
+        }
+        deduplicateEntries(ownerId);
+        UUID dragonId = dragon.getUUID();
+        List<DragonCodexEntry> entries = entriesByOwner.computeIfAbsent(ownerId, id -> new ArrayList<>());
+        for (DragonCodexEntry entry : entries) {
+            if (entry.dragonId().equals(dragonId)) {
+                entry.setDisplayName(dragon.getName().getString());
+                entry.setMaxHealth(dragon.getMaxHealth());
+                entry.setCurrentHealth(dragon.getHealth());
+                entry.setArmor(dragon.getAttributeValue(Attributes.ARMOR));
+                entry.setHunger(dragon.getHunger());
+                entry.setHappiness(dragon.getHappiness());
+                entry.setVariantId(resolveVariantId(dragon));
+                entry.setVariantResourceId(resolveVariantResourceId(dragon));
+                entry.setGenderId(dragon.getGender().getId());
+                entry.setGenderKnown(dragon.hasGender());
+                entry.setDragonType(resolveDragonType(dragon));
+                entry.setIsBaby(dragon.isBaby());
+                entry.setBoundInBinder(dragon.isBoundInBinder());
+                entry.setBrushingAvailable(dragon.isBrushingAvailable());
+                entry.setBrushingProgressPercent(dragon.getBrushingProgressPercent());
+                entry.setPosition(dragon.getX(), dragon.getY(), dragon.getZ());
+                entry.setBiomeId(resolveBiomeId(dragon));
+                setDirty();
+                return;
+            }
+        }
+        entries.add(new DragonCodexEntry(
+                dragonId,
+                dragon.getName().getString(),
+                dragon.getMaxHealth(),
+                dragon.getHealth(),
+                dragon.getAttributeValue(Attributes.ARMOR),
+                dragon.getHunger(),
+                dragon.getHappiness(),
+                resolveVariantId(dragon),
+                resolveVariantResourceId(dragon),
+                dragon.getGender().getId(),
+                dragon.hasGender(),
+                resolveDragonType(dragon),
+                dragon.isBaby(),
+                dragon.isBoundInBinder(),
+                dragon.isBrushingAvailable(),
+                dragon.getBrushingProgressPercent(),
+                dragon.getX(),
+                dragon.getY(),
+                dragon.getZ(),
+                resolveBiomeId(dragon)
+        ));
+        setDirty();
+    }
+
+    public void removeDragon(UUID ownerId, UUID dragonId) {
+        if (ownerId == null || dragonId == null) {
+            return;
+        }
+        List<DragonCodexEntry> entries = entriesByOwner.get(ownerId);
+        if (entries == null || entries.isEmpty()) {
+            return;
+        }
+        boolean removed = entries.removeIf(entry -> entry.dragonId().equals(dragonId));
+        if (removed) {
+            if (entries.isEmpty()) {
+                entriesByOwner.remove(ownerId);
+            }
+            setDirty();
+        }
+    }
+
+    /**
+     * Collapses legacy or crash-recovered records that point at the same entity UUID.
+     * The first record wins because all legacy update paths refreshed the first matching entry.
+     */
+    public int deduplicateEntries(UUID ownerId) {
+        if (ownerId == null) {
+            return 0;
+        }
+        List<DragonCodexEntry> entries = entriesByOwner.get(ownerId);
+        if (entries == null || entries.size() < 2) {
+            return 0;
+        }
+
+        Map<UUID, DragonCodexEntry> uniqueEntries = new LinkedHashMap<>();
+        for (DragonCodexEntry entry : entries) {
+            uniqueEntries.putIfAbsent(entry.dragonId(), entry);
+        }
+
+        int removed = entries.size() - uniqueEntries.size();
+        if (removed > 0) {
+            entries.clear();
+            entries.addAll(uniqueEntries.values());
+            setDirty();
+        }
+        return removed;
+    }
+
+    public void updateDragonName(UUID ownerId, UUID dragonId, String displayName) {
+        if (ownerId == null || dragonId == null || displayName == null) {
+            return;
+        }
+        List<DragonCodexEntry> entries = entriesByOwner.get(ownerId);
+        if (entries == null) {
+            return;
+        }
+        for (DragonCodexEntry entry : entries) {
+            if (entry.dragonId().equals(dragonId)) {
+                if (!Objects.equals(entry.displayName(), displayName)) {
+                    entry.setDisplayName(displayName);
+                    setDirty();
+                }
+                return;
+            }
+        }
+    }
+
+    public void updateDragonStats(UUID ownerId, DragonEntity dragon) {
+        if (ownerId == null || dragon == null) {
+            return;
+        }
+        if (!isValidCodexDragon(dragon)) {
+            removeDragon(ownerId, dragon.getUUID());
+            return;
+        }
+        List<DragonCodexEntry> entries = entriesByOwner.get(ownerId);
+        if (entries == null) {
+            return;
+        }
+        for (DragonCodexEntry entry : entries) {
+            if (entry.dragonId().equals(dragon.getUUID())) {
+                entry.setMaxHealth(dragon.getMaxHealth());
+                entry.setCurrentHealth(dragon.getHealth());
+                entry.setArmor(dragon.getAttributeValue(Attributes.ARMOR));
+                entry.setHunger(dragon.getHunger());
+                entry.setHappiness(dragon.getHappiness());
+                entry.setVariantId(resolveVariantId(dragon));
+                entry.setGenderId(dragon.getGender().getId());
+                entry.setGenderKnown(dragon.hasGender());
+                entry.setDragonType(resolveDragonType(dragon));
+                entry.setIsBaby(dragon.isBaby());
+                entry.setBoundInBinder(dragon.isBoundInBinder());
+                entry.setBrushingAvailable(dragon.isBrushingAvailable());
+                entry.setBrushingProgressPercent(dragon.getBrushingProgressPercent());
+                entry.setPosition(dragon.getX(), dragon.getY(), dragon.getZ());
+                entry.setBiomeId(resolveBiomeId(dragon));
+                setDirty();
+                return;
+            }
+        }
+    }
+
+    public void updateDragonBoundState(UUID ownerId, UUID dragonId, boolean boundInBinder) {
+        if (ownerId == null || dragonId == null) {
+            return;
+        }
+        List<DragonCodexEntry> entries = entriesByOwner.get(ownerId);
+        if (entries == null) {
+            return;
+        }
+        for (DragonCodexEntry entry : entries) {
+            if (entry.dragonId().equals(dragonId)) {
+                if (entry.boundInBinder() != boundInBinder) {
+                    entry.setBoundInBinder(boundInBinder);
+                    setDirty();
+                }
+                return;
+            }
+        }
+    }
+
+    public List<DragonCodexEntry> getEntriesFor(ServerPlayer owner) {
+        if (owner == null) {
+            return List.of();
+        }
+        deduplicateEntries(owner.getUUID());
+        List<DragonCodexEntry> entries = entriesByOwner.get(owner.getUUID());
+        if (entries == null) {
+            return List.of();
+        }
+        return new ArrayList<>(entries);
+    }
+
+    
+    public CompoundTag save(CompoundTag tag) {
+        ListTag playerList = new ListTag();
+        for (Map.Entry<UUID, List<DragonCodexEntry>> entry : entriesByOwner.entrySet()) {
+            CompoundTag playerTag = new CompoundTag();
+            playerTag.store("Owner", UUIDUtil.CODEC, entry.getKey());
+            ListTag dragonList = new ListTag();
+            for (DragonCodexEntry dragonEntry : entry.getValue()) {
+                CompoundTag dragonTag = new CompoundTag();
+                dragonTag.store("DragonId", UUIDUtil.CODEC, dragonEntry.dragonId());
+                dragonTag.putString("Name", dragonEntry.displayName());
+                dragonTag.putDouble("MaxHealth", dragonEntry.maxHealth());
+                dragonTag.putDouble("CurrentHealth", dragonEntry.currentHealth());
+                dragonTag.putDouble("Armor", dragonEntry.armor());
+                dragonTag.putDouble("Hunger", dragonEntry.hunger());
+                dragonTag.putDouble("Happiness", dragonEntry.happiness());
+                dragonTag.putInt("VariantId", dragonEntry.variantId());
+                dragonTag.putString("VariantResourceId", dragonEntry.variantResourceId());
+                dragonTag.putByte("GenderId", dragonEntry.genderId());
+                dragonTag.putBoolean("GenderKnown", dragonEntry.genderKnown());
+                dragonTag.putString("DragonType", dragonEntry.dragonType());
+                dragonTag.putBoolean("IsBaby", dragonEntry.isBaby());
+                dragonTag.putBoolean("BoundInBinder", dragonEntry.boundInBinder());
+                dragonTag.putBoolean("BrushingAvailable", dragonEntry.brushingAvailable());
+                dragonTag.putInt("BrushingProgress", dragonEntry.brushingProgressPercent());
+                dragonTag.putDouble("PosX", dragonEntry.posX());
+                dragonTag.putDouble("PosY", dragonEntry.posY());
+                dragonTag.putDouble("PosZ", dragonEntry.posZ());
+                dragonTag.putString("BiomeId", dragonEntry.biomeId());
+                dragonList.add(dragonTag);
+            }
+            playerTag.put("Dragons", dragonList);
+            playerList.add(playerTag);
+        }
+        tag.put("Players", playerList);
+        return tag;
+    }
+
+    public static DragonCodexSavedData load(CompoundTag tag) {
+        DragonCodexSavedData data = new DragonCodexSavedData();
+        if (tag.contains("Players")) {
+            ListTag playerList = tag.getListOrEmpty("Players");
+            for (int i = 0; i < playerList.size(); i++) {
+                CompoundTag playerTag = playerList.getCompoundOrEmpty(i);
+                if (!playerTag.contains("Owner")) {
+                    continue;
+                }
+                UUID ownerId = playerTag.read("Owner", UUIDUtil.CODEC).orElse(null);
+                List<DragonCodexEntry> entries = new ArrayList<>();
+                if (playerTag.contains("Dragons")) {
+                    ListTag dragonList = playerTag.getListOrEmpty("Dragons");
+                    for (int j = 0; j < dragonList.size(); j++) {
+                        CompoundTag dragonTag = dragonList.getCompoundOrEmpty(j);
+                        if (!dragonTag.contains("DragonId")) {
+                            continue;
+                        }
+                        UUID dragonId = dragonTag.read("DragonId", UUIDUtil.CODEC).orElse(null);
+                        String name = dragonTag.getStringOr("Name", "");
+                        double maxHealth = dragonTag.contains("MaxHealth") ? dragonTag.getDoubleOr("MaxHealth", 0.0D) : 0.0;
+                        double currentHealth = dragonTag.contains("CurrentHealth") ? dragonTag.getDoubleOr("CurrentHealth", 0.0D) : maxHealth;
+                        double armor = dragonTag.contains("Armor") ? dragonTag.getDoubleOr("Armor", 0.0D) : 0.0;
+                        double hunger = dragonTag.contains("Hunger") ? dragonTag.getDoubleOr("Hunger", 0.0D) : DragonEntity.HUNGER_MAX;
+                        double happiness = dragonTag.contains("Happiness") ? dragonTag.getDoubleOr("Happiness", 0.0D) : DragonEntity.HAPPINESS_MAX;
+                        int variantId = dragonTag.contains("VariantId") ? dragonTag.getIntOr("VariantId", 0) : 0;
+                        String variantResourceId = dragonTag.contains("VariantResourceId") ? dragonTag.getStringOr("VariantResourceId", "") : legacyVariantResourceId(dragonTag, variantId);
+                        byte genderId = dragonTag.contains("GenderId") ? dragonTag.getByteOr("GenderId", (byte) 0) : 0;
+                        boolean genderKnown = dragonTag.contains("GenderKnown") && dragonTag.getBooleanOr("GenderKnown", false);
+                        String dragonType = dragonTag.contains("DragonType") ? dragonTag.getStringOr("DragonType", "") : "ignivorus";
+                        boolean isBaby = dragonTag.contains("IsBaby") && dragonTag.getBooleanOr("IsBaby", false);
+                        boolean boundInBinder = dragonTag.contains("BoundInBinder") && dragonTag.getBooleanOr("BoundInBinder", false);
+                        boolean brushingAvailable = !dragonTag.contains("BrushingAvailable") || dragonTag.getBooleanOr("BrushingAvailable", false);
+                        int brushingProgress = dragonTag.contains("BrushingProgress")
+                                ? Mth.clamp(dragonTag.getIntOr("BrushingProgress", 0), 0, 100)
+                                : brushingAvailable ? 100 : 0;
+                        double posX = dragonTag.contains("PosX") ? dragonTag.getDoubleOr("PosX", 0.0D) : 0.0D;
+                        double posY = dragonTag.contains("PosY") ? dragonTag.getDoubleOr("PosY", 0.0D) : 0.0D;
+                        double posZ = dragonTag.contains("PosZ") ? dragonTag.getDoubleOr("PosZ", 0.0D) : 0.0D;
+                        String biomeId = dragonTag.contains("BiomeId") ? dragonTag.getStringOr("BiomeId", "") : "minecraft:unknown";
+                        entries.add(new DragonCodexEntry(dragonId, name, maxHealth, currentHealth, armor, hunger, happiness,
+                                variantId, variantResourceId, genderId, genderKnown, dragonType, isBaby, boundInBinder,
+                                brushingAvailable, brushingProgress, posX, posY, posZ, biomeId));
+                    }
+                }
+                data.entriesByOwner.computeIfAbsent(ownerId, ignored -> new ArrayList<>()).addAll(entries);
+                data.deduplicateEntries(ownerId);
+            }
+        }
+        return data;
+    }
+
+    public static class DragonCodexEntry {
+        private final UUID dragonId;
+        private String displayName;
+        private double maxHealth;
+        private double currentHealth;
+        private double armor;
+        private double hunger;
+        private double happiness;
+        private int variantId;
+        private String variantResourceId;
+        private byte genderId;
+        private boolean genderKnown;
+        private String dragonType;
+        private boolean isBaby;
+        private boolean boundInBinder;
+        private boolean brushingAvailable;
+        private int brushingProgressPercent;
+        private double posX;
+        private double posY;
+        private double posZ;
+        private String biomeId;
+
+        public DragonCodexEntry(UUID dragonId, String displayName, double maxHealth, double currentHealth, double armor,
+                                double hunger, double happiness, int variantId, String variantResourceId, byte genderId, boolean genderKnown,
+                                String dragonType, boolean isBaby, boolean boundInBinder,
+                                boolean brushingAvailable, int brushingProgressPercent,
+                                double posX, double posY, double posZ, String biomeId) {
+            this.dragonId = dragonId;
+            this.displayName = displayName;
+            this.maxHealth = maxHealth;
+            this.currentHealth = currentHealth;
+            this.armor = armor;
+            this.hunger = hunger;
+            this.happiness = happiness;
+            this.variantId = variantId;
+            this.variantResourceId = variantResourceId;
+            this.genderId = genderId;
+            this.genderKnown = genderKnown;
+            this.dragonType = dragonType;
+            this.isBaby = isBaby;
+            this.boundInBinder = boundInBinder;
+            this.brushingAvailable = brushingAvailable;
+            this.brushingProgressPercent = brushingProgressPercent;
+            this.posX = posX;
+            this.posY = posY;
+            this.posZ = posZ;
+            this.biomeId = biomeId;
+        }
+
+        public UUID dragonId() {
+            return dragonId;
+        }
+
+        public String displayName() {
+            return displayName;
+        }
+
+        public void setDisplayName(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public double maxHealth() {
+            return maxHealth;
+        }
+
+        public void setMaxHealth(double maxHealth) {
+            this.maxHealth = maxHealth;
+        }
+
+        public double currentHealth() {
+            return currentHealth;
+        }
+
+        public void setCurrentHealth(double currentHealth) {
+            this.currentHealth = currentHealth;
+        }
+
+        public double armor() {
+            return armor;
+        }
+
+        public void setArmor(double armor) {
+            this.armor = armor;
+        }
+
+        public double hunger() {
+            return hunger;
+        }
+
+        public void setHunger(double hunger) {
+            this.hunger = hunger;
+        }
+
+        public double happiness() {
+            return happiness;
+        }
+
+        public void setHappiness(double happiness) {
+            this.happiness = happiness;
+        }
+
+        public int variantId() {
+            return variantId;
+        }
+
+        public void setVariantId(int variantId) {
+            this.variantId = variantId;
+        }
+
+        public String variantResourceId() {
+            return variantResourceId;
+        }
+
+        public void setVariantResourceId(String variantResourceId) {
+            this.variantResourceId = variantResourceId;
+        }
+
+        public byte genderId() {
+            return genderId;
+        }
+
+        public void setGenderId(byte genderId) {
+            this.genderId = genderId;
+        }
+
+        public boolean genderKnown() {
+            return genderKnown;
+        }
+
+        public void setGenderKnown(boolean genderKnown) {
+            this.genderKnown = genderKnown;
+        }
+
+        public String dragonType() {
+            return dragonType;
+        }
+
+        public void setDragonType(String dragonType) {
+            this.dragonType = dragonType;
+        }
+
+        public boolean isBaby() {
+            return isBaby;
+        }
+
+        public void setIsBaby(boolean isBaby) {
+            this.isBaby = isBaby;
+        }
+
+        public boolean boundInBinder() {
+            return boundInBinder;
+        }
+
+        public void setBoundInBinder(boolean boundInBinder) {
+            this.boundInBinder = boundInBinder;
+        }
+
+        public boolean brushingAvailable() {
+            return brushingAvailable;
+        }
+
+        public void setBrushingAvailable(boolean brushingAvailable) {
+            this.brushingAvailable = brushingAvailable;
+        }
+
+        public int brushingProgressPercent() {
+            return brushingProgressPercent;
+        }
+
+        public void setBrushingProgressPercent(int brushingProgressPercent) {
+            this.brushingProgressPercent = Mth.clamp(brushingProgressPercent, 0, 100);
+        }
+
+        public double posX() {
+            return posX;
+        }
+
+        public double posY() {
+            return posY;
+        }
+
+        public double posZ() {
+            return posZ;
+        }
+
+        public void setPosition(double posX, double posY, double posZ) {
+            this.posX = posX;
+            this.posY = posY;
+            this.posZ = posZ;
+        }
+
+        public String biomeId() {
+            return biomeId;
+        }
+
+        public void setBiomeId(String biomeId) {
+            this.biomeId = biomeId;
+        }
+    }
+
+    private static int resolveVariantId(DragonEntity dragon) {
+        return dragon.getCodexTextureVariant();
+    }
+
+    private static String resolveVariantResourceId(DragonEntity dragon) {
+        return dragon.getCodexTextureVariantId().toString();
+    }
+
+    private static String legacyVariantResourceId(CompoundTag dragonTag, int variantId) {
+        String dragonType = dragonTag.contains("DragonType") ? dragonTag.getStringOr("DragonType", "") : "ignivorus";
+        return switch (dragonType) {
+            case "cindervane" -> variantId == 1 ? "saintsdragons:albino" : "saintsdragons:default";
+            case "ignivorus" -> variantId == 1 ? "saintsdragons:crimson" : "saintsdragons:default";
+            case "raevyx" -> variantId == 1 ? "saintsdragons:night_gold" : "saintsdragons:default";
+            case "volitans" -> variantId == 1 ? "saintsdragons:bloodshot" : "saintsdragons:default";
+            default -> "saintsdragons:default";
+        };
+    }
+
+    private static String resolveDragonType(DragonEntity dragon) {
+        return DragonCodexRegistry.speciesKey(dragon);
+    }
+
+    private static String resolveBiomeId(DragonEntity dragon) {
+        return dragon.level().getBiome(dragon.blockPosition())
+                .unwrapKey()
+                .map(key -> key.identifier().toString())
+                .orElse("minecraft:unknown");
+    }
+
+    private static boolean isValidCodexDragon(DragonEntity dragon) {
+        return dragon.isAlive()
+                && !dragon.isDeadOrDying()
+                && !dragon.isDying()
+                && !dragon.isRemoved()
+                && dragon.getHealth() > 0.0F;
+    }
+}

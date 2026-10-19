@@ -1,0 +1,17 @@
+com/leon/saintsdragons/client/animation/EntityAnimationPlayback.java
+com/leon/saintsdragons/client/compat/RealCameraCompatibility.java
+com/leon/saintsdragons/client/debug/DragonAbilityDebugClient.java
+com/leon/saintsdragons/client/debug/DragonBrainDebugClient.java
+com/leon/saintsdragons/client/debug/DragonBrainDebugHud.java
+com/leon/saintsdragons/client/debug/DragonBrainDebugRenderer.java
+com/leon/saintsdragons/client/debug/DragonPathDebugClient.java
+com/leon/saintsdragons/client/debug/DragonPathDebugRenderer.java
+com/leon/saintsdragons/client/debug/DragonVisionDebugClient.java
+com/leon/saintsdragons/client/debug/DragonVisionDebugRenderer.java
+com/leon/saintsdragons/client/renderer/DragonAttachmentReloadListener.java
+com/leon/saintsdragons/client/renderer/RenderPassContext.java
+com/leon/saintsdragons/client/ui/codex/CodexStaticPortraitRenderer.java
+com/leon/saintsdragons/fabric/client/renderer/FabricDraconianArmorRenderer.java
+com/leon/saintsdragons/fabric/client/renderer/FabricDragonPartRenderer.java
+com/leon/saintsdragons/client/particle/DragonParticleRenderTypes.java
+com/leon/saintsdragons/client/particle/DragonParticleShaders.java

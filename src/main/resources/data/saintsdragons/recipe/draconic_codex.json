@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "G G",
+    " B ",
+    "G G"
+  ],
+  "key": {
+    "G": "minecraft:gold_ingot",
+    "B": "minecraft:book"
+  },
+  "result": {
+    "id": "saintsdragons:draconic_codex",
+    "count": 1
+  }
+}

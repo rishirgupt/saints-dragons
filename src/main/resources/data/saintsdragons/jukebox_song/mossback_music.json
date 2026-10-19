@@ -1,0 +1,8 @@
+{
+  "comparator_output": 1,
+  "description": {
+    "translate": "item.saintsdragons.mossback_music_music_disc.desc"
+  },
+  "length_in_seconds": 42.0,
+  "sound_event": "saintsdragons:mossback_music"
+}

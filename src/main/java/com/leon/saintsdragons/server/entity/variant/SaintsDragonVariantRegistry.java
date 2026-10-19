@@ -1,0 +1,370 @@
+package com.leon.saintsdragons.server.entity.variant;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.leon.saintsdragons.common.SaintsDragonsCommon;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import net.minecraft.core.Holder;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.biome.Biome;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+public final class SaintsDragonVariantRegistry {
+    public static final String SAINTS_DRAGONS = SaintsDragonsCommon.MOD_ID;
+    public static final Identifier DEFAULT_VARIANT_ID = SaintsDragonsCommon.rl("default");
+
+    private static volatile Map<Identifier, List<DragonVariantDefinition>> defaults = buildDefaults();
+    private static Map<Identifier, List<DragonVariantDefinition>> datapackVariants = Map.of();
+    private static volatile Map<Identifier, List<DragonVariantDefinition>> variantsByDragon = defaults;
+    private static volatile Map<Identifier, DragonVariantDefinition> variantsById = index(defaults);
+
+    private SaintsDragonVariantRegistry() {
+    }
+
+    public static void bootstrap() {
+    }
+
+    public static Identifier dragonId(DragonEntity dragon) {
+        return dragon.getDragonSpeciesId();
+    }
+
+    public static synchronized void registerDefaults(Identifier dragonId, List<DragonVariantDefinition> definitions) {
+        Objects.requireNonNull(dragonId, "dragonId");
+        if (defaults.containsKey(dragonId)) {
+            throw new IllegalArgumentException("Duplicate dragon variant defaults: " + dragonId);
+        }
+        Map<Identifier, DragonVariantDefinition> byId = new LinkedHashMap<>();
+        for (DragonVariantDefinition definition : List.copyOf(definitions)) {
+            if (!dragonId.equals(definition.dragon())) {
+                throw new IllegalArgumentException("Variant belongs to a different species: " + definition.id());
+            }
+            if (byId.putIfAbsent(definition.id(), definition) != null) {
+                throw new IllegalArgumentException("Duplicate dragon variant: " + definition.id());
+            }
+        }
+        byId.putIfAbsent(DEFAULT_VARIANT_ID, defaultDefinition(dragonId));
+        Map<Identifier, List<DragonVariantDefinition>> updated = new LinkedHashMap<>(defaults);
+        updated.put(dragonId, List.copyOf(byId.values()));
+        defaults = ImmutableMap.copyOf(updated);
+        rebuildVariants();
+    }
+
+    public static Identifier defaultVariantId(Identifier dragonId) {
+        return DEFAULT_VARIANT_ID;
+    }
+
+    public static Identifier legacyToVariantId(Identifier dragonId, int legacyId) {
+        for (DragonVariantDefinition definition : getVariants(dragonId)) {
+            if (definition.legacyId() == legacyId) {
+                return definition.id();
+            }
+        }
+        return defaultVariantId(dragonId);
+    }
+
+    public static int variantIdToLegacy(Identifier dragonId, Identifier variantId) {
+        DragonVariantDefinition definition = get(dragonId, variantId);
+        if (definition != null && definition.dragon().equals(dragonId) && definition.hasLegacyId()) {
+            return definition.legacyId();
+        }
+        return 0;
+    }
+
+    public static boolean isLegacyVariant(Identifier dragonId, Identifier variantId) {
+        DragonVariantDefinition definition = get(dragonId, variantId);
+        return definition != null && definition.dragon().equals(dragonId) && definition.hasLegacyId();
+    }
+
+    public static boolean isDefault(Identifier variantId) {
+        return DEFAULT_VARIANT_ID.equals(variantId);
+    }
+
+    public static DragonVariantDefinition get(Identifier variantId) {
+        return variantsById.get(variantId);
+    }
+
+    public static DragonVariantDefinition get(Identifier dragonId, Identifier variantId) {
+        for (DragonVariantDefinition definition : getVariants(dragonId)) {
+            if (definition.id().equals(variantId)) {
+                return definition;
+            }
+        }
+        return null;
+    }
+
+    public static List<DragonVariantDefinition> getVariants(Identifier dragonId) {
+        List<DragonVariantDefinition> variants = variantsByDragon.get(dragonId);
+        return variants != null ? variants : List.of(defaultDefinition(dragonId));
+    }
+
+    public static boolean hasDefaults(Identifier dragonId) {
+        return defaults.containsKey(dragonId);
+    }
+
+    private static DragonVariantDefinition defaultDefinition(Identifier dragonId) {
+        return new DragonVariantDefinition(DEFAULT_VARIANT_ID, dragonId, "default", 100, 0,
+                null, null, DragonVariantDefinition.AltitudeRestriction.ANY);
+    }
+
+    public static Map<String, Integer> legacyNameMap(Identifier dragonId) {
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (DragonVariantDefinition definition : getVariants(dragonId)) {
+            if (definition.hasLegacyId()) {
+                result.put(definition.name(), definition.legacyId());
+            }
+        }
+        if (!result.containsKey("default")) {
+            result.put("default", 0);
+        }
+        return result;
+    }
+
+    public static Map<String, Identifier> variantNameMap(Identifier dragonId) {
+        Map<String, Identifier> result = new LinkedHashMap<>();
+        for (DragonVariantDefinition definition : getVariants(dragonId)) {
+            result.put(definition.name(), definition.id());
+            result.put(definition.id().toString(), definition.id());
+        }
+        return result;
+    }
+
+    public static List<String> commandSuggestions(Identifier dragonId) {
+        List<String> result = new ArrayList<>();
+        for (DragonVariantDefinition definition : getVariants(dragonId)) {
+            if (SAINTS_DRAGONS.equals(definition.id().getNamespace())) {
+                result.add(definition.name());
+            } else {
+                result.add(definition.id().toString());
+            }
+        }
+        return result;
+    }
+
+    public static Identifier chooseSpawnVariant(ServerLevelAccessor levelAccessor, DragonEntity entity) {
+        return chooseSpawnVariant(levelAccessor, entity, dragonId(entity));
+    }
+
+    public static Identifier chooseSpawnVariant(ServerLevelAccessor levelAccessor, DragonEntity entity,
+                                                      Identifier dragonId) {
+        List<DragonVariantDefinition> allowed = new ArrayList<>();
+        for (DragonVariantDefinition definition : getVariants(dragonId)) {
+            if (definition.weight() <= 0) {
+                continue;
+            }
+            if (!definition.altitudeRestriction().allows(entity.blockPosition().getY())) {
+                continue;
+            }
+            if (definition.hasBannedBiomes() && matchesBiome(definition.bannedBiomes(), levelAccessor, entity.blockPosition())) {
+                continue;
+            }
+            if (!definition.hasAllowedBiomes() || matchesBiome(definition.allowedBiomes(), levelAccessor, entity.blockPosition())) {
+                allowed.add(definition);
+            }
+        }
+        return roll(entity.getRandom(), allowed, defaultVariantId(dragonId));
+    }
+
+    public static Identifier normalize(Identifier dragonId, @Nullable Identifier variantId) {
+        if (variantId == null) {
+            return defaultVariantId(dragonId);
+        }
+        DragonVariantDefinition definition = get(dragonId, variantId);
+        if (definition == null || definition.dragon().equals(dragonId)) {
+            return variantId;
+        }
+        return defaultVariantId(dragonId);
+    }
+
+    public static synchronized void replaceDatapackVariants(Map<Identifier, List<DragonVariantDefinition>> replacements) {
+        Map<Identifier, List<DragonVariantDefinition>> copied = new LinkedHashMap<>();
+        replacements.forEach((id, definitions) -> {
+            for (DragonVariantDefinition definition : definitions) {
+                if (!id.equals(definition.dragon())) {
+                    throw new IllegalArgumentException("Variant belongs to a different species: " + definition.id());
+                }
+            }
+            copied.put(id, List.copyOf(definitions));
+        });
+        datapackVariants = ImmutableMap.copyOf(copied);
+        rebuildVariants();
+    }
+
+    private static void rebuildVariants() {
+        Map<Identifier, LinkedHashMap<Identifier, DragonVariantDefinition>> merged = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, List<DragonVariantDefinition>> entry : defaults.entrySet()) {
+            LinkedHashMap<Identifier, DragonVariantDefinition> byId = new LinkedHashMap<>();
+            for (DragonVariantDefinition definition : entry.getValue()) {
+                byId.put(definition.id(), definition);
+            }
+            merged.put(entry.getKey(), byId);
+        }
+        for (Map.Entry<Identifier, List<DragonVariantDefinition>> entry : datapackVariants.entrySet()) {
+            LinkedHashMap<Identifier, DragonVariantDefinition> byId = merged.computeIfAbsent(entry.getKey(), id -> {
+                LinkedHashMap<Identifier, DragonVariantDefinition> definitions = new LinkedHashMap<>();
+                definitions.put(DEFAULT_VARIANT_ID, defaultDefinition(id));
+                return definitions;
+            });
+            for (DragonVariantDefinition definition : entry.getValue()) {
+                DragonVariantDefinition existing = byId.get(definition.id());
+                byId.put(definition.id(), preserveLegacyId(existing, definition));
+            }
+        }
+
+        Map<Identifier, List<DragonVariantDefinition>> next = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, LinkedHashMap<Identifier, DragonVariantDefinition>> entry : merged.entrySet()) {
+            next.put(entry.getKey(), ImmutableList.copyOf(entry.getValue().values()));
+        }
+        variantsByDragon = ImmutableMap.copyOf(next);
+        variantsById = index(variantsByDragon);
+        SaintsDragonsCommon.LOGGER.info("Loaded {} dragon variant definition(s)", variantsById.size());
+    }
+
+    public static Identifier adultTexture(Identifier dragonId, Identifier variantId, boolean female) {
+        String dragonPath = dragonId.getPath();
+        String variantPath = variantId.getPath();
+        String suffix = female ? "_female" : "";
+        return Identifier.fromNamespaceAndPath(variantId.getNamespace(), "textures/entity/" + dragonPath + "/" + variantPath + suffix + ".png");
+    }
+
+    private static Identifier roll(RandomSource random, List<DragonVariantDefinition> variants, Identifier fallback) {
+        int total = 0;
+        for (DragonVariantDefinition definition : variants) {
+            total += definition.weight();
+        }
+        if (total <= 0) {
+            return fallback;
+        }
+        int roll = random.nextInt(total);
+        for (DragonVariantDefinition definition : variants) {
+            roll -= definition.weight();
+            if (roll < 0) {
+                return definition.id();
+            }
+        }
+        return fallback;
+    }
+
+    private static DragonVariantDefinition preserveLegacyId(@Nullable DragonVariantDefinition existing,
+                                                            DragonVariantDefinition replacement) {
+        if (existing == null || replacement.hasLegacyId() || !existing.hasLegacyId()) {
+            return replacement;
+        }
+        return new DragonVariantDefinition(
+                replacement.id(),
+                replacement.dragon(),
+                replacement.name(),
+                replacement.weight(),
+                existing.legacyId(),
+                replacement.allowedBiomes(),
+                replacement.bannedBiomes(),
+                replacement.altitudeRestriction()
+        );
+    }
+
+    private static boolean matchesBiome(@Nullable DragonVariantDefinition.BiomeRestrictions restrictions,
+                                        LevelAccessor level,
+                                        BlockPos pos) {
+        if (restrictions == null || !restrictions.hasAny()) {
+            return false;
+        }
+        Holder<Biome> biome = level.getBiome(pos);
+        if (restrictions.hasBiomesByIdList()) {
+            Identifier biomeId = biome.unwrapKey()
+                    .map(key -> key.identifier())
+                    .orElse(null);
+            if (biomeId != null && restrictions.biomesById().contains(biomeId)) {
+                return true;
+            }
+        }
+        if (restrictions.hasBiomesByTagList()) {
+            for (Identifier tagId : restrictions.biomesByTag()) {
+                if (biome.is(TagKey.create(Registries.BIOME, tagId))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static Map<Identifier, DragonVariantDefinition> index(Map<Identifier, List<DragonVariantDefinition>> variants) {
+        Map<Identifier, DragonVariantDefinition> result = new LinkedHashMap<>();
+        for (List<DragonVariantDefinition> definitions : variants.values()) {
+            for (DragonVariantDefinition definition : definitions) {
+                result.put(definition.id(), definition);
+            }
+        }
+        return ImmutableMap.copyOf(result);
+    }
+
+    private static Map<Identifier, List<DragonVariantDefinition>> buildDefaults() {
+        Map<Identifier, List<DragonVariantDefinition>> defaults = new LinkedHashMap<>();
+        add(defaults, "raevyx", 0, "default", 90);
+        add(defaults, "raevyx", 1, "night_gold", 10);
+        add(defaults, "cindervane", 0, "default", 85);
+        add(defaults, "cindervane", 1, "albino", 15);
+        add(defaults, "cindervane", 2, "piebald", 0);
+        add(defaults, "ignivorus", 0, "default", 95);
+        add(defaults, "ignivorus", 1, "crimson", 5);
+        add(defaults, "volitans", 0, "default", 85);
+        add(defaults, "volitans", 1, "bloodshot", 15);
+        add(defaults, "varasuchus", 0, "default", 100);
+        addCustom(defaults, "varasuchus", "void_kissed", 0);
+        add(defaults, "stegonaut", 0, "default", 100);
+        add(defaults, "nulljaw", 0, "default", 100);
+        add(defaults, "atroxiia", 0, "default", 100);
+        Map<Identifier, List<DragonVariantDefinition>> immutable = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, List<DragonVariantDefinition>> entry : defaults.entrySet()) {
+            immutable.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
+        }
+        return ImmutableMap.copyOf(immutable);
+    }
+
+    private static void add(Map<Identifier, List<DragonVariantDefinition>> defaults,
+                            String dragon,
+                            int legacyId,
+                            String name,
+                            int weight) {
+        Identifier dragonId = SaintsDragonsCommon.rl(dragon);
+        Identifier variantId = SaintsDragonsCommon.rl(name);
+        defaults.computeIfAbsent(dragonId, id -> new ArrayList<>()).add(new DragonVariantDefinition(
+                variantId,
+                dragonId,
+                name,
+                weight,
+                legacyId,
+                null,
+                null,
+                DragonVariantDefinition.AltitudeRestriction.ANY
+        ));
+    }
+
+    private static void addCustom(Map<Identifier, List<DragonVariantDefinition>> defaults,
+                                  String dragon,
+                                  String name,
+                                  int weight) {
+        Identifier dragonId = SaintsDragonsCommon.rl(dragon);
+        Identifier variantId = SaintsDragonsCommon.rl(name);
+        defaults.computeIfAbsent(dragonId, id -> new ArrayList<>()).add(new DragonVariantDefinition(
+                variantId,
+                dragonId,
+                name,
+                weight,
+                DragonVariantDefinition.NO_LEGACY_ID,
+                null,
+                null,
+                DragonVariantDefinition.AltitudeRestriction.ANY
+        ));
+    }
+}

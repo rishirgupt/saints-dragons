@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:smoking",
+  "category": "food",
+  "ingredient": "saintsdragons:raw_mossback",
+  "result": {"id": "saintsdragons:cooked_mossback"},
+  "experience": 0.35,
+  "cookingtime": 100
+}

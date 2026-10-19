@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DDD",
+    "DDD",
+    "DDD"
+  ],
+  "key": {
+    "D": "saintsdragons:dragonheart_chunk"
+  },
+  "result": {
+    "id": "saintsdragons:dragonheart_block"
+  }
+}

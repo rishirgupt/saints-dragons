@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "FFF",
+    "FBF",
+    "FFF"
+  ],
+  "key": {
+    "F": "saintsdragons:ancient_dragonite_fragment",
+    "B": "minecraft:blast_furnace"
+  },
+  "result": {
+    "id": "saintsdragons:draconic_crucible"
+  }
+}

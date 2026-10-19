@@ -1,0 +1,2704 @@
+{
+  "brushing": {
+    "subtitle": "subtitles.saintsdragons.brushing",
+    "sounds": [
+      {
+        "name": "saintsdragons:brushing",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "plucking": {
+    "subtitle": "subtitles.saintsdragons.plucking",
+    "sounds": [
+      {
+        "name": "saintsdragons:plucking",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_trade_start": {
+    "subtitle": "subtitles.saintsdragons.ivy_trade_start",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_trade_start",
+        "volume": 1.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_trade_stop": {
+    "subtitle": "subtitles.saintsdragons.ivy_trade_stop",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_trade_stop",
+        "volume": 1.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_reaction_to_egg": {
+    "subtitle": "subtitles.saintsdragons.ivy_reaction_to_egg",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_reaction_to_egg",
+        "volume": 1.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_voice_blip": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_voice_blip",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_eat": {
+    "subtitle": "subtitles.saintsdragons.ivy_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_eat",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_drink": {
+    "subtitle": "subtitles.saintsdragons.ivy_drink",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_drink",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_dodge": {
+    "subtitle": "subtitles.saintsdragons.ivy_dodge",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_dodge",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_left_jab": {
+    "subtitle": "subtitles.saintsdragons.ivy_left_jab",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_left_jab",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_right_hook": {
+    "subtitle": "subtitles.saintsdragons.ivy_right_hook",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_right_hook",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_jab_jab_hook": {
+    "subtitle": "subtitles.saintsdragons.ivy_jab_jab_hook",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_jab_jab_hook",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_left_jab_right_cross": {
+    "subtitle": "subtitles.saintsdragons.ivy_left_jab_right_cross",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_left_jab_right_cross",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_jab_jab_swing": {
+    "subtitle": "subtitles.saintsdragons.ivy_jab_jab_swing",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_jab_jab_swing",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_left_jab_right_swing": {
+    "subtitle": "subtitles.saintsdragons.ivy_left_jab_right_swing",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_left_jab_right_swing",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_right_hook_uppercut": {
+    "subtitle": "subtitles.saintsdragons.ivy_right_hook_uppercut",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_right_hook_uppercut",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_dodge_liver_shot": {
+    "subtitle": "subtitles.saintsdragons.ivy_dodge_liver_shot",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_dodge_liver_shot",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_dash_forward_right_cross": {
+    "subtitle": "subtitles.saintsdragons.ivy_dash_forward_right_cross",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_dash_forward_right_cross",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_orthodox_throw_projectiles": {
+    "subtitle": "subtitles.saintsdragons.ivy_orthodox_throw_projectiles",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_orthodox_throw_projectiles",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_orthodox_retreat_to_drink": {
+    "subtitle": "subtitles.saintsdragons.ivy_orthodox_retreat_to_drink",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_orthodox_retreat_to_drink",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_orthodox_retreat_to_eat": {
+    "subtitle": "subtitles.saintsdragons.ivy_orthodox_retreat_to_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_orthodox_retreat_to_eat",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_brandishes": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_brandishes",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_brandishes",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_unsheathe": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_unsheathe",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_unsheathe",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_to_orthodox": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_to_orthodox",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_to_orthodox",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_slash_stab_stab": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_slash_stab_stab",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_slash_stab_stab",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_quick_stab": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_quick_stab",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_quick_stab",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_swing": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_swing",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_swing",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_swing_slash": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_swing_slash",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_swing_slash",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_retreat_to_eat": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_retreat_to_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_retreat_to_eat",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_retreat_to_drink": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_retreat_to_drink",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_retreat_to_drink",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sword_dodge_parry": {
+    "subtitle": "subtitles.saintsdragons.ivy_sword_dodge_parry",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sword_dodge_parry",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_dash_forward_spin_slash": {
+    "subtitle": "subtitles.saintsdragons.ivy_dash_forward_spin_slash",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_dash_forward_spin_slash",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_embarrassed": {
+    "subtitle": "subtitles.saintsdragons.ivy_embarrassed",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_embarrassed",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_sigh": {
+    "subtitle": "subtitles.saintsdragons.ivy_sigh",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_sigh",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_hmm_trader": {
+    "subtitle": "subtitles.saintsdragons.ivy_hmm_trader",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_hmm_trader",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_hmm_gardener": {
+    "subtitle": "subtitles.saintsdragons.ivy_hmm_gardener",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_hmm_gardener",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_about_to_die": {
+    "subtitle": "subtitles.saintsdragons.ivy_about_to_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_about_to_die",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_actually_die": {
+    "subtitle": "subtitles.saintsdragons.ivy_actually_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_actually_die",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "ivy_die": {
+    "subtitle": "subtitles.saintsdragons.ivy_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ivy/ivy_die",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "bleeding_bolt": {
+    "subtitle": "subtitles.saintsdragons.bleeding_bolt",
+    "sounds": [
+      {
+        "name": "saintsdragons:songs/bleeding_bolt",
+        "stream": true
+      }
+    ]
+  },
+  "mossback_music": {
+    "subtitle": "subtitles.saintsdragons.mossback_music",
+    "sounds": [
+      {
+        "name": "saintsdragons:songs/mossback_music",
+        "stream": true
+      }
+    ]
+  },
+  "draconic_codex_flip": {
+    "subtitle": "subtitles.saintsdragons.draconic_codex_flip",
+    "sounds": [
+      {
+        "name": "saintsdragons:gui/draconiccodex/book_flip0",
+        "volume": 1.0,
+        "pitch": 1.0
+      },
+      {
+        "name": "saintsdragons:gui/draconiccodex/book_flip1",
+        "volume": 1.0,
+        "pitch": 1.0
+      },
+      {
+        "name": "saintsdragons:gui/draconiccodex/book_flip2",
+        "volume": 1.0,
+        "pitch": 1.0
+      },
+      {
+        "name": "saintsdragons:gui/draconiccodex/book_flip3",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_dive_loop": {
+    "subtitle": "subtitles.saintsdragons.dragon_dive_loop",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/dive_loop",
+        "volume": 3.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragonlord_armor_double_jump": {
+    "subtitle": "subtitles.saintsdragons.dragonlord_armor_double_jump",
+    "sounds": [
+      {
+        "name": "saintsdragons:armor/dragonlord_armor/dragonlord_armor_double_jump",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "dragonlord_armor_flap": {
+    "subtitle": "subtitles.saintsdragons.dragonlord_armor_flap",
+    "sounds": [
+      {
+        "name": "saintsdragons:armor/dragonlord_armor/dragonlord_armor_flap",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "dragonlord_armor_impact": {
+    "subtitle": "subtitles.saintsdragons.dragonlord_armor_impact",
+    "sounds": [
+      {
+        "name": "saintsdragons:armor/dragonlord_armor/dragonlord_armor_impact",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "blood_tempest_armor_dodge": {
+    "subtitle": "subtitles.saintsdragons.blood_tempest_armor_dodge",
+    "sounds": [
+      {
+        "name": "saintsdragons:armor/blood_tempest_armor/blood_tempest_armor_dodge",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "blood_tempest_armor_ability": {
+    "subtitle": "subtitles.saintsdragons.blood_tempest_armor_ability",
+    "sounds": [
+      {
+        "name": "saintsdragons:armor/blood_tempest_armor/blood_tempest_armor_ability",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 62
+      }
+    ]
+  },
+  "mossback_hurt": {
+    "subtitle": "subtitles.saintsdragons.mossback_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/mossback/mossback_hurt",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "mossback_die": {
+    "subtitle": "subtitles.saintsdragons.mossback_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/mossback/mossback_die",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "mossback_landed": {
+    "subtitle": "subtitles.saintsdragons.mossback_landed",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/mossback/mossback_landed",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "mossback_toxin": {
+    "subtitle": "subtitles.saintsdragons.mossback_toxin",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/mossback/mossback_toxin",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 18
+      }
+    ]
+  },
+  "raevyx_dive_loop": {
+    "subtitle": "subtitles.saintsdragons.raevyx_dive_loop",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_dive",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 96
+      }
+    ]
+  },
+  "raevyx_dive_impact": {
+    "subtitle": "subtitles.saintsdragons.raevyx_dive_impact",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_dive_impact",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "raevyx_grumble_1": {
+    "subtitle": "subtitles.saintsdragons.raevyx_grumble_1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_grumble1",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "raevyx_grumble_2": {
+    "subtitle": "subtitles.saintsdragons.raevyx_grumble_2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_grumble2",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "raevyx_grumble_3": {
+    "subtitle": "subtitles.saintsdragons.raevyx_grumble_3",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_grumble3",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "raevyx_investigating": {
+    "subtitle": "subtitles.saintsdragons.raevyx_investigating",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_investigating",
+        "volume": 1.25,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "raevyx_takeoff": {
+    "subtitle": "subtitles.saintsdragons.raevyx_takeoff",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_takeoff",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "raevyx_eat": {
+    "subtitle": "subtitles.saintsdragons.raevyx_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_eat",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "raevyx_lightning_beam_start": {
+    "subtitle": "subtitles.saintsdragons.raevyx_lightning_beam_start",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_lightning_beam_start",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "raevyx_lightning_beaming": {
+    "subtitle": "subtitles.saintsdragons.raevyx_lightning_beaming",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_lightning_beaming",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "raevyx_lightning_beam_stop": {
+    "subtitle": "subtitles.saintsdragons.raevyx_lightning_beam_stop",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_lightning_beam_stop",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "raevyx_roar": {
+    "subtitle": "subtitles.saintsdragons.raevyx_roar",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_roar",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "cindervane_fire_body_explosion": {
+    "subtitle": "subtitles.saintsdragons.cindervane_fire_body_explosion",
+    "sounds": [{
+      "name": "saintsdragons:entity/cindervane/cindervane_fire_body_explosion",
+      "attenuation_distance": 96
+    }]
+  },
+  "cindervane_fire_body_start": {
+    "subtitle": "subtitles.saintsdragons.cindervane_fire_body_start",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_fire_body_start",
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "cindervane_fire_body_loop": {
+    "subtitle": "subtitles.saintsdragons.cindervane_fire_body_loop",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/fire_body_loop",
+        "stream": true,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "cindervane_magma_volley": {
+    "subtitle": "subtitles.saintsdragons.cindervane_magma_volley",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_magma_volley",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "cindervane_flap": {
+    "subtitle": "subtitles.saintsdragons.cindervane_flap",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_flap",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "cindervane_takeoff": {
+    "subtitle": "subtitles.saintsdragons.cindervane_takeoff",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_takeoff",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "cindervane_landed": {
+    "subtitle": "subtitles.saintsdragons.cindervane_landed",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_landed",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "cindervane_grumble1": {
+    "subtitle": "subtitles.saintsdragons.cindervane_grumble1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_grumble1",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "cindervane_grumble2": {
+    "subtitle": "subtitles.saintsdragons.cindervane_grumble2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_grumble2",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "varasuchus_bucking": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_bucking",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_bucking",
+        "volume": 1.6,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "cindervane_grumble3": {
+    "subtitle": "subtitles.saintsdragons.cindervane_grumble3",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_grumble3",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "cindervane_flex": {
+    "subtitle": "subtitles.saintsdragons.cindervane_flex",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_flex",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "cindervane_hurt": {
+    "subtitle": "subtitles.saintsdragons.cindervane_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_hurt",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "cindervane_bite": {
+    "subtitle": "subtitles.saintsdragons.cindervane_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_bite",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "cindervane_double_bite": {
+    "subtitle": "subtitles.saintsdragons.cindervane_double_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_double_bite",
+        "volume": 1.2,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "cindervane_slash": {
+    "subtitle": "subtitles.saintsdragons.cindervane_slash",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_slash",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "cindervane_die": {
+    "subtitle": "subtitles.saintsdragons.cindervane_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_die",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "cindervane_eat": {
+    "subtitle": "subtitles.saintsdragons.cindervane_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_eat",
+        "volume": 1.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "raevyx_flex": {
+    "subtitle": "subtitles.saintsdragons.raevyx_flex",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_flex",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "raevyx_bite": {
+    "subtitle": "subtitles.saintsdragons.raevyx_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_bite",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "raevyx_horngore": {
+    "subtitle": "subtitles.saintsdragons.raevyx_horngore",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_horngore",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "raevyx_hurt": {
+    "subtitle": "subtitles.saintsdragons.raevyx_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_hurt",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "raevyx_die": {
+    "subtitle": "subtitles.saintsdragons.raevyx_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_die",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "raevyx_flap": {
+    "subtitle": "subtitles.saintsdragons.raevyx_flap",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_flap",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "raevyx_summon_storm": {
+    "subtitle": "subtitles.saintsdragons.raevyx_summon_storm",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_summon_storm",
+        "volume": 4.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "stegonaut_grumble1": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_grumble1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_grumble1",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "stegonaut_grumble2": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_grumble2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_grumble2",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "stegonaut_grumble3": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_grumble3",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_grumble3",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "stegonaut_flex": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_flex",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_flex",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "stegonaut_bite": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_bite",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "stegonaut_chin_slam": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_chin_slam",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_chin_slam",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "stegonaut_slam": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_slam",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_slam",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "stegonaut_slam2": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_slam2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_slam2",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "stegonaut_ground_eating": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_ground_eating",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_ground_eating",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "stegonaut_ground_eating_cancel": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_ground_eating_cancel",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_ground_eating_cancel",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "stegonaut_ground_eating_shoot": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_ground_eating_shoot",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_ground_eating_shoot",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "stegonaut_die": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_die",
+        "volume": 2.0,
+        "pitch": 1.0
+      }
+    ],
+    "attenuation_distance": 32
+  },
+  "stegonaut_hurt": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_hurt",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "stegonaut_eat": {
+    "subtitle": "subtitles.saintsdragons.stegonaut_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/stegonaut/stegonaut_eat",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_grumble1": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_grumble1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_grumble1",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_grumble2": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_grumble2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_grumble2",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_grumble3": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_grumble3",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_grumble3",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_investigating": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_investigating",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_investigating",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_phase1": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_phase1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_phase1",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_phase2_start": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_phase2_start",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_phase2_start",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_phase2": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_phase2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_phase2",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_phase2_end": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_phase2_end",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_phase2_end",
+        "volume": 1.8,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_roar": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_roar",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_roar",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "varasuchus_claw": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_claw",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_claw",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "varasuchus_tail_swipe": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_tail_swipe",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_tail_swipe",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_tail_attack": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_tail_attack",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_tail_attack",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_phase2_dash": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_phase2_dash",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_phase2_dash",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_bite1": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_bite1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_bite1",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_bite2": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_bite2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_bite2",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_slash_barrage": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_slash_barrage",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_slash_barrage",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_phase1_underwater": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_phase1_underwater",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_phase1_underwater",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_phase2_underwater": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_phase2_underwater",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_phase2_underwater",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_horngore": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_horngore",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_horngore",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_hurt": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_hurt",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "varasuchus_die": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_die",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_eat": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_eat",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_flex": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_flex",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_flex",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "varasuchus_flex2": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_flex2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_flex2",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "varasuchus_guarding": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_guarding",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_guarding",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "varasuchus_parry": {
+    "subtitle": "subtitles.saintsdragons.varasuchus_parry",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_parry",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_bite": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_bite",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_wing_swipe": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_wing_swipe",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_wing_swipe",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_bulldozing": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_bulldozing",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_bulldozing",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_bulldozer_enter": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_bulldozer_enter",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_bulldozer_enter",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_bulldozer_exit": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_bulldozer_exit",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_bulldozer_exit",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_body_slam": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_body_slam",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_body_slam",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_impact": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_impact",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_impact",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_leap": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_leap",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_leap",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_roar": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_roar",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_roar",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "ignivorus_flex": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_flex",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_flex",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "ignivorus_magma_pillar": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_magma_pillar",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_magma_pillar",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "ignivorus_phase2_enter": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_phase2_enter",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_phase2_enter",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "ignivorus_hurt": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_hurt",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "ignivorus_die": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_die",
+        "volume": 1.7,
+        "pitch": 1,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "ignivorus_fire_breath_start": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_fire_breath_start",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_fire_breath_start",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_fire_breathing": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_fire_breathing",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_fire_breathing",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_yol": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_yol",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_toor_shul": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_toor_shul",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_fire_breath_end": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_fire_breath_end",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_fire_breath_end",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_level1_charge": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_level1_charge",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_level1_charge",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_level1_shoots": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_level1_shoots",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_level1_shoots",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_level2_charge": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_level2_charge",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_level2_charge",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_level2_shoots": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_level2_shoots",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_level2_shoots",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_level3_charge": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_level3_charge",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_level3_charge",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_level3_shoots": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_level3_shoots",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_level3_shoots",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_grumble1": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_grumble1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_grumble1",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "ignivorus_grumble2": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_grumble2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_grumble2",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "ignivorus_grumble3": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_grumble3",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_grumble3",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 30
+      }
+    ]
+  },
+  "ignivorus_takeoff": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_takeoff",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_takeoff",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "ignivorus_flap": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_flap",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_flap",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "raevyx_summon_storm_air": {
+    "subtitle": "subtitles.saintsdragons.raevyx_summon_storm_air",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_summon_storm_air",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "ignivorus_investigating": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_investigating",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_investigating",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "ignivorus_skyfall": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_skyfall",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_skyfall",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "ignivorus_skyfall_air": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_skyfall",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_skyfall_air",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "ignivorus_skyfall_phase2": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_skyfall",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_skyfall_phase2",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "ignivorus_ultimate_start": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_ultimate_start",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_ultimate_start",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_ultimate_start_air": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_ultimate_start_air",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_ultimate_start_air",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_ultimate": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_ultimate",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_ultimate",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "ignivorus_ultimate_air": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_ultimate_air",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_ultimate_air",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "ignivorus_ultimate_end": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_ultimate_end",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_ultimate_end",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_ultimate_end_air": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_ultimate_end_air",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_ultimate_end_air",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_stomp": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_stomp",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_stomp",
+        "volume": 2.5,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_landed": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_landed",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_landed",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "ignivorus_phase2_landed": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_phase2_landed",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_phase2_landed",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "ignivorus_eat": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_eat",
+        "volume": 2.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "raevyx_landed": {
+    "subtitle": "subtitles.saintsdragons.raevyx_landed",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_landed",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "raevyx_dodge": {
+    "subtitle": "subtitles.saintsdragons.raevyx_dodge",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_dodge",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "raevyx_dash": {
+    "subtitle": "subtitles.saintsdragons.raevyx_dash",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_dash",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "raevyx_ground_rend": {
+    "subtitle": "subtitles.saintsdragons.raevyx_ground_rend",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_ground_rend",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "ignivorus_phase2_exit": {
+    "subtitle": "subtitles.saintsdragons.ignivorus_phase2_exit",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_phase2_exit",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "volitans_roar": {
+    "subtitle": "subtitles.saintsdragons.volitans_roar",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_roar",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_investigating": {
+    "subtitle": "subtitles.saintsdragons.volitans_investigating",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_investigating",
+        "volume": 1.25,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_roar_air_water": {
+    "subtitle": "subtitles.saintsdragons.volitans_roar_air_water",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_roar_air_water",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_bite": {
+    "subtitle": "subtitles.saintsdragons.volitans_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_bite",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_horn_gore": {
+    "subtitle": "subtitles.saintsdragons.volitans_horn_gore",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_horn_gore",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_claws": {
+    "subtitle": "subtitles.saintsdragons.volitans_claws",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_claws",
+        "volume": 1.7,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_breath_start": {
+    "subtitle": "subtitles.saintsdragons.volitans_breath_start",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_breath_start",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_breathing": {
+    "subtitle": "subtitles.saintsdragons.volitans_breathing",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_breathing",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_breath_end": {
+    "subtitle": "subtitles.saintsdragons.volitans_breath_end",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_breath_end",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_enter_burrow": {
+    "subtitle": "subtitles.saintsdragons.volitans_enter_burrow",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_enter_burrow",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_burrow_idle": {
+    "subtitle": "subtitles.saintsdragons.volitans_burrow_idle",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_burrow_idle",
+        "volume": 1.8,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_burrow_move": {
+    "subtitle": "subtitles.saintsdragons.volitans_burrow_move",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_burrow_move",
+        "volume": 1.8,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_burrow_exit": {
+    "subtitle": "subtitles.saintsdragons.volitans_burrow_exit",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_burrow_exit",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_grumble1": {
+    "subtitle": "subtitles.saintsdragons.volitans_grumble1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_grumble1",
+        "volume": 1.6,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "volitans_grumble2": {
+    "subtitle": "subtitles.saintsdragons.volitans_grumble2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_grumble2",
+        "volume": 1.6,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "volitans_grumble3": {
+    "subtitle": "subtitles.saintsdragons.volitans_grumble3",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_grumble3",
+        "volume": 1.6,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "volitans_eat": {
+    "subtitle": "subtitles.saintsdragons.volitans_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_eat",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "volitans_poison_ball_ready": {
+    "subtitle": "subtitles.saintsdragons.volitans_poison_ball_ready",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_poison_ball_ready",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_poison_ball_shoot": {
+    "subtitle": "subtitles.saintsdragons.volitans_poison_ball_shoot",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_poison_ball_shoot",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_dash_forward": {
+    "subtitle": "subtitles.saintsdragons.volitans_dash_forward",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_dash_forward",
+        "volume": 1.8,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_dash_backwards": {
+    "subtitle": "subtitles.saintsdragons.volitans_dash_backwards",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_dash_backwards",
+        "volume": 1.8,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_dodge": {
+    "subtitle": "subtitles.saintsdragons.volitans_dodge",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_dodge",
+        "volume": 1.8,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_hurt": {
+    "subtitle": "subtitles.saintsdragons.volitans_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_hurt",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_die": {
+    "subtitle": "subtitles.saintsdragons.volitans_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_die",
+        "volume": 1.8,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_flap": {
+    "subtitle": "subtitles.saintsdragons.volitans_flap",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_flap",
+        "volume": 3.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "volitans_takeoff": {
+    "subtitle": "subtitles.saintsdragons.volitans_takeoff",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_takeoff",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_landed": {
+    "subtitle": "subtitles.saintsdragons.volitans_landed",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_landed",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_slamming": {
+    "subtitle": "subtitles.saintsdragons.volitans_slamming",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_slamming",
+        "volume": 1.6,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_slammed": {
+    "subtitle": "subtitles.saintsdragons.volitans_slammed",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_slammed",
+        "volume": 1.9,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "atroxiia_grumble1": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_grumble",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_grumble1",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_grumble2": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_grumble",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_grumble2",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_grumble3": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_grumble",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_grumble3",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_investigating": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_investigating",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_investigating",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_flex": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_flex",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_flex",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "atroxiia_slam": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_slam",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_slam",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_underwater_bite": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_underwater_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_underwater_bite",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_swipe": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_swipe",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_swipe",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_precise_strike": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_precise_strike",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_precise_strike",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_gungnir_stab": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_gungnir_stab",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_gungnir_stab",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_slither": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_slither",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_slither",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_devastating_sweep": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_devastating_sweep",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_devastating_sweep",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_helheim_quake1": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_helheim_quake1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_helheim_quake1",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_helheim_quake2": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_helheim_quake2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_helheim_quake2",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_hurt": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_hurt",
+        "volume": 1.2,
+        "pitch": 1.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "atroxiia_die": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_die",
+        "volume": 1.5,
+        "pitch": 1.0,
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "atroxiia_eat": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_eat",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "nulljaw_grumble1": {
+    "subtitle": "subtitles.saintsdragons.nulljaw_grumble1",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/nulljaw/nulljaw_grumble1",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "nulljaw_grumble2": {
+    "subtitle": "subtitles.saintsdragons.nulljaw_grumble2",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/nulljaw/nulljaw_grumble2",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "nulljaw_grumble3": {
+    "subtitle": "subtitles.saintsdragons.nulljaw_grumble3",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/nulljaw/nulljaw_grumble3",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "nulljaw_hurt": {
+    "subtitle": "subtitles.saintsdragons.nulljaw_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/nulljaw/nulljaw_hurt",
+        "volume": 1.4,
+        "pitch": 1.0,
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "nulljaw_die": {
+    "subtitle": "subtitles.saintsdragons.nulljaw_die",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/nulljaw/nulljaw_die",
+        "volume": 1.6,
+        "pitch": 1.0,
+        "attenuation_distance": 28
+      }
+    ]
+  },
+  "nulljaw_eat": {
+    "subtitle": "subtitles.saintsdragons.nulljaw_eat",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/nulljaw/nulljaw_eat",
+        "volume": 1.2,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "nulljaw_bite": {
+    "subtitle": "subtitles.saintsdragons.nulljaw_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/nulljaw/nulljaw_bite",
+        "volume": 1.2,
+        "pitch": 1.0,
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "mossback_step": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/mossback/mossback_step",
+        "volume": 2.0,
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "stegonaut_step": {
+    "sounds": [{
+        "name": "saintsdragons:entity/stegonaut/stegonaut_step",
+        "volume": 2.0,
+        "attenuation_distance": 32 }]
+  },
+  "raevyx_step": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/raevyx/raevyx_step",
+        "volume": 2.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "cindervane_step": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/cindervane/cindervane_step",
+        "volume": 2.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "varasuchus_step": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/varasuchus/varasuchus_step",
+        "volume": 2.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "ignivorus_step": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/ignivorus/ignivorus_step",
+        "volume": 2.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "volitans_step": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/volitans/volitans_step",
+        "volume": 2.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "latcher_bite": {
+    "subtitle": "subtitles.saintsdragons.latcher_bite",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/draconianswarm/latcher_bite",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "draconian_swarm_hurt": {
+    "subtitle": "subtitles.saintsdragons.draconian_swarm_hurt",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/draconianswarm/draconian_swarm_hurt",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "draconian_swarm_death": {
+    "subtitle": "subtitles.saintsdragons.draconian_swarm_death",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/draconianswarm/draconian_swarm_death",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "draconian_swarm_idle0": {
+    "subtitle": "subtitles.saintsdragons.draconian_swarm_idle",
+    "sounds": [
+      {
+          "name": "saintsdragons:entity/draconianswarm/draconian_swarm_idle0",
+          "attenuation_distance": 32
+      }
+    ]
+  },
+  "draconian_swarm_idle1": {
+    "subtitle": "subtitles.saintsdragons.draconian_swarm_idle",
+    "sounds":[
+      {
+        "name": "saintsdragons:entity/draconianswarm/draconian_swarm_idle1",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "draconian_swarm_idle2": {
+    "subtitle": "subtitles.saintsdragons.draconian_swarm_idle",
+    "sounds": [
+      {"name": "saintsdragons:entity/draconianswarm/draconian_swarm_idle2",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "whettled_strike": {
+    "subtitle": "subtitles.saintsdragons.whettled_strike",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/draconianswarm/whettled_strike",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "whettled_strike2": {
+    "subtitle": "subtitles.saintsdragons.whettled_strike2",
+    "sounds": [
+      {
+      "name": "saintsdragons:entity/draconianswarm/whettled_strike2",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "draconian_nucleus_summon": {
+    "subtitle": "subtitles.saintsdragons.draconian_nucleus_summon",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/draconianswarm/draconian_nucleus_summon",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "draconian_nucleus_summon_phase_2_and_3": {
+    "subtitle": "subtitles.saintsdragons.draconian_nucleus_summon_phase_2_and_3",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/draconianswarm/draconian_nucleus_summon_phase_2_and_3",
+        "volume": 2.0,
+        "pitch": 1.0,
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "swarm_battle_loop": {
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/draconianswarm/swarm_battle_loop",
+        "stream": true
+      }
+    ]
+  },
+  "atroxiia_step": {
+    "subtitle": "subtitles.saintsdragons.atroxiia_step",
+    "sounds": [
+      {
+        "name": "saintsdragons:entity/atroxiia/atroxiia_step",
+        "volume": 2.0,
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "draconic_crucible_open": {
+    "subtitle": "subtitles.saintsdragons.draconic_crucible_open",
+    "sounds": [
+      "saintsdragons:draconic_crucible_open"
+    ]
+  },
+  "draconic_crucible_close": {
+    "subtitle": "subtitles.saintsdragons.draconic_crucible_close",
+    "sounds": [
+      "saintsdragons:draconic_crucible_close"
+    ]
+  },
+  "draconic_crucible_smelting": {
+    "subtitle": "subtitles.saintsdragons.draconic_crucible_smelting",
+    "sounds": [
+      {
+        "name": "saintsdragons:draconic_crucible_smelting",
+        "stream": true
+      }
+    ]
+  }
+}

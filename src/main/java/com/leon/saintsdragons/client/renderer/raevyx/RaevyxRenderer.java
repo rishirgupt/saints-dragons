@@ -1,0 +1,145 @@
+package com.leon.saintsdragons.client.renderer.raevyx;
+
+import com.leon.saintsdragons.client.model.raevyx.RaevyxModel;
+import com.leon.saintsdragons.client.renderer.DragonGeoEntityRenderer;
+import com.leon.saintsdragons.client.renderer.vfx.DragonDiveTrailRenderer;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.leon.saintsdragons.client.render26.MultiBufferSource;
+import net.minecraft.client.renderer.culling.Frustum;
+import com.leon.saintsdragons.server.entity.dragons.raevyx.Raevyx;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import com.leon.saintsdragons.client.renderer.layer.raevyx.RaevyxLightningBeamLayer;
+import com.leon.saintsdragons.client.renderer.layer.raevyx.RaevyxGlowLayer;
+import com.leon.saintsdragons.client.renderer.layer.raevyx.RaevyxNightEmissiveLayer;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.NotNull;
+
+import com.leon.saintsdragons.client.renderer.vfx.RaevyxStormAuraParticles;
+import com.leon.saintsdragons.client.renderer.vfx.RaevyxStormLightningRenderer;
+import com.leon.saintsdragons.client.renderer.vfx.RaevyxGroundRendLightningRenderer;
+import com.leon.saintsdragons.client.renderer.vfx.RaevyxSummonStormRenderer;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import com.geckolib.cache.model.GeoBone;
+import com.geckolib.util.RenderUtil;
+import org.joml.Matrix4f;
+import java.util.Map;
+import java.util.HashMap;
+
+public class RaevyxRenderer extends DragonGeoEntityRenderer<Raevyx> {
+    private final Map<String, Matrix4f> stormTransforms = new HashMap<>();
+    private static final double BEAM_CULL_PADDING = 2.0D;
+    private static final double BEAM_RENDER_DISTANCE = 256.0D;
+    private static final String PASSENGER_BONE = "passengerBone";
+    private static final String BEAM_BONE = "beamBone";
+    private static final float PASSENGER_X = 0.0f;
+    private static final float PASSENGER_Y = -3.0f;
+    private static final float PASSENGER_Z = 0.0f;
+
+    public RaevyxRenderer(EntityRendererProvider.Context context) {
+        super(context, new RaevyxModel());
+        this.withRenderLayer(new RaevyxNightEmissiveLayer(this));
+        this.withRenderLayer(new RaevyxGlowLayer(this));
+        this.withRenderLayer(new RaevyxLightningBeamLayer(this));
+    }
+
+    @Override
+    public void render(Raevyx entity, float entityYaw, float partialTick, PoseStack poses,
+                       MultiBufferSource buffers, int packedLight) {
+        stormTransforms.clear();
+        super.render(entity, entityYaw, partialTick, poses, buffers, packedLight);
+    }
+
+    @Override
+    protected boolean wantsBoneTransforms(Raevyx entity) {
+        return entity.isStormAuraActive();
+    }
+
+    @Override
+    protected void onBoneTransform(Raevyx entity, GeoBone bone, Matrix4f entityRelative) {
+        if (RaevyxStormAuraParticles.samplesBone(bone.name()) || RaevyxStormLightningRenderer.samplesBone(bone.name())) {
+            stormTransforms.put(bone.name(), entityRelative);
+        }
+    }
+
+    @Override
+    protected float getBabyShadowRadius(Raevyx entity) {
+        return 1.25F;
+    }
+
+    @Override
+    protected float getAdultShadowRadius(Raevyx entity) {
+        return 3.0f;
+    }
+
+    @Override
+    protected String[] trackedBoneNames() {
+        return new String[] {PASSENGER_BONE, BEAM_BONE, "body", DragonDiveTrailRenderer.LEFT_WING_TRAIL_BONE,
+                DragonDiveTrailRenderer.RIGHT_WING_TRAIL_BONE, DragonDiveTrailRenderer.TIP_WING_TRAIL_BONE};
+    }
+
+    @Override
+    protected LocatorSpec[] locatorSpecs(Raevyx entity) {
+        return new LocatorSpec[] {
+                new LocatorSpec(PASSENGER_BONE, PASSENGER_X, PASSENGER_Y, PASSENGER_Z,
+                        "passengerLocator", "passengerSeat0"),
+                new LocatorSpec(BEAM_BONE, 0.0f, 0.0f, 0.0f, "beamBoneOrigin")
+        };
+    }
+
+    @Override
+    public boolean shouldRender(@NotNull Raevyx entity, @NotNull Frustum frustum,
+                                double camX, double camY, double camZ) {
+        if (super.shouldRender(entity, frustum, camX, camY, camZ)) {
+            return true;
+        }
+        float stormAge = entity.getStormCastAge(1.0F);
+        if (entity.isGroundRending()
+                && entity.distanceToSqr(camX, camY, camZ) <= BEAM_RENDER_DISTANCE * BEAM_RENDER_DISTANCE
+                && frustum.isVisible(entity.getBoundingBox().inflate(10.0D, 12.0D, 10.0D))) return true;
+        if (stormAge >= 0 && stormAge < RaevyxSummonStormRenderer.getTotalDurationTicks(entity)
+                && entity.distanceToSqr(camX, camY, camZ) <= BEAM_RENDER_DISTANCE * BEAM_RENDER_DISTANCE
+                && frustum.isVisible(entity.getBoundingBox().inflate(12.0D))) return true;
+        if (!entity.isBeaming()) {
+            return false;
+        }
+
+        double dx = entity.getX() - camX;
+        double dy = entity.getY() - camY;
+        double dz = entity.getZ() - camZ;
+        if (dx * dx + dy * dy + dz * dz > BEAM_RENDER_DISTANCE * BEAM_RENDER_DISTANCE) {
+            return false;
+        }
+
+        // A ridden beam is aimed and smoothed client-side. Its visual endpoint can
+        // diverge substantially from the synchronized server endpoint used below,
+        // so frustum-testing that stale line can hide a beam which is on screen.
+        if (entity.getControllingPassenger() != null) {
+            return true;
+        }
+
+        Vec3 end = entity.getClientBeamEndPosition(1.0F);
+        if (end == null) {
+            return false;
+        }
+        Vec3 start = entity.getBeamStartAnchor(1.0F);
+        AABB beamBounds = new AABB(start, end).inflate(BEAM_CULL_PADDING);
+        return frustum.isVisible(beamBounds);
+    }
+
+    @Override
+    protected void afterDragonRender(Raevyx entity, PoseStack poseStack, MultiBufferSource bufferSource, float partialTick) {
+        RaevyxGroundRendLightningRenderer.render(entity, poseStack, bufferSource, partialTick);
+        RaevyxSummonStormRenderer.render(entity, getBoneWorldPosition("body"), poseStack, bufferSource, partialTick);
+        RaevyxStormAuraParticles.emit(entity, this.lastBakedModel, stormTransforms, partialTick);
+        RaevyxStormLightningRenderer.render(entity, this.lastBakedModel, stormTransforms, poseStack, bufferSource, partialTick);
+        RaevyxLightningBeamLayer.renderFlashes(entity, poseStack, bufferSource, partialTick);
+        DragonDiveTrailRenderer.render(entity,
+                getBoneWorldPosition(DragonDiveTrailRenderer.LEFT_WING_TRAIL_BONE),
+                getBoneWorldPosition(DragonDiveTrailRenderer.RIGHT_WING_TRAIL_BONE),
+                getBoneWorldPosition(DragonDiveTrailRenderer.TIP_WING_TRAIL_BONE),
+                bufferSource,
+                poseStack.last());
+    }
+}

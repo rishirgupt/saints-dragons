@@ -1,0 +1,521 @@
+package com.leon.saintsdragons.server.ai.dragonbrain.behaviour;
+
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonBehaviour;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonBrainContext;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonMemories;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonTargetLifecycle;
+import com.leon.saintsdragons.server.ai.DragonAirCombatSettingsProvider;
+import com.leon.saintsdragons.server.ai.DragonTargetingHelper;
+import com.leon.saintsdragons.server.entity.base.RideableDragonBase;
+import com.leon.saintsdragons.server.entity.draconianswarm.AbstractDraconianSwarmEntity;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonInvestigation;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonPerception;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonAwarenessMemory;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonPerceptionProfile;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonSensoryObservation;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonTargetMemory;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+public abstract class DragonTargetingBehaviour<T extends RideableDragonBase> extends DragonBehaviour<T> {
+    private static final String PROJECTILE_THREAT_SOURCE = "projectile_threat";
+    private static final int PROJECTILE_THREAT_PRIORITY = 4;
+    private static final String DRACONIAN_SWARM_SOURCE = "draconian_swarm";
+    private static final int DRACONIAN_SWARM_PRIORITY = 3;
+    private static final int DRACONIAN_SWARM_POLL_INTERVAL_TICKS = 10;
+
+    private final DragonPursuitSafety pursuitSafety = new DragonPursuitSafety();
+    private int lastOwnerHurtTimestamp;
+    private int lastOwnerAttackTimestamp;
+    private int lastSelfHurtTimestamp;
+    private String source = "none";
+    private int sourcePriority = Integer.MAX_VALUE;
+    private int draconianSwarmPollCooldown;
+    private long targetCommittedUntil;
+    private long lastEvaluationAt;
+    private String targetDecision = "none";
+
+    protected DragonTargetingBehaviour() {
+        super(false);
+    }
+
+    @Override
+    protected final boolean canStart(DragonBrainContext<T> context) {
+        return true;
+    }
+
+    @Override
+    protected final boolean canContinue(DragonBrainContext<T> context) {
+        return true;
+    }
+
+    @Override
+    protected final void tick(DragonBrainContext<T> context) {
+        T dragon = context.dragon();
+        lastEvaluationAt = context.gameTime();
+        pursuitSafety.beginTick(context.gameTime());
+        LivingEntity wakeTarget = context.memories().get(DragonMemories.WAKE_TARGET).orElse(null);
+        if (wakeTarget != null && !isUsableTarget(dragon, wakeTarget)) {
+            context.memories().erase(DragonMemories.WAKE_TARGET);
+            wakeTarget = null;
+        }
+
+        if (!canAcquireTargets(dragon)) {
+            if (dragon.isSleepingExiting()) {
+                return;
+            }
+            clearTarget(context);
+            pursuitSafety.resetTracking();
+            return;
+        }
+
+        TargetChoice wakeChoice = null;
+        if (wakeTarget != null
+                && dragon.isWildAggressionEnabled()
+                && dragon.getVision().recognizes(wakeTarget)
+                && pursuitSafety.canReacquire(dragon, DragonTargetingHelper.combatTarget(wakeTarget), context.gameTime())) {
+            wakeChoice = targetChoice(wakeTarget, "heard_intruder", 3);
+            context.memories().erase(DragonMemories.WAKE_TARGET);
+        }
+
+        LivingEntity current = context.memories().get(DragonMemories.ATTACK_TARGET).orElse(null);
+        if (isUsableTarget(dragon, current)) {
+            String abandonmentReason = pursuitSafety.abandonmentReason(context, current);
+            if (abandonmentReason != null) {
+                if (DragonPursuitSafety.isNavigationFailure(abandonmentReason)
+                        && retainsVisibleTargetThroughNavigationFailure(
+                        context,
+                        current,
+                        source,
+                        abandonmentReason
+                )) {
+                    pursuitSafety.recoverVisiblePursuit(
+                            context.gameTime(),
+                            current,
+                            dragon.distanceTo(current)
+                    );
+                } else {
+                    abandonTarget(context, current, abandonmentReason);
+                    return;
+                }
+            }
+        } else {
+            pursuitSafety.resetTracking();
+        }
+
+        LivingEntity assignedTarget = dragon.getTarget();
+        if (current == null
+                && assignedTarget != null
+                && !pursuitSafety.canReacquire(dragon, assignedTarget, context.gameTime())) {
+            DragonTargetLifecycle.clearCombatTarget(context.memories(), dragon, false);
+        }
+        TargetChoice rememberedChoice = null;
+        if (current == null) {
+            LivingEntity rememberedTarget = DragonTargetMemory.findVisibleReacquisition(
+                    dragon, dragon.getBrain(), context.gameTime());
+            if (rememberedTarget != null) {
+                rememberedChoice = targetChoice(rememberedTarget, "memory_reacquisition", 0);
+                targetDecision = "reacquired-from-memory";
+            }
+        }
+        if (current == null && wakeChoice == null && rememberedChoice == null
+                && pursuitSafety.shouldThrottleAcquisition(dragon, context.gameTime())) {
+            return;
+        }
+
+        TargetChoice choice = findPriorityTarget(context);
+        if (rememberedChoice != null && (choice == null || rememberedChoice.priority() < choice.priority())) {
+            choice = rememberedChoice;
+        }
+        if (wakeChoice != null && (choice == null || wakeChoice.priority() < choice.priority())) {
+            choice = wakeChoice;
+        }
+        TargetChoice draconianSwarm = findDraconianSwarmTarget(context);
+        if (draconianSwarm != null
+                && (choice == null || draconianSwarm.priority() < choice.priority())) {
+            choice = draconianSwarm;
+        }
+        TargetChoice projectileThreat = findProjectileThreat(context);
+        if (projectileThreat != null
+                && (choice == null || projectileThreat.priority() < choice.priority())) {
+            choice = projectileThreat;
+        }
+        if (choice != null
+                && !"memory_reacquisition".equals(choice.source())
+                && !pursuitSafety.canReacquire(dragon, DragonTargetingHelper.combatTarget(choice.target()), context.gameTime())) {
+            choice = null;
+        }
+        if (choice != null) {
+            if (isUsableTarget(dragon, current) && canRetainTarget(dragon, current, source)) {
+                LivingEntity candidate = DragonTargetingHelper.combatTarget(choice.target());
+                if (candidate == current && choice.priority() >= sourcePriority) {
+                    targetDecision = "same-target";
+                    syncTarget(context, current);
+                    return;
+                }
+                String retentionReason = candidate == current ? null : retentionReason(context, current, choice);
+                if (retentionReason != null) {
+                    targetDecision = "retained:" + retentionReason;
+                    dragon.combatManager.recordAiDecision("target", targetDecision
+                            + ":candidate=" + candidate.getId());
+                    syncTarget(context, current);
+                    return;
+                }
+                targetDecision = candidate == current ? "source-promoted"
+                        : choice.priority() < sourcePriority ? "higher-priority"
+                        : isImmediateTargetChoice(choice) ? "fresh-threat" : "better-target";
+            } else {
+                targetDecision = current == null ? "acquired" : "previous-ineligible";
+            }
+            setTarget(context, choice.target(), choice.source(), choice.priority());
+            return;
+        }
+        if (suppressesTargetRetention(context)) {
+            clearTarget(context);
+            return;
+        }
+
+        current = context.memories().get(DragonMemories.ATTACK_TARGET).orElse(null);
+        if (isUsableTarget(dragon, current) && canRetainTarget(dragon, current, source)) {
+            syncTarget(context, current);
+            return;
+        }
+        clearTarget(context);
+    }
+
+    protected abstract boolean canAcquireTargets(T dragon);
+
+    @Nullable
+    protected abstract TargetChoice findPriorityTarget(DragonBrainContext<T> context);
+
+    /** Poll only when the species reaches owner defense in its priority order. */
+    @Nullable
+    protected final TargetChoice pollOwnerDefense(T dragon, int hurtPriority, int attackPriority) {
+        LivingEntity owner = dragon.getOwner();
+        if (owner == null) {
+            return null;
+        }
+        LivingEntity threat = owner.getLastHurtByMob();
+        int timestamp = owner.getLastHurtByMobTimestamp();
+        if (timestamp != lastOwnerHurtTimestamp && isUsableTarget(dragon, threat)) {
+            lastOwnerHurtTimestamp = timestamp;
+            return targetChoice(threat, "owner_hurt", hurtPriority);
+        }
+        threat = owner.getLastHurtMob();
+        timestamp = owner.getLastHurtMobTimestamp();
+        if (timestamp != lastOwnerAttackTimestamp && isUsableTarget(dragon, threat)) {
+            lastOwnerAttackTimestamp = timestamp;
+            return targetChoice(threat, "owner_attacked", attackPriority);
+        }
+        return null;
+    }
+
+    /** Consume an eligible event only when the species reaches its retaliation branch. */
+    @Nullable
+    protected final TargetChoice pollRetaliation(T dragon, int priority) {
+        LivingEntity attacker = dragon.getLastHurtByMob();
+        int timestamp = dragon.getLastHurtByMobTimestamp();
+        if (timestamp != lastSelfHurtTimestamp
+                && canReactToRetaliation(dragon, attacker, timestamp)
+                && isUsableTarget(dragon, attacker)) {
+            lastSelfHurtTimestamp = timestamp;
+            return targetChoice(attacker, "retaliation", priority);
+        }
+        return null;
+    }
+
+    protected boolean canReactToRetaliation(T dragon, @Nullable LivingEntity attacker, int timestamp) {
+        return true;
+    }
+
+    protected boolean isUsableTarget(T dragon, @Nullable LivingEntity target) {
+        return DragonTargetLifecycle.isValidTarget(dragon, target) && dragon.canTarget(target);
+    }
+
+    protected abstract boolean canRetainTarget(T dragon, LivingEntity target, String source);
+
+    protected int targetCommitmentTicks(T dragon) {
+        return 40;
+    }
+
+    protected boolean isImmediateTargetChoice(TargetChoice choice) {
+        return switch (choice.source()) {
+            case "owner_hurt", "owner_attacked", "retaliation", "protect_baby" -> true;
+            case "pack_defense" -> choice.priority() < sourcePriority;
+            default -> false;
+        };
+    }
+
+    @Nullable
+    private String retentionReason(DragonBrainContext<T> context, LivingEntity current, TargetChoice choice) {
+        if (choice.priority() > sourcePriority) {
+            return "higher-priority-current";
+        }
+        if (isImmediateTargetChoice(choice)) {
+            return null;
+        }
+        if (PROJECTILE_THREAT_SOURCE.equals(source) && PROJECTILE_THREAT_SOURCE.equals(choice.source())) {
+            return "projectile-commitment";
+        }
+        T dragon = context.dragon();
+        if (hasCommittedAction(dragon)) {
+            return "committed-action";
+        }
+        if (choice.priority() < sourcePriority) {
+            return null;
+        }
+        if (context.gameTime() < targetCommittedUntil) {
+            return "commitment-window";
+        }
+        LivingEntity candidate = DragonTargetingHelper.combatTarget(choice.target());
+        if (!dragon.getVision().recognizes(candidate)) {
+            return "candidate-unseen";
+        }
+        if (!context.memories().get(DragonMemories.TARGET_VISIBLE).orElse(true)) {
+            return null;
+        }
+        double currentDistance = dragon.distanceTo(current);
+        double candidateDistance = dragon.distanceTo(candidate);
+        return candidateDistance <= currentDistance * 0.75D && currentDistance - candidateDistance >= 4.0D
+                ? null : "no-meaningful-improvement";
+    }
+
+    protected boolean suppressesTargetRetention(DragonBrainContext<T> context) {
+        return false;
+    }
+
+    protected boolean retainsVisibleTargetThroughNavigationFailure(DragonBrainContext<T> context,
+                                                                   LivingEntity target,
+                                                                   String source,
+                                                                   String reason) {
+        return false;
+    }
+
+    protected void prepareTargetChange(T dragon,
+                                       @Nullable LivingEntity oldTarget,
+                                       LivingEntity newTarget,
+                                       String oldSource,
+                                       String newSource) {
+    }
+
+    protected void targetChanged(T dragon,
+                                 @Nullable LivingEntity oldTarget,
+                                 LivingEntity newTarget,
+                                 String oldSource,
+                                 String newSource) {
+    }
+
+    protected void targetCleared(T dragon, @Nullable LivingEntity oldTarget, String oldSource) {
+    }
+
+    protected Map<String, String> additionalDebugDetails() {
+        return Map.of();
+    }
+
+    protected final TargetChoice targetChoice(LivingEntity target, String source) {
+        return targetChoice(target, source, 0);
+    }
+
+    protected final TargetChoice targetChoice(LivingEntity target, String source, int priority) {
+        return new TargetChoice(target, source, priority);
+    }
+
+    @Nullable
+    private TargetChoice findProjectileThreat(DragonBrainContext<T> context) {
+        DragonAwarenessMemory awareness = DragonAwarenessMemory.get(context.dragon());
+        UUID sourceUuid = awareness.projectileThreatSource(context.gameTime());
+        if (sourceUuid == null) {
+            return null;
+        }
+        Entity sourceEntity = context.level().getEntity(sourceUuid);
+        if (!(sourceEntity instanceof LivingEntity source)
+                || !isUsableTarget(context.dragon(), source)) {
+            awareness.consumeProjectileThreat(sourceUuid);
+            return null;
+        }
+        return context.dragon().getVision().recognizes(source)
+                ? targetChoice(source, PROJECTILE_THREAT_SOURCE, PROJECTILE_THREAT_PRIORITY) : null;
+    }
+
+    @Nullable
+    private TargetChoice findDraconianSwarmTarget(DragonBrainContext<T> context) {
+        T dragon = context.dragon();
+        double range = Math.max(32.0D, dragon.getAttributeValue(Attributes.FOLLOW_RANGE));
+        double rangeSqr = range * range;
+        LivingEntity current = context.memories().get(DragonMemories.ATTACK_TARGET).orElse(null);
+        if (current instanceof AbstractDraconianSwarmEntity
+                && isUsableTarget(dragon, current)
+                && dragon.distanceToSqr(current) <= rangeSqr) {
+            return targetChoice(current, DRACONIAN_SWARM_SOURCE, DRACONIAN_SWARM_PRIORITY);
+        }
+
+        if (draconianSwarmPollCooldown > 0) {
+            draconianSwarmPollCooldown--;
+            return null;
+        }
+        draconianSwarmPollCooldown = DRACONIAN_SWARM_POLL_INTERVAL_TICKS;
+
+        List<AbstractDraconianSwarmEntity> candidates = context.level().getEntitiesOfClass(
+                AbstractDraconianSwarmEntity.class,
+                dragon.getBoundingBox().inflate(range),
+                candidate -> isUsableTarget(dragon, candidate)
+                        && dragon.distanceToSqr(candidate) <= rangeSqr
+                        && dragon.getVision().recognizes(candidate)
+        );
+        return candidates.stream()
+                .min(Comparator.comparingDouble(dragon::distanceToSqr))
+                .map(target -> targetChoice(
+                        target,
+                        DRACONIAN_SWARM_SOURCE,
+                        DRACONIAN_SWARM_PRIORITY
+                ))
+                .orElse(null);
+    }
+
+    private void setTarget(DragonBrainContext<T> context,
+                           LivingEntity target,
+                           String newSource,
+                           int newPriority) {
+        T dragon = context.dragon();
+        LivingEntity oldTarget = context.memories().get(DragonMemories.ATTACK_TARGET).orElse(null);
+        String oldSource = source;
+        prepareTargetChange(dragon, oldTarget, target, oldSource, newSource);
+        dragon.setTarget(target);
+        target = dragon.getTarget();
+        if (target == null) {
+            clearTarget(context);
+            return;
+        }
+        boolean changed = oldTarget != target || !oldSource.equals(newSource);
+        source = newSource;
+        sourcePriority = newPriority;
+        context.memories().set(DragonMemories.ATTACK_TARGET, target);
+        if (oldTarget != target) {
+            targetCommittedUntil = context.gameTime() + Math.max(0, targetCommitmentTicks(dragon));
+            DragonSensoryObservation investigation = context.memories()
+                    .get(DragonMemories.INVESTIGATION_TARGET)
+                    .orElse(null);
+            boolean investigationMatchesTarget = investigation != null
+                    && target.getUUID().equals(investigation.sourceUuid());
+            if (!investigationMatchesTarget) {
+                context.memories().erase(DragonMemories.INVESTIGATION_TARGET);
+            }
+            context.memories().erase(DragonMemories.HEARD_TARGET);
+            DragonPerception.refreshTargetVisibility(dragon.getBrain(), dragon, context.gameTime());
+        }
+        syncTarget(context, target);
+        if (changed) {
+            dragon.combatManager.recordAiDecision("target", "selected:" + newSource
+                    + ":" + targetDecision + ":from=" + (oldTarget == null ? -1 : oldTarget.getId()));
+            targetChanged(dragon, oldTarget, target, oldSource, newSource);
+        }
+    }
+
+    private void syncTarget(DragonBrainContext<T> context, LivingEntity target) {
+        T dragon = context.dragon();
+        if (dragon.getTarget() != target) {
+            dragon.setTarget(target);
+        }
+        if (dragon instanceof DragonAirCombatSettingsProvider provider) {
+            context.memories().set(
+                    DragonMemories.TARGET_AIRBORNE,
+                    DragonTargetingHelper.isTargetAirborne(
+                            target,
+                            provider.getAiTargetAirborneHeight(target)
+                    ) && !DragonTargetingHelper.isMovementAnchorInWater(target)
+            );
+        } else {
+            context.memories().erase(DragonMemories.TARGET_AIRBORNE);
+        }
+    }
+
+    private void clearTarget(DragonBrainContext<T> context) {
+        clearTarget(context, true);
+    }
+
+    private void clearTarget(DragonBrainContext<T> context, boolean rememberEvidence) {
+        T dragon = context.dragon();
+        LivingEntity oldTarget = context.memories().get(DragonMemories.ATTACK_TARGET).orElse(null);
+        LivingEntity entityTarget = dragon.getTarget();
+        String oldSource = source;
+        LivingEntity clearedTarget = oldTarget != null ? oldTarget : entityTarget;
+        if (clearedTarget != null) {
+            targetDecision = "cleared:" + oldSource;
+            dragon.combatManager.recordAiDecision("target", targetDecision);
+        }
+        if (rememberEvidence && isUsableTarget(dragon, clearedTarget)) {
+            rememberTargetEvidence(context, clearedTarget);
+        }
+        source = "none";
+        sourcePriority = Integer.MAX_VALUE;
+        targetCommittedUntil = 0L;
+        DragonTargetLifecycle.clearCombatTarget(context.memories(), dragon, false);
+        if (oldTarget != null || !"none".equals(oldSource)) {
+            targetCleared(dragon, oldTarget, oldSource);
+        }
+    }
+
+    private void abandonTarget(DragonBrainContext<T> context,
+                               LivingEntity target,
+                               String reason) {
+        pursuitSafety.recordAbandonment(context.gameTime(), target, reason);
+        context.dragon().combatManager.recordAiDecision("target", "abandoned:" + reason);
+        clearTarget(context, false);
+        targetDecision = "abandoned:" + reason;
+        context.memories().erase(DragonMemories.INVESTIGATION_TARGET);
+        context.memories().erase(DragonMemories.WALK_TARGET);
+        context.memories().erase(DragonMemories.PATH);
+        context.memories().erase(DragonMemories.CANT_REACH_WALK_TARGET_SINCE);
+        context.memories().erase(DragonMemories.MOVEMENT_INTENT);
+        context.memories().erase(DragonMemories.GROUND_ROUTE_ABANDONED);
+        context.memories().erase(DragonMemories.TACTICAL_LANDING_POSITION);
+        context.memories().erase(DragonMemories.TACTICAL_COMMITMENT);
+        context.dragon().getAIMovement().stopAndClearAllMovement();
+    }
+
+    public final String getPursuitDebugSummary() {
+        return pursuitSafety.debugSummary();
+    }
+
+    private void rememberTargetEvidence(DragonBrainContext<T> context, LivingEntity target) {
+        DragonSensoryObservation lastSeen = context.memories()
+                .get(DragonMemories.LAST_SEEN_TARGET)
+                .filter(observation -> target.getUUID().equals(observation.sourceUuid()))
+                .orElse(null);
+        DragonSensoryObservation heard = context.memories()
+                .get(DragonMemories.HEARD_TARGET)
+                .filter(observation -> target.getUUID().equals(observation.sourceUuid()))
+                .orElse(null);
+        DragonSensoryObservation freshest = lastSeen;
+        if (heard != null && (freshest == null || heard.observedAt() > freshest.observedAt())) {
+            freshest = heard;
+        }
+        if (freshest != null) {
+            DragonInvestigation.remember(context.dragon(), freshest);
+        }
+    }
+
+    @Override
+    public final Map<String, String> getDragonBrainDebugDetails() {
+        Map<String, String> details = new LinkedHashMap<>();
+        details.put("source", source);
+        details.put("priority", sourcePriority == Integer.MAX_VALUE ? "none" : Integer.toString(sourcePriority));
+        details.put("commitment_ticks", Long.toString(Math.max(0L, targetCommittedUntil - lastEvaluationAt)));
+        details.put("target_decision", targetDecision);
+        details.put("pursuit", pursuitSafety.stateDebugSummary());
+        details.put("abandoned", pursuitSafety.abandonedDebugSummary());
+        details.putAll(additionalDebugDetails());
+        return Map.copyOf(details);
+    }
+
+    protected record TargetChoice(LivingEntity target, String source, int priority) {
+    }
+}

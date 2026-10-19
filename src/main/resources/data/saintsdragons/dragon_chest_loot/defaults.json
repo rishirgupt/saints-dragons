@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "entries": [
+    {
+      "loot_table": "minecraft:gameplay/fishing/fish",
+      "item": "saintsdragons:raw_moop",
+      "count": 1,
+      "chance": 0.1
+    }
+  ]
+}

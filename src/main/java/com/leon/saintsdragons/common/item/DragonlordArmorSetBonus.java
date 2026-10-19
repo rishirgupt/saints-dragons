@@ -1,0 +1,542 @@
+package com.leon.saintsdragons.common.item;
+
+import com.leon.saintsdragons.common.config.ToolsArmorConfig;
+import com.leon.saintsdragons.common.registry.ModAttributes;
+import com.leon.saintsdragons.common.registry.ModEntities;
+import com.leon.saintsdragons.common.registry.ModParticles;
+import com.leon.saintsdragons.common.registry.ModSounds;
+import com.leon.saintsdragons.common.item.tools.SwordAbilityTargeting;
+import com.leon.saintsdragons.common.network.MessageCameraImpulse;
+import com.leon.saintsdragons.common.network.MessageDragonlordFlightBoost;
+import com.leon.saintsdragons.common.network.NetworkHandler;
+import com.leon.saintsdragons.common.particle.GroundDecalParticleData;
+import com.leon.saintsdragons.server.data.DragonlordPlayerSavedData;
+import com.leon.saintsdragons.server.entity.effect.GroundFissureEntity;
+import com.leon.saintsdragons.server.entity.effect.ImpactRingEntity;
+import com.leon.saintsdragons.server.entity.effect.VisualFallingBlockEntity;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import com.geckolib.animatable.GeoItem;
+
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+public final class DragonlordArmorSetBonus {
+    private static final int FLIGHT_BOOST_FIREWORK_LEVEL = 3;
+    private static final int FLIGHT_BOOST_COOLDOWN_TICKS = 80;
+    private static final double LANDING_SHOCKWAVE_Y_RADIUS = 5.0D;
+    private static final float LANDING_IMPACT_RING_SCALE = 0.4F;
+    private static final int LANDING_IMPACT_DUST_COUNT = 64;
+    private static final double LANDING_IMPACT_DUST_RADIUS = 8.5D;
+    private static final int LANDING_DEBRIS_COUNT = 24;
+    private static final int LANDING_DEBRIS_LIFETIME = 50;
+    private static final float LANDING_SCREEN_SHAKE_INTENSITY = 2.25F;
+    private static final int LANDING_SCREEN_SHAKE_DURATION = 16;
+    private static final float LANDING_SCREEN_SHAKE_RADIUS = 36.0F;
+    private static final int DOUBLE_JUMP_FLAME_COUNT = 20;
+    private static final int DOUBLE_JUMP_SMOKE_COUNT = 14;
+    private static final float FALL_DAMAGE_BLOCK_THRESHOLD = 16.0F;
+    private static final float VANILLA_PLAYER_MAX_HEALTH = 20.0F;
+    private static final net.minecraft.resources.Identifier DOUBLE_JUMP_MODIFIER_UUID = net.minecraft.resources.Identifier.fromNamespaceAndPath("saintsdragons", "double_jump_modifier");
+    private static final AttributeModifier DOUBLE_JUMP_MODIFIER = new AttributeModifier(DOUBLE_JUMP_MODIFIER_UUID, 1.0D,
+            AttributeModifier.Operation.ADD_VALUE
+    );
+    private static final Set<UUID> USED_MIDAIR_JUMP = new HashSet<>();
+    private static final Set<UUID> ACTIVE_FLIGHT = new HashSet<>();
+    private static final Map<UUID, Long> FLIGHT_BOOST_COOLDOWN_UNTIL = new HashMap<>();
+    private static final Set<UUID> PENDING_LANDING_SHOCKWAVE = new HashSet<>();
+    private static final Map<UUID, Double> DOUBLE_JUMP_PEAK_Y = new HashMap<>();
+    private static final Set<UUID> PENDING_HEALTH_RESTORE = new HashSet<>();
+
+    private DragonlordArmorSetBonus() {
+    }
+
+    public static void tick(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+
+        boolean fullSet = isWearingFullSet(player);
+        AttributeInstance doubleJump = player.getAttribute(ModAttributes.DOUBLE_JUMP.get());
+        if (doubleJump != null) {
+            if (fullSet) {
+                if (doubleJump.getModifier(DOUBLE_JUMP_MODIFIER_UUID) == null) {
+                    doubleJump.addTransientModifier(DOUBLE_JUMP_MODIFIER);
+                }
+            } else {
+                doubleJump.removeModifier(DOUBLE_JUMP_MODIFIER_UUID);
+            }
+        }
+
+        if (!player.isAlive()) {
+            clear(player);
+            return;
+        }
+
+        if (!fullSet || player.isPassenger() || player.getAbilities().flying
+                || player.onClimbable() || player.isInWater()) {
+            stopFlight(player);
+            USED_MIDAIR_JUMP.remove(player.getUUID());
+            PENDING_LANDING_SHOCKWAVE.remove(player.getUUID());
+            DOUBLE_JUMP_PEAK_Y.remove(player.getUUID());
+            if (!fullSet) {
+                PENDING_HEALTH_RESTORE.remove(player.getUUID());
+            }
+            return;
+        }
+
+        restoreSavedHealthIfNeeded(player);
+        if (!ToolsArmorConfig.DRAGONLORD_FLIGHT_ENABLED.get() && ACTIVE_FLIGHT.contains(player.getUUID())) {
+            stopFlight(player);
+        }
+        if (!PENDING_HEALTH_RESTORE.contains(player.getUUID()) && player.tickCount % 100 == 0) {
+            saveHealthForReload(player);
+        }
+
+        if (player.onGround()) {
+            stopFlight(player);
+            if (PENDING_LANDING_SHOCKWAVE.remove(player.getUUID())) {
+                tryLandingShockwave(player);
+            }
+            USED_MIDAIR_JUMP.remove(player.getUUID());
+            DOUBLE_JUMP_PEAK_Y.remove(player.getUUID());
+        } else if (ACTIVE_FLIGHT.contains(player.getUUID())) {
+            if (!player.isFallFlying()) {
+                player.startFallFlying();
+            }
+        } else if (PENDING_LANDING_SHOCKWAVE.contains(player.getUUID())) {
+            DOUBLE_JUMP_PEAK_Y.merge(player.getUUID(), player.getY(), Math::max);
+        }
+    }
+
+    public static boolean handleAirborneJump(ServerPlayer player) {
+        if (!canUseAirborneMovement(player) || !isWearingFullSet(player)) {
+            return false;
+        }
+
+        UUID playerId = player.getUUID();
+        if (ACTIVE_FLIGHT.contains(playerId)) {
+            if (!ToolsArmorConfig.DRAGONLORD_FLIGHT_ENABLED.get()) {
+                stopFlight(player);
+                return false;
+            }
+            return boostFlight(player);
+        }
+        if (USED_MIDAIR_JUMP.contains(playerId)) {
+            return ToolsArmorConfig.DRAGONLORD_FLIGHT_ENABLED.get() && startFlight(player);
+        }
+        return tryDoubleJump(player);
+    }
+
+    public static boolean tryDoubleJump(ServerPlayer player) {
+        if (!canUseAirborneMovement(player)) {
+            return false;
+        }
+        if (player.getAbilities().flying || player.isFallFlying()) {
+            return false;
+        }
+        if (USED_MIDAIR_JUMP.contains(player.getUUID())) {
+            return false;
+        }
+        AttributeInstance doubleJump = player.getAttribute(ModAttributes.DOUBLE_JUMP.get());
+        if (doubleJump == null || doubleJump.getValue() < 1.0D) {
+            return false;
+        }
+
+        Vec3 motion = player.getDeltaMovement();
+        double jumpVelocity = ToolsArmorConfig.DRAGONLORD_DOUBLE_JUMP_VERTICAL_VELOCITY.get();
+        player.setDeltaMovement(motion.x, Math.max(jumpVelocity, motion.y + jumpVelocity), motion.z);
+        player.hurtMarked = true;
+        player.resetFallDistance();
+        USED_MIDAIR_JUMP.add(player.getUUID());
+        PENDING_LANDING_SHOCKWAVE.add(player.getUUID());
+        DOUBLE_JUMP_PEAK_Y.put(player.getUUID(), player.getY());
+        spawnDoubleJumpEffects(player);
+        return true;
+    }
+
+    public static boolean isFlightActive(LivingEntity entity) {
+        return entity != null && ACTIVE_FLIGHT.contains(entity.getUUID());
+    }
+
+    public static boolean blocksDamage(ServerPlayer player, DamageSource source) {
+        if (player == null || source == null || !isWearingFullSet(player)) {
+            return false;
+        }
+        if (source.is(DamageTypeTags.IS_FALL) && player.fallDistance <= FALL_DAMAGE_BLOCK_THRESHOLD) {
+            player.fallDistance = 0.0F;
+            return true;
+        }
+
+        boolean blocked = (source.is(DamageTypeTags.IS_FIRE) && player.getAttributeValue(ModAttributes.FIRE_RESISTANCE.get()) >= 100.0D)
+                || (source.is(DamageTypeTags.IS_EXPLOSION) && player.getAttributeValue(ModAttributes.BLAST_RESISTANCE.get()) >= 100.0D);
+        if (blocked && source.is(DamageTypeTags.IS_FIRE)) {
+            player.clearFire();
+        }
+        return blocked;
+    }
+
+    public static void queueHealthRestore(ServerPlayer player) {
+        if (player != null) {
+            PENDING_HEALTH_RESTORE.add(player.getUUID());
+        }
+    }
+
+    public static void saveHealthForReload(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        DragonlordPlayerSavedData data = DragonlordPlayerSavedData.get(player.level());
+        if (isWearingFullSet(player)) {
+            data.saveHealth(player.getUUID(), player.getHealth());
+        } else {
+            data.clearHealth(player.getUUID());
+        }
+    }
+
+    public static boolean isWearingFullSet(LivingEntity player) {
+        if (player == null) {
+            return false;
+        }
+        return isDragonlord(player.getItemBySlot(EquipmentSlot.HEAD))
+                && isDragonlord(player.getItemBySlot(EquipmentSlot.CHEST))
+                && isDragonlord(player.getItemBySlot(EquipmentSlot.LEGS))
+                && isDragonlord(player.getItemBySlot(EquipmentSlot.FEET));
+    }
+
+    private static boolean isDragonlord(ItemStack stack) {
+        return stack.getItem() instanceof DragonlordArmorItem;
+    }
+
+    public static void clear(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        stopFlight(player);
+        UUID playerId = player.getUUID();
+        USED_MIDAIR_JUMP.remove(playerId);
+        PENDING_LANDING_SHOCKWAVE.remove(playerId);
+        DOUBLE_JUMP_PEAK_Y.remove(playerId);
+        PENDING_HEALTH_RESTORE.remove(playerId);
+        FLIGHT_BOOST_COOLDOWN_UNTIL.remove(playerId);
+    }
+
+    private static boolean startFlight(ServerPlayer player) {
+        if (!ToolsArmorConfig.DRAGONLORD_FLIGHT_ENABLED.get()) {
+            return false;
+        }
+        UUID playerId = player.getUUID();
+        ACTIVE_FLIGHT.add(playerId);
+        PENDING_LANDING_SHOCKWAVE.remove(playerId);
+        DOUBLE_JUMP_PEAK_Y.remove(playerId);
+        player.startFallFlying();
+        player.resetFallDistance();
+        boostFlight(player);
+        return true;
+    }
+
+    private static boolean boostFlight(ServerPlayer player) {
+        if (!canUseAirborneMovement(player) || !isWearingFullSet(player)) {
+            stopFlight(player);
+            return false;
+        }
+
+        if (!player.isFallFlying()) {
+            player.startFallFlying();
+        }
+        long gameTime = player.level().getGameTime();
+        long cooldownUntil = FLIGHT_BOOST_COOLDOWN_UNTIL.getOrDefault(player.getUUID(), 0L);
+        if (gameTime < cooldownUntil) {
+            return false;
+        }
+        FLIGHT_BOOST_COOLDOWN_UNTIL.put(
+                player.getUUID(),
+                gameTime + FLIGHT_BOOST_COOLDOWN_TICKS
+        );
+        int boostDuration = fireworkBoostDuration(player);
+        triggerFlapAnimation(player);
+        NetworkHandler.sendToPlayer(player, new MessageDragonlordFlightBoost(boostDuration));
+        player.level().playSound(null, player.blockPosition(), ModSounds.DRAGONLORD_ARMOR_FLAP.get(),
+                SoundSource.PLAYERS, 0.9F, 0.96F + player.getRandom().nextFloat() * 0.08F);
+        return true;
+    }
+
+    private static int fireworkBoostDuration(ServerPlayer player) {
+        return 10 * (1 + FLIGHT_BOOST_FIREWORK_LEVEL)
+                + player.getRandom().nextInt(6)
+                + player.getRandom().nextInt(7);
+    }
+
+    private static void triggerFlapAnimation(ServerPlayer player) {
+        for (EquipmentSlot slot : new EquipmentSlot[]{
+                EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
+        }) {
+            ItemStack stack = player.getItemBySlot(slot);
+            if (stack.getItem() instanceof DragonlordArmorItem armor) {
+                long instanceId = GeoItem.getOrAssignId(stack, player.level());
+                armor.triggerArmorAnim(player, instanceId,
+                        DragonlordArmorItem.FLIGHT_CONTROLLER, DragonlordArmorItem.FLAP_TRIGGER);
+            }
+        }
+    }
+
+    private static void stopFlight(ServerPlayer player) {
+        if (ACTIVE_FLIGHT.remove(player.getUUID()) && player.isFallFlying()) {
+            player.stopFallFlying();
+        }
+    }
+
+    private static boolean canUseAirborneMovement(ServerPlayer player) {
+        return player != null
+                && player.isAlive()
+                && !player.isSpectator()
+                && !player.isPassenger()
+                && !player.onGround()
+                && !player.onClimbable()
+                && !player.isInWater()
+                && !player.getAbilities().flying;
+    }
+
+    private static void tryLandingShockwave(ServerPlayer player) {
+        double peakY = DOUBLE_JUMP_PEAK_Y.getOrDefault(player.getUUID(), player.getY());
+        if (peakY - player.getY() < ToolsArmorConfig.DRAGONLORD_LANDING_MINIMUM_DROP.get()) {
+            return;
+        }
+        damageAndLaunchNearbyEntities(player);
+        spawnLandingImpactEffects(player);
+    }
+
+    private static void damageAndLaunchNearbyEntities(ServerPlayer player) {
+        double radius = ToolsArmorConfig.DRAGONLORD_LANDING_SHOCKWAVE_RADIUS.get();
+        AABB hitbox = player.getBoundingBox().inflate(
+                radius,
+                LANDING_SHOCKWAVE_Y_RADIUS,
+                radius
+        );
+        for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, hitbox,
+                entity -> SwordAbilityTargeting.canDamage(player, entity))) {
+            Vec3 offset = target.position().subtract(player.position());
+            double horizontalDistanceSqr = offset.x * offset.x + offset.z * offset.z;
+            if (horizontalDistanceSqr > radius * radius) {
+                continue;
+            }
+            target.hurt(player.damageSources().playerAttack(player),
+                    (float) ToolsArmorConfig.DRAGONLORD_LANDING_IMPACT_DAMAGE.get());
+            target.push(0.0D, ToolsArmorConfig.DRAGONLORD_LANDING_KNOCK_UP_STRENGTH.get(), 0.0D);
+            target.hurtMarked = true;
+        }
+    }
+
+    private static void spawnLandingImpactEffects(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel server)) {
+            return;
+        }
+
+        Vec3 origin = player.position();
+        Vec3 groundOrigin = new Vec3(origin.x, player.getBoundingBox().minY, origin.z);
+        server.addFreshEntity(new ImpactRingEntity(server, groundOrigin, LANDING_IMPACT_RING_SCALE));
+        float fissureRadius = (float) ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_RADIUS.get();
+        if (ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_ENABLED.get()) {
+            int fissureDuration = ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_DURATION_TICKS.get();
+            GroundFissureEntity fissure = new GroundFissureEntity(
+                    server,
+                    groundOrigin,
+                    player,
+                    fissureRadius,
+                    (float) ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_DAMAGE.get(),
+                    fissureDuration
+            );
+            server.addFreshEntity(fissure);
+            server.sendParticles(
+                    GroundDecalParticleData.fissure(player.getYRot(), fissureRadius, fissureDuration),
+                    fissure.getX(),
+                    fissure.getY(),
+                    fissure.getZ(),
+                    1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+
+        RandomSource random = player.getRandom();
+        double y = player.getBoundingBox().minY + 0.08D;
+        for (int i = 0; i < LANDING_IMPACT_DUST_COUNT; i++) {
+            double angle = (Math.PI * 2.0D * i) / LANDING_IMPACT_DUST_COUNT
+                    + (random.nextDouble() - 0.5D) * 0.16D;
+            double distance = LANDING_IMPACT_DUST_RADIUS * (0.25D + random.nextDouble() * 0.75D);
+            double speed = 0.22D + random.nextDouble() * 0.36D;
+            server.sendParticles(ModParticles.DRAGON_DUST.get(),
+                    origin.x + Math.cos(angle) * distance,
+                    y + random.nextDouble() * 0.18D,
+                    origin.z + Math.sin(angle) * distance,
+                    0,
+                    Math.cos(angle) * speed,
+                    0.08D + random.nextDouble() * 0.18D,
+                    Math.sin(angle) * speed,
+                    1.0D);
+        }
+        spawnLandingDebris(server, origin, random, fissureRadius);
+        sendLandingScreenShake(player, origin);
+
+        server.playSound(null, player.blockPosition(), ModSounds.DRAGONLORD_ARMOR_IMPACT.get(),
+                SoundSource.PLAYERS, 1.35F, 0.88F + random.nextFloat() * 0.08F);
+    }
+
+    private static void spawnLandingDebris(ServerLevel server, Vec3 origin, RandomSource random,
+                                           double effectRadius) {
+        for (int i = 0; i < LANDING_DEBRIS_COUNT; i++) {
+            double angle = (Math.PI * 2.0D * i) / LANDING_DEBRIS_COUNT
+                    + (random.nextDouble() - 0.5D) * 0.3D;
+            double radius = 1.0D + random.nextDouble() * Math.max(0.0D, effectRadius - 1.0D);
+            BlockPos groundPos = findLandingGround(
+                    server,
+                    origin.x + Math.cos(angle) * radius,
+                    origin.y,
+                    origin.z + Math.sin(angle) * radius
+            );
+            if (groundPos == null) {
+                continue;
+            }
+
+            BlockState state = server.getBlockState(groundPos);
+            VisualFallingBlockEntity debris = new VisualFallingBlockEntity(
+                    ModEntities.VISUAL_FALLING_BLOCK.get(),
+                    server,
+                    groundPos.getX() + 0.5D,
+                    groundPos.getY() + 1.05D,
+                    groundPos.getZ() + 0.5D,
+                    state,
+                    LANDING_DEBRIS_LIFETIME
+            );
+            double outwardSpeed = 0.16D + random.nextDouble() * 0.28D;
+            debris.setDeltaMovement(
+                    Math.cos(angle) * outwardSpeed,
+                    0.45D + random.nextDouble() * 0.5D,
+                    Math.sin(angle) * outwardSpeed
+            );
+            debris.needsSync = true;
+            server.addFreshEntity(debris);
+        }
+    }
+
+    private static BlockPos findLandingGround(ServerLevel server, double x, double y, double z) {
+        BlockPos.MutableBlockPos cursor = BlockPos.containing(x, y + 3.0D, z).mutable();
+        for (int i = 0; i < 10; i++) {
+            BlockState state = server.getBlockState(cursor);
+            if (!state.isAir()
+                    && !state.liquid()
+                    && !state.is(Blocks.BEDROCK)
+                    && state.isFaceSturdy(server, cursor, Direction.UP)) {
+                return cursor.immutable();
+            }
+            cursor.move(Direction.DOWN);
+        }
+        return null;
+    }
+
+    private static void sendLandingScreenShake(ServerPlayer player, Vec3 origin) {
+        MessageCameraImpulse impulse = new MessageCameraImpulse(
+                origin,
+                LANDING_SCREEN_SHAKE_RADIUS,
+                LANDING_SCREEN_SHAKE_INTENSITY,
+                LANDING_SCREEN_SHAKE_DURATION
+        );
+        NetworkHandler.sendToTracking(player, impulse);
+        NetworkHandler.sendToPlayer(player, impulse);
+    }
+
+    private static void spawnDoubleJumpEffects(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel server)) {
+            return;
+        }
+
+        Vec3 origin = player.position();
+        double y = player.getY() + 0.35D;
+        server.sendParticles(ModParticles.DRAGONLORD_JUMP_STRIKE.get(),
+                origin.x, origin.y, origin.z, 0, 0, 0, 0, 0);
+        var groundHit = server.clip(new ClipContext(origin.add(0, 0.25D, 0),
+                origin.add(0, -6.0D, 0), ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, player));
+        if (groundHit.getType() == HitResult.Type.BLOCK
+                && groundHit.getDirection().getStepY() > 0) {
+            Vec3 ground = groundHit.getLocation();
+            server.sendParticles(ModParticles.DRAGONLORD_JUMP_GROUND_IMPACT.get(),
+                    ground.x, ground.y + 0.04D, ground.z, 0, 0, 0, 0, 0);
+        }
+        for (int i = 0; i < DOUBLE_JUMP_FLAME_COUNT; i++) {
+            double angle = (Math.PI * 2.0D * i) / DOUBLE_JUMP_FLAME_COUNT;
+            server.sendParticles(ModParticles.DRAGONLORD_JUMP_FIRE.get(),
+                    origin.x + Math.cos(angle) * 0.3D, y, origin.z + Math.sin(angle) * 0.3D,
+                    0, Math.cos(angle) * 0.35D, 0.02D,
+                    Math.sin(angle) * 0.35D, 1.0D);
+            double specAngle = angle + Math.PI / DOUBLE_JUMP_FLAME_COUNT;
+            server.sendParticles(ModParticles.DRAGONLORD_JUMP_SPEC.get(),
+                    origin.x + Math.cos(specAngle) * 0.3D, y, origin.z + Math.sin(specAngle) * 0.3D,
+                    0, Math.cos(specAngle) * 0.45D, 0.035D,
+                    Math.sin(specAngle) * 0.45D, 1.0D);
+        }
+        for (int i = 0; i < DOUBLE_JUMP_SMOKE_COUNT; i++) {
+            double angle = Math.PI * 2.0D * (i + 0.5D) / DOUBLE_JUMP_SMOKE_COUNT;
+            server.sendParticles(ModParticles.DRAGONLORD_JUMP_SMOKE.get(),
+                    origin.x + Math.cos(angle) * 0.35D, player.getBoundingBox().minY - 0.05D,
+                    origin.z + Math.sin(angle) * 0.35D,
+                    0, Math.cos(angle) * 0.26D, 0.025D, Math.sin(angle) * 0.26D, 1.0D);
+        }
+        var random = player.getRandom();
+        for (int i = 0; i < 28; i++) {
+            double angle = random.nextDouble() * Math.PI * 2.0D;
+            double radius = 0.15D + random.nextDouble() * 0.5D;
+            double speed = 0.2D + random.nextDouble() * 0.4D;
+            server.sendParticles(ModParticles.DRAGONLORD_JUMP_EMITTER.get(),
+                    origin.x + Math.cos(angle) * radius, y + (random.nextDouble() - 0.5D) * 0.4D,
+                    origin.z + Math.sin(angle) * radius,
+                    0, Math.cos(angle) * speed, (random.nextDouble() - 0.35D) * 0.3D,
+                    Math.sin(angle) * speed, 1.0D);
+        }
+
+        server.playSound(null, player.blockPosition(), ModSounds.DRAGONLORD_ARMOR_DOUBLE_JUMP.get(),
+                SoundSource.PLAYERS, 0.75F, 0.95F + player.getRandom().nextFloat() * 0.1F);
+    }
+
+    private static void restoreSavedHealthIfNeeded(ServerPlayer player) {
+        UUID playerId = player.getUUID();
+        if (!PENDING_HEALTH_RESTORE.contains(playerId)) {
+            return;
+        }
+
+        DragonlordPlayerSavedData data = DragonlordPlayerSavedData.get(player.level());
+        var savedHealth = data.getHealth(playerId);
+        if (savedHealth.isEmpty()) {
+            PENDING_HEALTH_RESTORE.remove(playerId);
+            return;
+        }
+
+        float health = savedHealth.get();
+        float maxHealth = player.getMaxHealth();
+        if (health > VANILLA_PLAYER_MAX_HEALTH && maxHealth <= VANILLA_PLAYER_MAX_HEALTH + 0.01F) {
+            return;
+        }
+
+        data.consumeHealth(playerId);
+        PENDING_HEALTH_RESTORE.remove(playerId);
+        player.setHealth(Math.min(health, maxHealth));
+    }
+
+}

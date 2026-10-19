@@ -1,0 +1,19 @@
+{
+  "type": "saintsdragons:draconic_crucible",
+  "pattern": [
+    "EWE",
+    "WSW",
+    "EWE"
+  ],
+  "key": {
+    "E": "minecraft:echo_shard",
+    "S": "saintsdragons:dragon_seal_stone",
+    "W": "saintsdragons:worldroot_ingot"
+  },
+  "result": {
+    "id": "saintsdragons:dragon_binder_core",
+    "count": 1
+  },
+  "required_heat_level": 2,
+  "processing_time": 800
+}

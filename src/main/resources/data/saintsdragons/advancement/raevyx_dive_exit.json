@@ -1,0 +1,26 @@
+{
+  "parent": "saintsdragons:tame_raevyx",
+  "display": {
+    "icon": {
+      "id": "saintsdragons:raevyx_binder"
+    },
+    "title": {
+      "translate": "advancement.saintsdragons.raevyx_dive_exit.title"
+    },
+    "description": {
+      "translate": "advancement.saintsdragons.raevyx_dive_exit.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "raevyx_dive_exit": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "rewards": {
+    "experience": 100
+  }
+}

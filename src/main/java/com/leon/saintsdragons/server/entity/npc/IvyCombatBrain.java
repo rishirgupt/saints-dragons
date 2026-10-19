@@ -1,0 +1,1962 @@
+package com.leon.saintsdragons.server.entity.npc;
+
+import com.leon.saintsdragons.server.entity.effect.volitans.ArrowOfVenomEntity;
+import com.leon.saintsdragons.util.animation.AnimationHelper;
+import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.monster.illager.Evoker;
+import net.minecraft.world.entity.monster.illager.Pillager;
+import net.minecraft.world.entity.monster.Vex;
+import net.minecraft.world.entity.monster.Witch;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.NotNull;
+import com.geckolib.animatable.GeoEntity;
+import com.geckolib.animation.state.AnimationTest;
+import com.geckolib.animation.RawAnimation;
+
+import javax.annotation.Nullable;
+import java.util.EnumSet;
+import java.util.Map;
+
+public class IvyCombatBrain {
+    private static final RawAnimation ORTHODOX_IDLE = RawAnimation.begin().thenLoop("ivy_oleander.animation.orthodox_idle");
+    private static final RawAnimation ORTHODOX_WALK = RawAnimation.begin().thenLoop("ivy_oleander.animation.orthodox_walk");
+    private static final RawAnimation ORTHODOX_WALK_BACKWARDS = RawAnimation.begin().thenLoop("ivy_oleander.animation.orthodox_walk_backwards");
+    private static final RawAnimation ORTHODOX_FAST_WALK = RawAnimation.begin().thenLoop("ivy_oleander.animation.orthodox_fast_walk");
+    private static final RawAnimation ORTHODOX_FAST_WALK_BACKWARDS = RawAnimation.begin().thenLoop("ivy_oleander.animation.orthodox_fast_walk_backwards");
+    private static final RawAnimation SWORD_IDLE = RawAnimation.begin().thenLoop("ivy_oleander.animation.sword_idle");
+    private static final RawAnimation SWORD_WALK = RawAnimation.begin().thenLoop("ivy_oleander.animation.sword_walk");
+    private static final RawAnimation SWORD_WALK_BACKWARDS = RawAnimation.begin().thenLoop("ivy_oleander.animation.sword_walk_backwards");
+    private static final RawAnimation SWORD_RUN = RawAnimation.begin().thenLoop("ivy_oleander.animation.sword_run");
+    private static final RawAnimation SWORD_FAST_WALK_BACKWARDS = RawAnimation.begin().thenLoop("ivy_oleander.animation.sword_fast_walk_backwards");
+    private static final RawAnimation TO_ORTHODOX = play("ivy_oleander.animation.to_orthodox");
+    private static final RawAnimation EXIT_ORTHODOX = play("ivy_oleander.animation.exit_orthodox");
+    private static final RawAnimation SWORD_UNSHEATHE = play("ivy_oleander.animation.sword_unsheathe");
+    private static final RawAnimation SWORD_TO_ORTHODOX = play("ivy_oleander.animation.sword_to_orthodox");
+    private static final Map<String, RawAnimation> COMBAT_ACTION_ANIMATIONS = Map.ofEntries(
+            Map.entry("sword_quick_stab", play("ivy_oleander.animation.sword_quick_stab")),
+            Map.entry("sword_swing", play("ivy_oleander.animation.sword_swing")),
+            Map.entry("sword_slash_stab_stab", play("ivy_oleander.animation.sword_slash_stab_stab")),
+            Map.entry("sword_swing_slash", play("ivy_oleander.animation.sword_swing_slash")),
+            Map.entry("sword_dash_forward_spin_slash", play("ivy_oleander.animation.sword_dash_forward_spin_slash")),
+            Map.entry("orthodox_left_jab", play("ivy_oleander.animation.orthodox_left_jab")),
+            Map.entry("orthodox_right_hook", play("ivy_oleander.animation.orthodox_right_hook")),
+            Map.entry("orthodox_left_jab_right_cross", play("ivy_oleander.animation.orthodox_left_jab_right_cross")),
+            Map.entry("orthodox_jab_jab_hook", play("ivy_oleander.animation.orthodox_jab_jab_hook")),
+            Map.entry("orthodox_sword_jab_jab_swing", play("ivy_oleander.animation.orthodox_sword_jab_jab_swing")),
+            Map.entry("orthodox_sword_left_jab_right_swing", play("ivy_oleander.animation.orthodox_sword_left_jab_right_swing")),
+            Map.entry("orthodox_right_hook_uppercut", play("ivy_oleander.animation.orthodox_right_hook_uppercut")),
+            Map.entry("orthodox_dash_forward_right_cross", play("ivy_oleander.animation.orthodox_dash_forward_right_cross")),
+            Map.entry("orthodox_throw_projectiles", play("ivy_oleander.animation.orthodox_throw_projectiles")),
+            Map.entry("sword_throw_projectiles", play("ivy_oleander.animation.sword_throw_projectiles")),
+            Map.entry("orthodox_retreat_to_drink", play("ivy_oleander.animation.orthodox_retreat_to_drink")),
+            Map.entry("orthodox_retreat_to_eat", play("ivy_oleander.animation.orthodox_retreat_to_eat")),
+            Map.entry("sword_retreat_to_drink", play("ivy_oleander.animation.sword_retreat_to_drink")),
+            Map.entry("sword_retreat_to_eat", play("ivy_oleander.animation.sword_retreat_to_eat")),
+            Map.entry("dodge_backwards", play("ivy_oleander.animation.dodge_backwards")),
+            Map.entry("dodge_left", play("ivy_oleander.animation.dodge_left")),
+            Map.entry("dodge_right", play("ivy_oleander.animation.dodge_right")),
+            Map.entry("sword_dodge_backwards", play("ivy_oleander.animation.sword_dodge_backwards")),
+            Map.entry("sword_dodge_left", play("ivy_oleander.animation.sword_dodge_left")),
+            Map.entry("sword_dodge_right", play("ivy_oleander.animation.sword_dodge_right")),
+            Map.entry("sword_dodge_left_parry", play("ivy_oleander.animation.sword_dodge_left_parry")),
+            Map.entry("sword_dodge_right_parry", play("ivy_oleander.animation.sword_dodge_right_parry")),
+            Map.entry("dodge_left_liver_shot", play("ivy_oleander.animation.dodge_left_liver_shot")),
+            Map.entry("dodge_right_liver_shot", play("ivy_oleander.animation.dodge_right_liver_shot"))
+    );
+
+    private static RawAnimation play(String animation) {
+        return RawAnimation.begin().thenPlay(animation);
+    }
+
+    private static final int ORTHODOX_STANCE_TRANSITION_TICKS = 10;
+    private static final int SWORD_STANCE_TRANSITION_TICKS = 17;
+    private static final int EXIT_STANCE_TICKS = 10;
+    private static final int JAB_ACTION_TICKS = 10;
+    private static final int HOOK_ACTION_TICKS = 13;
+    private static final int DODGE_ACTION_TICKS = 9;
+    private static final int LIVER_COUNTER_ACTION_TICKS = 13;
+    private static final int LEFT_JAB_RIGHT_CROSS_ACTION_TICKS = 20;
+    private static final int JAB_JAB_HOOK_ACTION_TICKS = 25;
+    private static final int RIGHT_HOOK_UPPERCUT_ACTION_TICKS = 25;
+    private static final int DASH_FORWARD_RIGHT_CROSS_ACTION_TICKS = 20;
+    private static final int THROW_PROJECTILES_ACTION_TICKS = 26;
+    private static final int SWORD_QUICK_STAB_ACTION_TICKS = 8;
+    private static final int SWORD_SWING_ACTION_TICKS = 12;
+    private static final int SWORD_SWING_SLASH_ACTION_TICKS = 19;
+    private static final int SWORD_SLASH_STAB_STAB_ACTION_TICKS = 27;
+    private static final int SWORD_DASH_FORWARD_SPIN_SLASH_ACTION_TICKS = 19;
+    private static final int SWORD_PARRY_ACTION_TICKS = 14;
+    private static final int RETREAT_RECOVERY_ACTION_TICKS = 47;
+    private static final int RETREAT_RECOVERY_CONSUME_TICKS = 42;
+    private static final int RETREAT_RECOVERY_MAX_RETREAT_TICKS = 28;
+    private static final int RETREAT_RECOVERY_BACKSTEP_INTERVAL_TICKS = 10;
+    private static final int JAB_IMPACT_TICKS = 4;
+    private static final int HOOK_IMPACT_TICKS = 5;
+    private static final int LIVER_COUNTER_IMPACT_TICKS = 9;
+    private static final int LEFT_JAB_RIGHT_CROSS_FIRST_IMPACT_TICKS = 5;
+    private static final int LEFT_JAB_RIGHT_CROSS_SECOND_IMPACT_TICKS = 13;
+    private static final int LEFT_JAB_RIGHT_CROSS_RETREAT_TICKS = 15;
+    private static final int JAB_JAB_HOOK_FIRST_IMPACT_TICKS = 5;
+    private static final int JAB_JAB_HOOK_SECOND_IMPACT_TICKS = 11;
+    private static final int JAB_JAB_HOOK_THIRD_IMPACT_TICKS = 19;
+    private static final int RIGHT_HOOK_UPPERCUT_FIRST_IMPACT_TICKS = 8;
+    private static final int RIGHT_HOOK_UPPERCUT_SECOND_IMPACT_TICKS = 16;
+    private static final int DASH_FORWARD_RIGHT_CROSS_NUDGE_TICKS = 3;
+    private static final int DASH_FORWARD_RIGHT_CROSS_IMPACT_TICKS = 8;
+    private static final int THROW_PROJECTILES_FIRST_THROW_TICKS = 6;
+    private static final int THROW_PROJECTILES_SECOND_THROW_TICKS = 14;
+    private static final int THROW_PROJECTILES_DASH_TICKS = 19;
+    private static final int SWORD_QUICK_STAB_IMPACT_TICKS = 4;
+    private static final int SWORD_SWING_IMPACT_TICKS = 6;
+    private static final int SWORD_SWING_SLASH_FIRST_IMPACT_TICKS = 6;
+    private static final int SWORD_SWING_SLASH_SECOND_IMPACT_TICKS = 16;
+    private static final int SWORD_SWING_SLASH_NUDGE_TICKS = 16;
+    private static final int SWORD_SLASH_STAB_STAB_FIRST_IMPACT_TICKS = 6;
+    private static final int SWORD_SLASH_STAB_STAB_SECOND_IMPACT_TICKS = 14;
+    private static final int SWORD_SLASH_STAB_STAB_THIRD_IMPACT_TICKS = 22;
+    private static final double SWORD_SWING_SLASH_RANGE_BONUS = 0.55D;
+    private static final double SWORD_SWING_SLASH_FORWARD_NUDGE_BONUS = 0.25D;
+    private static final int SWORD_DASH_FORWARD_SPIN_SLASH_NUDGE_TICKS = 4;
+    private static final int SWORD_DASH_FORWARD_SPIN_SLASH_IMPACT_TICKS = 13;
+    private static final int SWORD_LEFT_PARRY_IMPACT_TICKS = 11;
+    private static final int SWORD_RIGHT_PARRY_IMPACT_TICKS = 8;
+    private static final int JAB_COOLDOWN_TICKS = 5;
+    private static final int SWORD_ATTACK_RECOVERY_TICKS = 20;
+    private static final int HOOK_COOLDOWN_TICKS = 15;
+    private static final int COMBO_COOLDOWN_TICKS = 30;
+    private static final int THROW_PROJECTILES_COOLDOWN_TICKS = 100;
+    private static final int RETREAT_RECOVERY_COOLDOWN_TICKS = 120;
+    private static final int DODGE_COOLDOWN_TICKS = 20;
+    private static final float REACTIVE_DODGE_CHANCE = 0.65F;
+    private static final float REACTIVE_CRIT_DODGE_CHANCE = 0.92F;
+    private static final float REACTIVE_NON_PLAYER_DODGE_CHANCE = 1.0F;
+    private static final double ATTACK_RANGE = 2.45D;
+    private static final double COUNTER_DODGE_RANGE = 3.25D;
+    private static final double HOOK_RANGE = 2.15D;
+    private static final double COMBO_MIN_RANGE = 1.65D;
+    private static final int HOOK_UPPERCUT_CLOSE_CHANCE = 40;
+    private static final double KEEP_DISTANCE = 2.15D;
+    private static final double APPROACH_DISTANCE = 3.8D;
+    private static final double TARGET_STILL_EPSILON_SQ = 0.0025D;
+    private static final int TARGET_STILL_PRESSURE_TICKS = 14;
+    private static final int TARGET_MOVING_PRESSURE_TICKS = 10;
+    private static final int MOVING_PRESSURE_COMMIT_COOLDOWN_TICKS = 18;
+    private static final int DASH_CROSS_COOLDOWN_TICKS = 45;
+    private static final int DASH_CROSS_RETREAT_CHANCE = 65;
+    private static final double DASH_CROSS_MIN_RANGE = 2.35D;
+    private static final double DASH_CROSS_MAX_RANGE = 4.65D;
+    private static final double THROW_PROJECTILES_MIN_RANGE = 5.0D;
+    private static final double THROW_PROJECTILES_MAX_RANGE = 16.0D;
+    private static final double RETREAT_RECOVERY_SAFE_DISTANCE = 5.25D;
+    private static final double RETREAT_RECOVERY_FORCED_DISTANCE = 4.0D;
+    private static final double THROW_PROJECTILES_DASH_STRENGTH = 0.82D;
+    private static final double SWORD_DASH_STRENGTH = 0.85D;
+    private static final float THROW_PROJECTILES_SPEED = 1.55F;
+    private static final float THROW_PROJECTILES_INACCURACY = 2.0F;
+    private static final double THROW_PROJECTILES_PREDICT_TICKS = 4.0D;
+    private static final int THROW_PROJECTILES_RANGE_PUNISH_TICKS = 35;
+    private static final double SKIRMISH_CLOSING_TOLERANCE = 0.2D;
+    private static final double RETREAT_DOT_THRESHOLD = 0.45D;
+    private static final double RETREAT_DISTANCE_INCREASE_SQ = 0.015D;
+    private static final double INTERCEPT_PREDICTION_TICKS = 5.0D;
+    private static final float LOCK_LOOK_YAW_SPEED = 45.0F;
+    private static final float LOCK_LOOK_PITCH_SPEED = 35.0F;
+    private static final float LOCK_BODY_YAW_SPEED = 0.45F;
+    private static final float LOCK_BODY_YAW_MAX_DELTA = 28.0F;
+
+    private final IvyTheDragonMerchant ivy;
+    private int attackCooldown;
+    private int dashCrossCooldown;
+    private int throwProjectilesCooldown;
+    private int retreatRecoveryCooldown;
+    private int throwProjectilesRangePunishTicks;
+    private int dodgeCooldown;
+    private int hookCooldown;
+    private int comboCooldown;
+    private int exitTicks;
+    private int impactTicks;
+    private int secondImpactTicks;
+    private int thirdImpactTicks;
+    private int projectileTicks;
+    private int secondProjectileTicks;
+    private int projectileDashTicks;
+    private int approachNudgeTicks;
+    private int comboRetreatTicks;
+    private int recoveryConsumeTicks;
+    private int pendingRecoveryAction;
+    private int recoveryRetreatTicks;
+    private int recoveryBackstepCooldown;
+    private boolean recoveryWaitingForLanding;
+    private int impactTargetId = -1;
+    private AttackMove pendingMove = AttackType.LEFT_JAB.move(false);
+    private CounterType pendingCounter = null;
+    @Nullable
+    private LivingEntity lastCombatTarget;
+    @Nullable
+    private Pillager committedPillagerTarget;
+    private CombatState state = CombatState.RECOVERING;
+    private int stateTicks;
+    private int lastTargetId = -1;
+    private double lastTargetX;
+    private double lastTargetZ;
+    private double targetMoveX;
+    private double targetMoveZ;
+    private double previousTargetDistanceSqr;
+    private int targetStillTicks;
+    private int targetMovingTicks;
+    private int movingPressureCommitCooldown;
+    private String lastAppliedCombatAnimation = "";
+
+    public IvyCombatBrain(IvyTheDragonMerchant ivy) {
+        this.ivy = ivy;
+    }
+
+    public Goal createGoal() {
+        return new BoxingGoal();
+    }
+
+    public <T extends GeoEntity> boolean applyMovementAnimation(AnimationTest<T> state) {
+        if (ivy.isDownedOrArising()) {
+            return false;
+        }
+        if (!isActive()) {
+            return false;
+        }
+        if (ivy.isBoxingExiting() || ivy.getBoxingActionTicks() > 0) {
+            if (applyCombatActionAnimation(state)) {
+                return true;
+            }
+        }
+        if (ivy.isBoxingExiting()) {
+            return true;
+        }
+        if (ivy.getBoxingActionTicks() > 0) {
+            return true;
+        }
+        if (!lastAppliedCombatAnimation.isEmpty()) {
+            state.controller().reset();
+            lastAppliedCombatAnimation = "";
+        }
+        if (ivy.isBoxingBackingUp()) {
+            AnimationHelper.setAndContinue(state, ivy.isBoxingFast() ? fastWalkBackwardsAnimation() : walkBackwardsAnimation());
+        } else if (state.isMoving()) {
+            AnimationHelper.setAndContinue(state, ivy.isBoxingFast() ? fastWalkAnimation() : walkAnimation());
+        } else {
+            AnimationHelper.setAndContinue(state, idleAnimation());
+        }
+        return true;
+    }
+
+    private <T extends GeoEntity> boolean applyCombatActionAnimation(AnimationTest<T> state) {
+        String animation = ivy.getBoxingAnimation();
+        RawAnimation rawAnimation = combatActionAnimation(animation);
+        if (rawAnimation == null) {
+            return false;
+        }
+        if (!animation.equals(lastAppliedCombatAnimation)) {
+            state.controller().reset();
+            lastAppliedCombatAnimation = animation;
+        }
+        AnimationHelper.setAndContinue(state, rawAnimation);
+        return true;
+    }
+
+    @Nullable
+    private RawAnimation combatActionAnimation(String animation) {
+        RawAnimation stanceAnimation = stanceTransitionAnimation(animation);
+        if (stanceAnimation != null) {
+            return stanceAnimation;
+        }
+        return COMBAT_ACTION_ANIMATIONS.get(animation);
+    }
+
+    @Nullable
+    private RawAnimation stanceTransitionAnimation(String animation) {
+        return switch (animation) {
+            case "to_orthodox" -> TO_ORTHODOX;
+            case "exit_orthodox" -> EXIT_ORTHODOX;
+            case "sword_unsheathe" -> SWORD_UNSHEATHE;
+            case "sword_to_orthodox" -> SWORD_TO_ORTHODOX;
+            default -> null;
+        };
+    }
+
+    public boolean isActive() {
+        return ivy.isBoxingStance() || ivy.isBoxingExiting();
+    }
+
+    private boolean isEnteringStance() {
+        return state == CombatState.ENTERING_STANCE && ivy.getBoxingActionTicks() > 0;
+    }
+
+    public boolean isUsingSwordStyle() {
+        return currentStance().usesSword();
+    }
+
+    private CombatStance currentStance() {
+        return CombatStance.fromSwordStyle(ivy.isBoxingSwordStyle());
+    }
+
+    private CombatStance selectStance() {
+        return ivy.hasEquippedSword() ? CombatStance.SWORD : CombatStance.ORTHODOX;
+    }
+
+    private void setCombatStance(CombatStance stance) {
+        ivy.setBoxingSwordStyle(stance.usesSword());
+    }
+
+    private RawAnimation idleAnimation() {
+        return currentStance().idleAnimation;
+    }
+
+    private RawAnimation walkAnimation() {
+        return currentStance().walkAnimation;
+    }
+
+    private RawAnimation walkBackwardsAnimation() {
+        return currentStance().walkBackwardsAnimation;
+    }
+
+    private RawAnimation fastWalkAnimation() {
+        return currentStance().fastWalkAnimation;
+    }
+
+    private RawAnimation fastWalkBackwardsAnimation() {
+        return currentStance().fastWalkBackwardsAnimation;
+    }
+
+    private String enterStanceTrigger() {
+        return currentStance().enterTrigger;
+    }
+
+    private int enterStanceTicks() {
+        return currentStance().enterTicks;
+    }
+
+    private String exitStanceTrigger(boolean swordStyle) {
+        return CombatStance.fromSwordStyle(swordStyle).exitTrigger;
+    }
+
+    private String retreatDrinkTrigger() {
+        return currentStance().retreatDrinkTrigger;
+    }
+
+    private String retreatEatTrigger() {
+        return currentStance().retreatEatTrigger;
+    }
+
+    private String dodgeBackwardsTrigger() {
+        return currentStance().dodgeBackwardsTrigger;
+    }
+
+    private String dodgeLeftTrigger() {
+        return currentStance().dodgeLeftTrigger;
+    }
+
+    private String dodgeRightTrigger() {
+        return currentStance().dodgeRightTrigger;
+    }
+
+    public boolean shouldHoldGroundAgainstKnockback() {
+        return isActive()
+                && !ivy.isDownedOrArising()
+                && ivy.getBoxingActionTicks() > 0
+                && (state == CombatState.ATTACKING || state == CombatState.DODGING);
+    }
+
+    public void onHurt(@NotNull DamageSource source, boolean wasHurt) {
+        if (!wasHurt || ivy.isDownedOrArising() || ivy.level().isClientSide() || !(source.getEntity() instanceof LivingEntity attacker) || attacker == ivy) {
+            return;
+        }
+        LivingEntity target = resolveReactiveTarget(attacker);
+        if (!isValidTarget(target)) {
+            return;
+        }
+        ivy.setTarget(target);
+        if (!(target instanceof Player)) {
+            throwProjectilesRangePunishTicks = THROW_PROJECTILES_RANGE_PUNISH_TICKS;
+        }
+        beginStance();
+    }
+
+    public boolean tryDodgeOnHit(@NotNull DamageSource source, float amount) {
+        if (amount <= 0.0F || ivy.isDownedOrArising() || ivy.level().isClientSide() || !(source.getEntity() instanceof LivingEntity attacker) || attacker == ivy) {
+            return false;
+        }
+        if (attacker instanceof Player) {
+            return false;
+        }
+        if (ivy.isBoxingRecovering()) {
+            return false;
+        }
+        if (!attacker.isAlive()) {
+            return false;
+        }
+        LivingEntity target = resolveReactiveTarget(attacker);
+        if (!isValidTarget(target)) {
+            return false;
+        }
+        if (isLikelyPlayerCritical(attacker)) {
+            boolean dodged = ivy.getRandom().nextFloat() < REACTIVE_CRIT_DODGE_CHANCE;
+            if (!dodged) {
+                return false;
+            }
+            ivy.setTarget(target);
+            beginStance();
+            lockSight(target);
+            if (isEnteringStance()) {
+                return false;
+            }
+            if (state != CombatState.DODGING) {
+                startReactiveDodge(target, 100);
+            }
+            return true;
+        }
+
+        float dodgeChance = attacker instanceof Player ? REACTIVE_DODGE_CHANCE : REACTIVE_NON_PLAYER_DODGE_CHANCE;
+        if (dodgeCooldown > 0 || ivy.getBoxingActionTicks() > 0 || ivy.getRandom().nextFloat() >= dodgeChance) {
+            return false;
+        }
+        ivy.setTarget(target);
+        beginStance();
+        lockSight(target);
+        if (isEnteringStance()) {
+            return false;
+        }
+        startReactiveDodge(target, 45);
+        return true;
+    }
+
+    private boolean isLikelyPlayerCritical(LivingEntity attacker) {
+        if (!(attacker instanceof Player player)) {
+            return false;
+        }
+        return player.fallDistance > 0.0F
+                && !player.onGround()
+                && !player.onClimbable()
+                && !player.isInWater()
+                && !player.hasEffect(MobEffects.BLINDNESS)
+                && !player.isPassenger()
+                && !player.isSprinting();
+    }
+
+    public void dodgeBlockedHit(@NotNull DamageSource source) {
+        if (ivy.isDownedOrArising() || ivy.level().isClientSide() || !(source.getEntity() instanceof LivingEntity attacker) || attacker == ivy || !attacker.isAlive()) {
+            return;
+        }
+        if (attacker instanceof Player) {
+            return;
+        }
+        LivingEntity target = resolveReactiveTarget(attacker);
+        if (!isValidTarget(target)) {
+            return;
+        }
+        ivy.setTarget(target);
+        beginStance();
+        lockSight(target);
+        if (!isEnteringStance() && (ivy.getBoxingActionTicks() <= 0 || state != CombatState.DODGING)) {
+            startReactiveDodge(target, 55);
+        }
+    }
+
+    public void tick() {
+        if (ivy.isDownedOrArising()) {
+            if (isActive() || ivy.getBoxingActionTicks() > 0 || ivy.isBoxingRecovering()) {
+                clear();
+            }
+            return;
+        }
+        if (retreatRecoveryCooldown > 0) {
+            retreatRecoveryCooldown--;
+        }
+        if (!isActive()) {
+            return;
+        }
+        if (exitTicks > 0) {
+            exitTicks--;
+            if (exitTicks <= 0) {
+                clear();
+            }
+            return;
+        }
+        if (!ivy.isBoxingRecovering() && selectPriorityTarget(ivy.getTarget()) == null) {
+            if (ivy.getTarget() != null && !isValidTarget(ivy.getTarget())) {
+                ivy.setTarget(null);
+            }
+
+            ivy.getNavigation().stop();
+            ivy.setBoxingMovement(false, false);
+
+            return;
+        }
+        int actionTicks = ivy.getBoxingActionTicks();
+        if (actionTicks > 0) {
+            ivy.setBoxingActionTicks(actionTicks - 1);
+            if (actionTicks - 1 <= 0) {
+                ivy.setCombatSwordHidden(false);
+                ivy.setBoxingAnimation("");
+            }
+            if (ivy.isBoxingRecovering()) {
+                if (recoveryConsumeTicks > 0 && --recoveryConsumeTicks <= 0) {
+                    applyRecoveryConsume();
+                }
+            }
+            if (actionTicks - 1 <= 0 && ivy.isBoxingRecovering()) {
+                ivy.setBoxingRecoveryAction(IvyTheDragonMerchant.RECOVERY_NONE);
+                if (ivy.getTarget() == null) {
+                    startExitStance();
+                    return;
+                }
+            }
+        }
+        if (attackCooldown > 0) {
+            attackCooldown--;
+        }
+        if (dashCrossCooldown > 0) {
+            dashCrossCooldown--;
+        }
+        if (throwProjectilesCooldown > 0) {
+            throwProjectilesCooldown--;
+        }
+        if (throwProjectilesRangePunishTicks > 0) {
+            throwProjectilesRangePunishTicks--;
+        }
+        if (hookCooldown > 0) {
+            hookCooldown--;
+        }
+        if (comboCooldown > 0) {
+            comboCooldown--;
+        }
+        if (dodgeCooldown > 0) {
+            dodgeCooldown--;
+        }
+        if (movingPressureCommitCooldown > 0) {
+            movingPressureCommitCooldown--;
+        }
+        if (approachNudgeTicks > 0 && --approachNudgeTicks <= 0) {
+            if (isUsingSwordStyle()) {
+                applySwordDash();
+            } else {
+                applyApproachNudge(pendingMove.approachNudgeStrength);
+            }
+        }
+        if (impactTicks > 0 && --impactTicks <= 0) {
+            applyImpact(pendingCounter != null && isUsingSwordStyle() ? swordDamageHit(pendingCounter.hit) : pendingMove.firstHit);
+            pendingCounter = null;
+        }
+        if (secondImpactTicks > 0 && --secondImpactTicks <= 0) {
+            applyImpact(pendingMove.secondHit);
+        }
+        if (thirdImpactTicks > 0 && --thirdImpactTicks <= 0) {
+            applyImpact(pendingMove.thirdHit);
+        }
+        if (projectileTicks > 0 && --projectileTicks <= 0) {
+            throwVenomArrowAtTarget();
+        }
+        if (secondProjectileTicks > 0 && --secondProjectileTicks <= 0) {
+            throwVenomArrowAtTarget();
+        }
+        if (projectileDashTicks > 0 && --projectileDashTicks <= 0) {
+            applyProjectileDash();
+            startProjectileDashAttack();
+        }
+        if (comboRetreatTicks > 0 && --comboRetreatTicks <= 0) {
+            applyComboRetreat();
+        }
+        if (stateTicks > 0) {
+            stateTicks--;
+        }
+    }
+
+    private void tickRetreatRecovery(LivingEntity target) {
+        lockSight(target);
+        ivy.getNavigation().stop();
+        ivy.setBoxingMovement(true, true);
+
+        if (ivy.getBoxingActionTicks() > 0) {
+            return;
+        }
+
+        double distanceSqr = ivy.distanceToSqr(target);
+        boolean reachedRecoverySpace = recoveryWaitingForLanding
+                || distanceSqr >= RETREAT_RECOVERY_SAFE_DISTANCE * RETREAT_RECOVERY_SAFE_DISTANCE
+                || (recoveryRetreatTicks >= RETREAT_RECOVERY_MAX_RETREAT_TICKS
+                && distanceSqr >= RETREAT_RECOVERY_FORCED_DISTANCE * RETREAT_RECOVERY_FORCED_DISTANCE);
+        if (reachedRecoverySpace) {
+            recoveryWaitingForLanding = !ivy.onGround();
+            if (recoveryWaitingForLanding) {
+                ivy.setBoxingMovement(false, false);
+                return;
+            }
+            startRecoveryAnimation();
+            return;
+        }
+
+        recoveryRetreatTicks++;
+        if (recoveryBackstepCooldown > 0) {
+            recoveryBackstepCooldown--;
+            return;
+        }
+
+        recoveryBackstepCooldown = RETREAT_RECOVERY_BACKSTEP_INTERVAL_TICKS;
+        applyRecoveryBackstep(target);
+    }
+
+    private void applyRecoveryBackstep(LivingEntity target) {
+        Vec3 away;
+        if (isValidTarget(target)) {
+            away = ivy.position().subtract(target.position());
+        } else {
+            away = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+        if (away.horizontalDistanceSqr() < 1.0E-4D) {
+            away = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+
+        Vec3 step = away.normalize().scale(1.55D);
+        ivy.setDeltaMovement(step.x, ivy.getDeltaMovement().y + 0.08D, step.z);
+        ivy.needsSync = true;
+        ivy.setBoxingMovement(true, true);
+        ivy.setBoxingActionTicks(DODGE_ACTION_TICKS);
+        ivy.setBoxingAnimation(dodgeBackwardsTrigger());
+        setState(CombatState.RETREATING_TO_RECOVER, DODGE_ACTION_TICKS);
+    }
+
+    private void startRecoveryAnimation() {
+        if (pendingRecoveryAction == IvyTheDragonMerchant.RECOVERY_NONE) {
+            return;
+        }
+
+        ivy.getNavigation().stop();
+        ivy.setBoxingMovement(false, false);
+        ivy.setDeltaMovement(0.0D, ivy.getDeltaMovement().y, 0.0D);
+        ivy.setBoxingActionTicks(RETREAT_RECOVERY_ACTION_TICKS);
+        ivy.setBoxingAnimation(pendingRecoveryAction == IvyTheDragonMerchant.RECOVERY_DRINK
+                ? retreatDrinkTrigger()
+                : retreatEatTrigger());
+        ivy.setBoxingRecoveryAction(pendingRecoveryAction);
+        recoveryConsumeTicks = RETREAT_RECOVERY_CONSUME_TICKS;
+        setState(CombatState.RECOVERING, RETREAT_RECOVERY_ACTION_TICKS);
+        pendingRecoveryAction = IvyTheDragonMerchant.RECOVERY_NONE;
+        recoveryRetreatTicks = 0;
+        recoveryBackstepCooldown = 0;
+        recoveryWaitingForLanding = false;
+    }
+
+    private void applyRecoveryConsume() {
+        if (ivy.isBoxingDrinking()) {
+            ivy.drinkMilkForRecovery();
+        } else if (ivy.isBoxingEating()) {
+            ivy.eatFoodForRecovery();
+        }
+    }
+
+    public void tryStartRetreatRecovery() {
+        boolean urgentFoodRecovery = ivy.needsCombatRecoveryFood() && ivy.hasRecoveryFood();
+        if (ivy.level().isClientSide()
+                || (!urgentFoodRecovery && retreatRecoveryCooldown > 0)
+                || ivy.isTrading()
+                || !ivy.isReadyForCombatAnimation()
+                || ivy.isBoxingRecovering()
+                || ivy.isBoxingExiting()
+                || pendingRecoveryAction != IvyTheDragonMerchant.RECOVERY_NONE
+                || (!urgentFoodRecovery && ivy.getBoxingActionTicks() > 0)) {
+            return;
+        }
+
+        LivingEntity target = selectPriorityTarget(ivy.getTarget());
+        if (target == null) {
+            return;
+        }
+        ivy.setTarget(target);
+
+        if (ivy.hasHarmfulEffect() && ivy.hasRecoveryMilk()) {
+            pendingRecoveryAction = IvyTheDragonMerchant.RECOVERY_DRINK;
+        } else if (urgentFoodRecovery) {
+            pendingRecoveryAction = IvyTheDragonMerchant.RECOVERY_EAT;
+        } else {
+            return;
+        }
+
+        beginStance();
+        ivy.getNavigation().stop();
+        ivy.setBoxingMovement(true, true);
+        clearAttackTimers();
+        recoveryRetreatTicks = 0;
+        recoveryBackstepCooldown = 0;
+        recoveryWaitingForLanding = false;
+        setState(CombatState.RETREATING_TO_RECOVER, RETREAT_RECOVERY_MAX_RETREAT_TICKS);
+        retreatRecoveryCooldown = RETREAT_RECOVERY_COOLDOWN_TICKS;
+    }
+
+    public void tickRotationLock() {
+        if (!isActive()) {
+            return;
+        }
+        LivingEntity target = ivy.getTarget();
+        if (isValidTarget(target)) {
+            lockSight(target);
+        }
+    }
+
+    private void beginStance() {
+        if (ivy.isDownedOrArising()) {
+            clear();
+            return;
+        }
+        if (exitTicks > 0) {
+            exitTicks = 0;
+            ivy.setBoxingExiting(false);
+        } else if (isActive()) {
+            return;
+        }
+        ivy.cancelPassiveAnimationsForCombat();
+        setCombatStance(selectStance());
+        ivy.setBoxingStance(true);
+        int stanceTicks = enterStanceTicks();
+        ivy.setBoxingActionTicks(stanceTicks);
+        ivy.setBoxingAnimation(enterStanceTrigger());
+        setState(CombatState.ENTERING_STANCE, stanceTicks);
+    }
+
+    void clear() {
+        attackCooldown = 0;
+        dashCrossCooldown = 0;
+        throwProjectilesCooldown = 0;
+        throwProjectilesRangePunishTicks = 0;
+        dodgeCooldown = 0;
+        hookCooldown = 0;
+        comboCooldown = 0;
+        exitTicks = 0;
+        impactTicks = 0;
+        secondImpactTicks = 0;
+        thirdImpactTicks = 0;
+        projectileTicks = 0;
+        secondProjectileTicks = 0;
+        projectileDashTicks = 0;
+        approachNudgeTicks = 0;
+        comboRetreatTicks = 0;
+        recoveryConsumeTicks = 0;
+        pendingRecoveryAction = IvyTheDragonMerchant.RECOVERY_NONE;
+        recoveryRetreatTicks = 0;
+        recoveryBackstepCooldown = 0;
+        recoveryWaitingForLanding = false;
+        impactTargetId = -1;
+        pendingCounter = null;
+        lastCombatTarget = null;
+        committedPillagerTarget = null;
+        lastTargetId = -1;
+        targetMoveX = 0.0D;
+        targetMoveZ = 0.0D;
+        previousTargetDistanceSqr = 0.0D;
+        targetStillTicks = 0;
+        targetMovingTicks = 0;
+        movingPressureCommitCooldown = 0;
+        setState(CombatState.RECOVERING, 0);
+        ivy.setBoxingMovement(false, false);
+        ivy.setBoxingActionTicks(0);
+        ivy.setBoxingAnimation("");
+        ivy.setBoxingExiting(false);
+        ivy.setBoxingRecoveryAction(IvyTheDragonMerchant.RECOVERY_NONE);
+        ivy.setCombatSwordHidden(false);
+        ivy.setBoxingStance(false);
+    }
+
+    public void clearFriendlyReaction() {
+        if (!isActive()) {
+            return;
+        }
+        LivingEntity target = ivy.getTarget();
+        if (!isValidTarget(target)) {
+            clear();
+        }
+    }
+
+    private void startExitStance() {
+        if (exitTicks > 0) {
+            return;
+        }
+        boolean swordStyle = isUsingSwordStyle();
+        ivy.getNavigation().stop();
+        ivy.setBoxingMovement(false, false);
+        ivy.setBoxingActionTicks(0);
+        ivy.setBoxingRecoveryAction(IvyTheDragonMerchant.RECOVERY_NONE);
+        clearAttackTimers();
+        setState(CombatState.EXITING, EXIT_STANCE_TICKS);
+        exitTicks = EXIT_STANCE_TICKS;
+        ivy.setBoxingStance(false);
+        ivy.setBoxingSwordStyle(swordStyle);
+        ivy.setBoxingExiting(true);
+        ivy.setBoxingAnimation(exitStanceTrigger(swordStyle));
+    }
+
+    private void clearAttackTimers() {
+        impactTicks = 0;
+        secondImpactTicks = 0;
+        thirdImpactTicks = 0;
+        projectileTicks = 0;
+        secondProjectileTicks = 0;
+        projectileDashTicks = 0;
+        approachNudgeTicks = 0;
+        comboRetreatTicks = 0;
+        recoveryConsumeTicks = 0;
+        recoveryRetreatTicks = 0;
+        recoveryBackstepCooldown = 0;
+        recoveryWaitingForLanding = false;
+        impactTargetId = -1;
+        pendingCounter = null;
+    }
+
+    private void startAttack(LivingEntity target, AttackType attack) {
+        CombatStance stance = selectStance();
+        setCombatStance(stance);
+        boolean swordStyle = stance.usesSword();
+        AttackMove move = attack.move(swordStyle);
+        setState(CombatState.ATTACKING, move.actionTicks);
+        ivy.setBoxingMovement(false, false);
+        ivy.setBoxingActionTicks(move.actionTicks);
+        ivy.setBoxingAnimation(move.trigger);
+        ivy.setBoxingRecoveryAction(IvyTheDragonMerchant.RECOVERY_NONE);
+        ivy.setCombatSwordHidden(swordStyle && attack == AttackType.THROW_PROJECTILES);
+        attackCooldown = move.cooldownTicks;
+        if (swordStyle) {
+            attackCooldown = Math.max(attackCooldown, SWORD_ATTACK_RECOVERY_TICKS);
+        }
+        if (attack == AttackType.DASH_FORWARD_RIGHT_CROSS) {
+            dashCrossCooldown = DASH_CROSS_COOLDOWN_TICKS;
+        }
+        if (attack == AttackType.THROW_PROJECTILES) {
+            throwProjectilesCooldown = THROW_PROJECTILES_COOLDOWN_TICKS;
+        }
+        if (attack == AttackType.RIGHT_HOOK || attack == AttackType.RIGHT_HOOK_UPPERCUT) {
+            hookCooldown = HOOK_COOLDOWN_TICKS;
+        }
+        if (attack != AttackType.LEFT_JAB && attack != AttackType.RIGHT_HOOK) {
+            comboCooldown = COMBO_COOLDOWN_TICKS;
+        }
+        impactTicks = move.firstImpactTicks;
+        secondImpactTicks = move.secondImpactTicks;
+        thirdImpactTicks = move.thirdImpactTicks;
+        projectileTicks = move.firstProjectileTicks;
+        secondProjectileTicks = move.secondProjectileTicks;
+        projectileDashTicks = move.projectileDashTicks;
+        approachNudgeTicks = move.approachNudgeTicks;
+        comboRetreatTicks = move.retreatTicks;
+        impactTargetId = target.getId();
+        pendingMove = move;
+        pendingCounter = null;
+    }
+
+    private void startDodge(LivingEntity target) {
+        int dodge = canCounterDodge(target) ? ivy.getRandom().nextInt(3) : ivy.getRandom().nextInt(2);
+        setState(CombatState.DODGING, DODGE_ACTION_TICKS);
+        ivy.setBoxingActionTicks(DODGE_ACTION_TICKS);
+        ivy.setBoxingRecoveryAction(IvyTheDragonMerchant.RECOVERY_NONE);
+        ivy.setCombatSwordHidden(false);
+        dodgeCooldown = DODGE_COOLDOWN_TICKS;
+        impactTicks = 0;
+        secondImpactTicks = 0;
+        thirdImpactTicks = 0;
+        projectileTicks = 0;
+        secondProjectileTicks = 0;
+        projectileDashTicks = 0;
+        approachNudgeTicks = 0;
+        comboRetreatTicks = 0;
+        pendingCounter = null;
+        ivy.setBoxingAnimation(switch (dodge) {
+            case 0 -> dodgeLeftTrigger();
+            case 1 -> dodgeRightTrigger();
+            default -> dodgeBackwardsTrigger();
+        });
+
+        Vec3 away = ivy.position().subtract(target.position());
+        if (away.horizontalDistanceSqr() < 1.0E-4D) {
+            away = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+        Vec3 side = new Vec3(-away.z, 0.0D, away.x).normalize();
+        Vec3 impulse = dodge == 2 ? away.normalize().scale(0.48D) : side.scale(dodge == 0 ? 0.42D : -0.42D);
+        ivy.setDeltaMovement(ivy.getDeltaMovement().add(impulse.x, 0.08D, impulse.z));
+        ivy.needsSync = true;
+    }
+
+    private void startReactiveDodge(LivingEntity target, int counterChance) {
+        if (canCounterDodge(target) && ivy.getRandom().nextInt(100) < counterChance) {
+            startCounterDodge(target);
+        } else {
+            startDodge(target);
+        }
+    }
+
+    private boolean canCounterDodge(LivingEntity target) {
+        return ivy.distanceToSqr(target) <= COUNTER_DODGE_RANGE * COUNTER_DODGE_RANGE;
+    }
+
+    private void startCounterDodge(LivingEntity target) {
+        CombatStance stance = selectStance();
+        setCombatStance(stance);
+        CounterType counter = ivy.getRandom().nextBoolean() ? CounterType.LEFT_LIVER_SHOT : CounterType.RIGHT_LIVER_SHOT;
+        boolean swordStyle = stance.usesSword();
+        int actionTicks = counter.actionTicks(swordStyle);
+        setState(CombatState.DODGING, actionTicks);
+        ivy.setBoxingMovement(false, false);
+        ivy.setBoxingActionTicks(actionTicks);
+        ivy.setBoxingAnimation(counter.trigger(swordStyle));
+        ivy.setBoxingRecoveryAction(IvyTheDragonMerchant.RECOVERY_NONE);
+        ivy.setCombatSwordHidden(false);
+        dodgeCooldown = DODGE_COOLDOWN_TICKS + 6;
+        impactTicks = swordStyle ? counter.swordImpactTicks() : LIVER_COUNTER_IMPACT_TICKS;
+        secondImpactTicks = 0;
+        thirdImpactTicks = 0;
+        projectileTicks = 0;
+        secondProjectileTicks = 0;
+        projectileDashTicks = 0;
+        approachNudgeTicks = 0;
+        comboRetreatTicks = 0;
+        impactTargetId = target.getId();
+        pendingCounter = counter;
+        applyDiagonalCounterStep(target, counter);
+    }
+
+    private void applyDiagonalCounterStep(LivingEntity target, CounterType counter) {
+        Vec3 away = ivy.position().subtract(target.position());
+        if (away.horizontalDistanceSqr() < 1.0E-4D) {
+            away = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+
+        Vec3 radial = away.normalize();
+        Vec3 tangent = new Vec3(-radial.z, 0.0D, radial.x);
+        if (counter == CounterType.RIGHT_LIVER_SHOT) {
+            tangent = tangent.scale(-1.0D);
+        }
+
+        Vec3 step = tangent.scale(0.44D).add(radial.scale(-0.18D)).normalize().scale(0.54D);
+        ivy.setDeltaMovement(step.x, ivy.getDeltaMovement().y + 0.08D, step.z);
+        ivy.needsSync = true;
+    }
+
+    private void applyImpact(AttackHit hit) {
+        if (hit == null) {
+            return;
+        }
+        if (impactTargetId < 0 || !(ivy.level().getEntity(impactTargetId) instanceof LivingEntity target)) {
+            impactTargetId = -1;
+            return;
+        }
+        if (!isValidTarget(target) || !isInHitRange(target, hit)) {
+            impactTargetId = -1;
+            return;
+        }
+        if (hit.forwardNudge > 0.0D) {
+            applyForwardNudge(target, hit.forwardNudge);
+        }
+        if (hit.resetInvulnerability) {
+            target.invulnerableTime = 0;
+        }
+        boolean swordDamage = hit.swordDamage;
+        float damage = swordDamage ? ivy.getEquippedSwordDamageAgainst(target) : hit.damage;
+        boolean damaged = target.hurtOrSimulate(ivy.damageSources().mobAttack(ivy), damage);
+        if (damaged && swordDamage) {
+            ivy.applyEquippedSwordPostHit(target);
+        }
+        if (damaged && !target.isAlive()) {
+            ivy.handleCombatKill(target);
+        }
+        Vec3 knockback = target.position().subtract(ivy.position());
+        if (knockback.horizontalDistanceSqr() > 1.0E-4D) {
+            double knockbackStrength = hit.knockback + (swordDamage ? ivy.getEquippedSwordKnockbackBonus() * 0.35D : 0.0D);
+            target.push(knockback.x * knockbackStrength, hit.lift, knockback.z * knockbackStrength);
+        }
+    }
+
+    private static AttackHit swordDamageHit(AttackHit hit) {
+        return new AttackHit(hit.damage, hit.knockback, hit.lift, hit.range,
+                hit.resetInvulnerability, hit.forwardNudge, true);
+    }
+
+    private boolean isInHitRange(LivingEntity target, AttackHit hit) {
+        return ivy.getBoundingBox().inflate(hit.range, 1.15D, hit.range).intersects(target.getBoundingBox());
+    }
+
+    private void applyForwardNudge(LivingEntity target, double strength) {
+        Vec3 toward = target.position().subtract(ivy.position());
+        if (toward.horizontalDistanceSqr() < 1.0E-4D) {
+            toward = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+        Vec3 step = toward.normalize().scale(strength);
+        setComboHorizontalImpulse(step, 0.02D);
+    }
+
+    private void applyApproachNudge(double strength) {
+        if (strength <= 0.0D || impactTargetId < 0 || !(ivy.level().getEntity(impactTargetId) instanceof LivingEntity target) || !isValidTarget(target)) {
+            return;
+        }
+        applyForwardNudge(target, strength);
+    }
+
+    private void applyComboRetreat() {
+        if (impactTargetId < 0 || !(ivy.level().getEntity(impactTargetId) instanceof LivingEntity target) || !isValidTarget(target)) {
+            return;
+        }
+
+        Vec3 away = ivy.position().subtract(target.position());
+        if (away.horizontalDistanceSqr() < 1.0E-4D) {
+            away = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+        Vec3 step = away.normalize().scale(1.25);
+        setComboHorizontalImpulse(step, 0.04D);
+    }
+
+    private void throwVenomArrowAtTarget() {
+        if (ivy.level().isClientSide() || impactTargetId < 0 || !(ivy.level().getEntity(impactTargetId) instanceof LivingEntity target) || !isValidTarget(target)) {
+            return;
+        }
+        if (!ivy.hasLineOfSight(target)) {
+            return;
+        }
+        if (!ivy.consumeVenomArrowForThrow()) {
+            return;
+        }
+
+        Vec3 look = ivy.getLookAngle();
+        if (look.horizontalDistanceSqr() < 1.0E-4D) {
+            look = target.position().subtract(ivy.position()).normalize();
+        }
+
+        Vec3 origin = ivy.position()
+                .add(0.0D, ivy.getBbHeight() * 0.62D, 0.0D)
+                .add(look.normalize().scale(0.55D));
+        Vec3 targetVelocity = target.getDeltaMovement();
+        Vec3 aimPoint = target.position()
+                .add(targetVelocity.x * THROW_PROJECTILES_PREDICT_TICKS, target.getBbHeight() * 0.55D, targetVelocity.z * THROW_PROJECTILES_PREDICT_TICKS);
+        Vec3 direction = aimPoint.subtract(origin);
+        if (direction.lengthSqr() < 1.0E-4D) {
+            direction = look;
+        }
+
+        ArrowOfVenomEntity arrow = new ArrowOfVenomEntity(ivy.level(), ivy);
+        arrow.setPos(origin.x, origin.y, origin.z);
+        arrow.pickup = AbstractArrow.Pickup.DISALLOWED;
+        arrow.shoot(direction.x, direction.y, direction.z, THROW_PROJECTILES_SPEED, THROW_PROJECTILES_INACCURACY);
+        ivy.level().addFreshEntity(arrow);
+    }
+
+    private void applyProjectileDash() {
+        if (impactTargetId < 0 || !(ivy.level().getEntity(impactTargetId) instanceof LivingEntity target) || !isValidTarget(target)) {
+            return;
+        }
+
+        Vec3 toward = target.position().subtract(ivy.position());
+        if (toward.horizontalDistanceSqr() < 1.0E-4D) {
+            toward = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+        Vec3 step = toward.normalize().scale(pendingMove.dashStrength);
+        setComboHorizontalImpulse(step, 0.03D);
+    }
+
+    private void startProjectileDashAttack() {
+        if (impactTargetId < 0 || !(ivy.level().getEntity(impactTargetId) instanceof LivingEntity target) || !isValidTarget(target)) {
+            return;
+        }
+        startAttack(target, AttackType.DASH_FORWARD_RIGHT_CROSS);
+    }
+
+    private void applySwordDash() {
+        if (impactTargetId < 0 || !(ivy.level().getEntity(impactTargetId) instanceof LivingEntity target) || !isValidTarget(target)) {
+            return;
+        }
+
+        Vec3 toward = target.position().subtract(ivy.position());
+        if (toward.horizontalDistanceSqr() < 1.0E-4D) {
+            toward = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+        double strength = pendingMove.dashStrength > 0.0D ? pendingMove.dashStrength : SWORD_DASH_STRENGTH;
+        Vec3 step = toward.normalize().scale(strength);
+        setComboHorizontalImpulse(step, 0.03D);
+    }
+
+    private void setComboHorizontalImpulse(Vec3 step, double lift) {
+        Vec3 current = ivy.getDeltaMovement();
+        ivy.setDeltaMovement(step.x, current.y + lift, step.z);
+        ivy.needsSync = true;
+    }
+
+    private AttackType chooseAttack(double distanceSqr, boolean targetStill) {
+        if (isUsingSwordStyle()) {
+            return chooseSwordAttack(distanceSqr, targetStill);
+        }
+
+        if (distanceSqr < KEEP_DISTANCE * KEEP_DISTANCE && comboCooldown <= 0) {
+            return chooseDistanceKeepingAttack();
+        }
+
+        if (comboCooldown <= 0
+                && hookCooldown <= 0
+                && distanceSqr <= ATTACK_RANGE * ATTACK_RANGE
+                && ivy.getRandom().nextInt(100) < HOOK_UPPERCUT_CLOSE_CHANCE) {
+            return AttackType.RIGHT_HOOK_UPPERCUT;
+        }
+
+        int jabWeight = targetStill ? 25 : 50;
+        int hookWeight = hookCooldown <= 0 && distanceSqr <= HOOK_RANGE * HOOK_RANGE ? (targetStill ? 30 : 35) : 0;
+        int jabCrossWeight = comboCooldown <= 0 && distanceSqr >= COMBO_MIN_RANGE * COMBO_MIN_RANGE
+                ? (targetStill ? 45 : 25) : 0;
+        int jabJabHookWeight = comboCooldown <= 0 && distanceSqr >= COMBO_MIN_RANGE * COMBO_MIN_RANGE
+                ? (targetStill ? 30 : 18) : 0;
+
+        int totalWeight = jabWeight + hookWeight + jabCrossWeight + jabJabHookWeight;
+        int roll = ivy.getRandom().nextInt(totalWeight);
+        if (roll < jabJabHookWeight) {
+            return AttackType.JAB_JAB_HOOK;
+        }
+        roll -= jabJabHookWeight;
+        if (roll < jabCrossWeight) {
+            return AttackType.LEFT_JAB_RIGHT_CROSS;
+        }
+        roll -= jabCrossWeight;
+        if (roll < hookWeight) {
+            return AttackType.RIGHT_HOOK;
+        }
+        return AttackType.LEFT_JAB;
+    }
+
+    private AttackType chooseSwordAttack(double distanceSqr, boolean targetStill) {
+        if (distanceSqr < KEEP_DISTANCE * KEEP_DISTANCE && comboCooldown <= 0) {
+            return chooseSwordDistanceKeepingAttack();
+        }
+
+        if (comboCooldown <= 0
+                && hookCooldown <= 0
+                && distanceSqr <= ATTACK_RANGE * ATTACK_RANGE
+                && ivy.getRandom().nextInt(100) < HOOK_UPPERCUT_CLOSE_CHANCE) {
+            return AttackType.RIGHT_HOOK_UPPERCUT;
+        }
+
+        int quickStabWeight = targetStill ? 25 : 45;
+        int swingWeight = hookCooldown <= 0 && distanceSqr <= HOOK_RANGE * HOOK_RANGE ? (targetStill ? 25 : 30) : 0;
+        int jabSwingWeight = comboCooldown <= 0 && distanceSqr >= COMBO_MIN_RANGE * COMBO_MIN_RANGE
+                ? (targetStill ? 35 : 22) : 0;
+        int jabJabSwingWeight = comboCooldown <= 0 && distanceSqr >= COMBO_MIN_RANGE * COMBO_MIN_RANGE
+                ? (targetStill ? 25 : 16) : 0;
+        int slashStabStabWeight = comboCooldown <= 0 && distanceSqr >= COMBO_MIN_RANGE * COMBO_MIN_RANGE
+                ? (targetStill ? 28 : 18) : 0;
+
+        int totalWeight = quickStabWeight + swingWeight + jabSwingWeight + jabJabSwingWeight + slashStabStabWeight;
+        int roll = ivy.getRandom().nextInt(totalWeight);
+        if (roll < slashStabStabWeight) {
+            return AttackType.SWORD_SLASH_STAB_STAB;
+        }
+        roll -= slashStabStabWeight;
+        if (roll < jabJabSwingWeight) {
+            return AttackType.JAB_JAB_HOOK;
+        }
+        roll -= jabJabSwingWeight;
+        if (roll < jabSwingWeight) {
+            return AttackType.LEFT_JAB_RIGHT_CROSS;
+        }
+        roll -= jabSwingWeight;
+        if (roll < swingWeight) {
+            return AttackType.RIGHT_HOOK;
+        }
+        return AttackType.LEFT_JAB;
+    }
+
+    private AttackType chooseDistanceKeepingAttack() {
+        return ivy.getRandom().nextBoolean() ? AttackType.LEFT_JAB_RIGHT_CROSS : AttackType.JAB_JAB_HOOK;
+    }
+
+    private AttackType chooseSwordDistanceKeepingAttack() {
+        int roll = ivy.getRandom().nextInt(3);
+        return switch (roll) {
+            case 0 -> AttackType.LEFT_JAB_RIGHT_CROSS;
+            case 1 -> AttackType.JAB_JAB_HOOK;
+            default -> AttackType.SWORD_SLASH_STAB_STAB;
+        };
+    }
+
+    private boolean shouldCommitToMovingTarget(double distanceSqr, boolean targetStill) {
+        return !targetStill
+                && targetMovingTicks >= TARGET_MOVING_PRESSURE_TICKS
+                && movingPressureCommitCooldown <= 0
+                && distanceSqr > ATTACK_RANGE * ATTACK_RANGE;
+    }
+
+    private boolean canDashCross(double distanceSqr, DashCrossRead read, int roll) {
+        return attackCooldown <= 0
+                && comboCooldown <= 0
+                && dashCrossCooldown <= 0
+                && distanceSqr >= DASH_CROSS_MIN_RANGE * DASH_CROSS_MIN_RANGE
+                && distanceSqr <= DASH_CROSS_MAX_RANGE * DASH_CROSS_MAX_RANGE
+                && read.retreating()
+                && roll < DASH_CROSS_RETREAT_CHANCE;
+    }
+
+    private boolean canThrowProjectiles(LivingEntity target, double distanceSqr, DashCrossRead dashRead) {
+        if (attackCooldown > 0
+                || throwProjectilesCooldown > 0
+                || distanceSqr < THROW_PROJECTILES_MIN_RANGE * THROW_PROJECTILES_MIN_RANGE
+                || distanceSqr > THROW_PROJECTILES_MAX_RANGE * THROW_PROJECTILES_MAX_RANGE
+                || !ivy.hasLineOfSight(target)
+                || !ivy.canThrowVenomProjectiles()) {
+            return false;
+        }
+        return isProjectilePressureTarget(target)
+                || (target instanceof Player && dashRead.retreating())
+                || (!(target instanceof Player) && (throwProjectilesRangePunishTicks > 0 || isSkirmishingTarget(dashRead)));
+    }
+
+    private boolean isSkirmishingTarget(DashCrossRead read) {
+        if (read.retreating()) {
+            return true;
+        }
+        if (targetMovingTicks < TARGET_MOVING_PRESSURE_TICKS || read.previousDistanceSqr <= 0.0D) {
+            return false;
+        }
+        double previousDistance = Math.sqrt(read.previousDistanceSqr);
+        double currentDistance = Math.sqrt(read.currentDistanceSqr);
+        return currentDistance >= APPROACH_DISTANCE && currentDistance >= previousDistance - SKIRMISH_CLOSING_TOLERANCE;
+    }
+
+    private DashCrossRead readDashCross(LivingEntity target, double distanceSqr) {
+        Vec3 awayFromIvy = target.position().subtract(ivy.position());
+        double horizontalSpeedSqr = targetMoveX * targetMoveX + targetMoveZ * targetMoveZ;
+        if (awayFromIvy.horizontalDistanceSqr() < 1.0E-4D || horizontalSpeedSqr < 1.0E-4D) {
+            return new DashCrossRead(0.0D, horizontalSpeedSqr, previousTargetDistanceSqr, distanceSqr, false);
+        }
+
+        double retreatDot = awayFromIvy.normalize().dot(new Vec3(targetMoveX, 0.0D, targetMoveZ).normalize());
+        boolean increasing = distanceSqr > previousTargetDistanceSqr + RETREAT_DISTANCE_INCREASE_SQ;
+        boolean retreating = retreatDot >= RETREAT_DOT_THRESHOLD && increasing;
+        return new DashCrossRead(retreatDot, horizontalSpeedSqr, previousTargetDistanceSqr, distanceSqr, retreating);
+    }
+
+    private void setState(CombatState state, int ticks) {
+        this.state = state;
+        this.stateTicks = Math.max(0, ticks);
+    }
+
+    private void lockSight(LivingEntity target) {
+        double dx = target.getX() - ivy.getX();
+        double dz = target.getZ() - ivy.getZ();
+        if (dx * dx + dz * dz > 1.0E-4D) {
+            float targetYaw = (float) (Mth.atan2(dz, dx) * (180.0D / Math.PI)) - 90.0F;
+            float lockedYaw = approachYaw(targetYaw, ivy.getYRot());
+            ivy.setYRot(lockedYaw);
+            ivy.lockBoxingBodyToYaw(lockedYaw, LOCK_BODY_YAW_SPEED);
+        }
+        ivy.getLookControl().setLookAt(target, LOCK_LOOK_YAW_SPEED, LOCK_LOOK_PITCH_SPEED);
+        ivy.lookAt(target, LOCK_LOOK_YAW_SPEED, LOCK_LOOK_PITCH_SPEED);
+    }
+
+    private static float approachYaw(float target, float current) {
+        float delta = Mth.wrapDegrees(target - current);
+        delta = Mth.clamp(delta, -IvyCombatBrain.LOCK_BODY_YAW_MAX_DELTA, IvyCombatBrain.LOCK_BODY_YAW_MAX_DELTA);
+        return current + delta * IvyCombatBrain.LOCK_BODY_YAW_SPEED;
+    }
+
+    private void closeDistance(LivingEntity target) {
+        setState(CombatState.CLOSING_DISTANCE, 8);
+        ivy.setBoxingMovement(false, true);
+        ivy.getNavigation().moveTo(target, 1.0D);
+    }
+
+    private void closeDistanceIntercept(LivingEntity target) {
+        setState(CombatState.CLOSING_DISTANCE, 10);
+        ivy.setBoxingMovement(false, true);
+
+        Vec3 velocity = target.getDeltaMovement();
+        Vec3 predicted = target.position().add(velocity.x * INTERCEPT_PREDICTION_TICKS, 0.0D, velocity.z * INTERCEPT_PREDICTION_TICKS);
+        ivy.getNavigation().moveTo(predicted.x, target.getY(), predicted.z, 1.08D);
+    }
+
+    private boolean updateTargetStillness(LivingEntity target) {
+        if (lastTargetId != target.getId()) {
+            lastTargetId = target.getId();
+            lastTargetX = target.getX();
+            lastTargetZ = target.getZ();
+            targetMoveX = 0.0D;
+            targetMoveZ = 0.0D;
+            previousTargetDistanceSqr = ivy.distanceToSqr(target);
+            targetStillTicks = 0;
+            targetMovingTicks = 0;
+            return false;
+        }
+
+        previousTargetDistanceSqr = (lastTargetX - ivy.getX()) * (lastTargetX - ivy.getX())
+                + (lastTargetZ - ivy.getZ()) * (lastTargetZ - ivy.getZ());
+        double dx = target.getX() - lastTargetX;
+        double dz = target.getZ() - lastTargetZ;
+        targetMoveX = dx;
+        targetMoveZ = dz;
+        if (dx * dx + dz * dz <= TARGET_STILL_EPSILON_SQ) {
+            targetStillTicks++;
+            targetMovingTicks = 0;
+        } else {
+            targetStillTicks = 0;
+            targetMovingTicks++;
+            lastTargetX = target.getX();
+            lastTargetZ = target.getZ();
+        }
+        return targetStillTicks >= TARGET_STILL_PRESSURE_TICKS;
+    }
+
+    private void keepDistance(LivingEntity target) {
+        setState(CombatState.KEEPING_DISTANCE, 6);
+        ivy.getNavigation().stop();
+        ivy.setBoxingMovement(true, false);
+        Vec3 away = ivy.position().subtract(target.position());
+        if (away.horizontalDistanceSqr() > 1.0E-4D) {
+            Vec3 step = away.normalize().scale(0.17D);
+            ivy.setDeltaMovement(ivy.getDeltaMovement().add(step.x, 0.0D, step.z));
+            ivy.needsSync = true;
+        }
+    }
+
+    private void beginCircle() {
+        setState(ivy.getRandom().nextBoolean() ? CombatState.CIRCLING_LEFT : CombatState.CIRCLING_RIGHT,
+                18 + ivy.getRandom().nextInt(18));
+    }
+
+    private void circle(LivingEntity target, double distanceSqr) {
+        ivy.getNavigation().stop();
+        ivy.setBoxingMovement(false, false);
+
+        Vec3 away = ivy.position().subtract(target.position());
+        if (away.horizontalDistanceSqr() < 1.0E-4D) {
+            away = Vec3.directionFromRotation(0.0F, ivy.getYRot());
+        }
+
+        Vec3 radial = away.normalize();
+        Vec3 tangent = new Vec3(-radial.z, 0.0D, radial.x);
+        if (state == CombatState.CIRCLING_RIGHT) {
+            tangent = tangent.scale(-1.0D);
+        }
+
+        double preferred = 2.9D;
+        double distance = Math.sqrt(distanceSqr);
+        double radialCorrection = Mth.clamp(distance - preferred, -0.75D, 0.75D) * -0.035D;
+        Vec3 step = tangent.scale(0.13D).add(radial.scale(radialCorrection));
+        ivy.setDeltaMovement(ivy.getDeltaMovement().add(step.x, 0.0D, step.z));
+        ivy.needsSync = true;
+    }
+
+    private class BoxingGoal extends Goal {
+        BoxingGoal() {
+            setFlags(EnumSet.of(Goal.Flag.MOVE, Goal.Flag.LOOK));
+        }
+
+        @Override
+        public boolean canUse() {
+            if (isCombatBlocked()) {
+                clear();
+                return false;
+            }
+            LivingEntity target = selectPriorityTarget(ivy.getTarget());
+            if (canBox(target)) {
+                return false;
+            }
+            if (target != ivy.getTarget()) {
+                ivy.setTarget(target);
+            }
+            return true;
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            if (isCombatBlocked()) {
+                clear();
+                return false;
+            }
+            LivingEntity target = selectPriorityTarget(ivy.getTarget());
+            if (canBox(target)) {
+                return false;
+            }
+            if (target != ivy.getTarget()) {
+                ivy.setTarget(target);
+            }
+            return true;
+        }
+
+        @Override
+        public void start() {
+            beginStance();
+        }
+
+        @Override
+        public void stop() {
+            ivy.getNavigation().stop();
+            if (ivy.isAlive() && ivy.isBoxingStance()) {
+                LivingEntity target = ivy.getTarget() != null ? ivy.getTarget() : lastCombatTarget;
+                LivingEntity nextTarget = selectPriorityTarget(null);
+                if (nextTarget != null) {
+                    ivy.setTarget(nextTarget);
+                    beginStance();
+                    return;
+                }
+                startExitStance();
+            } else {
+                clear();
+            }
+        }
+
+        @Override
+        public void tick() {
+            if (isCombatBlocked()) {
+                clear();
+                return;
+            }
+            LivingEntity target = selectPriorityTarget(ivy.getTarget());
+            if (target == null) {
+                return;
+            }
+            if (target != ivy.getTarget()) {
+                ivy.setTarget(target);
+            }
+            lastCombatTarget = target;
+
+            lockSight(target);
+
+            if (pendingRecoveryAction != IvyTheDragonMerchant.RECOVERY_NONE) {
+                tickRetreatRecovery(target);
+                return;
+            }
+
+            if (ivy.getBoxingActionTicks() > 0) {
+                ivy.getNavigation().stop();
+                ivy.setBoxingMovement(false, false);
+                return;
+            }
+
+            double distanceSqr = ivy.distanceToSqr(target);
+            boolean targetStill = updateTargetStillness(target);
+            boolean commitReady = shouldCommitToMovingTarget(distanceSqr, targetStill);
+            DashCrossRead dashRead = readDashCross(target, distanceSqr);
+            if (canThrowProjectiles(target, distanceSqr, dashRead)) {
+                ivy.getNavigation().stop();
+                ivy.setBoxingMovement(false, false);
+                startAttack(target, AttackType.THROW_PROJECTILES);
+                return;
+            }
+            if (dodgeCooldown <= 0 && ivy.getRandom().nextInt(80) == 0 && distanceSqr < 16.0D) {
+                ivy.getNavigation().stop();
+                startDodge(target);
+                return;
+            }
+
+            if (commitReady) {
+                movingPressureCommitCooldown = MOVING_PRESSURE_COMMIT_COOLDOWN_TICKS;
+                int dashRoll = ivy.getRandom().nextInt(100);
+                if (canDashCross(distanceSqr, dashRead, dashRoll)) {
+                    ivy.getNavigation().stop();
+                    ivy.setBoxingMovement(false, false);
+                    startAttack(target, AttackType.DASH_FORWARD_RIGHT_CROSS);
+                } else {
+                    closeDistanceIntercept(target);
+                }
+                return;
+            }
+
+            if (distanceSqr <= ATTACK_RANGE * ATTACK_RANGE) {
+                ivy.getNavigation().stop();
+                ivy.setBoxingMovement(false, false);
+                if (attackCooldown <= 0) {
+                    startAttack(target, chooseAttack(distanceSqr, targetStill));
+                } else if (target instanceof Player && distanceSqr < KEEP_DISTANCE * KEEP_DISTANCE) {
+                    keepDistance(target);
+                }
+                return;
+            }
+
+            if (isPressureTarget(target)) {
+                closeDistance(target);
+                return;
+            }
+
+            if (targetStill && distanceSqr > ATTACK_RANGE * ATTACK_RANGE) {
+                closeDistance(target);
+                return;
+            }
+
+            if (distanceSqr > APPROACH_DISTANCE * APPROACH_DISTANCE) {
+                closeDistance(target);
+                return;
+            }
+
+            if ((state != CombatState.CIRCLING_LEFT && state != CombatState.CIRCLING_RIGHT) || stateTicks <= 0) {
+                beginCircle();
+            }
+            circle(target, distanceSqr);
+        }
+
+    private boolean canBox(@Nullable LivingEntity target) {
+        return !isValidTarget(target) || !ivy.isAlive() || ivy.isTrading() || !ivy.isReadyForCombatAnimation();
+    }
+
+    }
+
+    private boolean isCombatBlocked() {
+        return ivy.isCombatBlockedByWater() || ivy.isCombatBlockedByCommand();
+    }
+
+    private boolean isPressureTarget(LivingEntity target) {
+        return !(target instanceof Player);
+    }
+
+    private boolean isProjectilePressureTarget(LivingEntity target) {
+        return target instanceof Pillager || target instanceof Evoker || target instanceof Witch || target instanceof Vex;
+    }
+
+    @Nullable
+    private LivingEntity selectPriorityTarget(@Nullable LivingEntity currentTarget) {
+        if (isCombatBlocked()) {
+            return null;
+        }
+        if (currentTarget instanceof Player && isValidTarget(currentTarget)) {
+            return currentTarget;
+        }
+        if (currentTarget instanceof Evoker && isValidTarget(currentTarget)) {
+            return currentTarget;
+        }
+        Evoker evoker = findNearestEvoker();
+        if (evoker != null) {
+            return evoker;
+        }
+        Pillager committedPillager = getValidCommittedPillager();
+        if (committedPillager != null) {
+            return committedPillager;
+        }
+        if (currentTarget instanceof Pillager pillager && isValidTarget(pillager)) {
+            commitPillager(pillager);
+            return pillager;
+        }
+        Pillager nearestPillager = findNearestPillager();
+        if (nearestPillager != null) {
+            return nearestPillager;
+        }
+        if (currentTarget instanceof Witch && isValidTarget(currentTarget)) {
+            return currentTarget;
+        }
+        Witch witch = findNearestWitch();
+        if (witch != null) {
+            return witch;
+        }
+        if (currentTarget instanceof Vex && isValidTarget(currentTarget)) {
+            return currentTarget;
+        }
+        Vex vex = findNearestVex();
+        if (vex != null) {
+            return vex;
+        }
+        LivingEntity aggressor = findNearestAggressorTargetingIvy();
+        if (aggressor != null) {
+            return aggressor;
+        }
+        return isValidTarget(currentTarget) ? currentTarget : null;
+    }
+
+    @Nullable
+    private Evoker findNearestEvoker() {
+        Evoker best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Evoker evoker : ivy.level().getEntitiesOfClass(Evoker.class, ivy.getBoundingBox().inflate(16.0D))) {
+            if (!isValidTarget(evoker)) {
+                continue;
+            }
+            double distance = ivy.distanceToSqr(evoker);
+            if (distance < bestDistance && (distance <= 36.0D || ivy.hasLineOfSight(evoker))) {
+                best = evoker;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    @Nullable
+    private LivingEntity resolveReactiveTarget(LivingEntity attacker) {
+        if (attacker instanceof Player || attacker instanceof Evoker) {
+            return attacker;
+        }
+        Evoker evoker = findNearestEvoker();
+        if (evoker != null) {
+            return evoker;
+        }
+        Pillager committedPillager = getValidCommittedPillager();
+        if (committedPillager != null) {
+            return committedPillager;
+        }
+        if (attacker instanceof Pillager pillager) {
+            commitPillager(pillager);
+            return pillager;
+        }
+        return attacker;
+    }
+
+    private void commitPillager(Pillager pillager) {
+        if (isValidTarget(pillager)) {
+            committedPillagerTarget = pillager;
+        }
+    }
+
+    @Nullable
+    private Pillager getValidCommittedPillager() {
+        if (isValidTarget(committedPillagerTarget)) {
+            return committedPillagerTarget;
+        }
+        committedPillagerTarget = null;
+        return null;
+    }
+
+    @Nullable
+    private Pillager findNearestPillager() {
+        Pillager best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Pillager pillager : ivy.level().getEntitiesOfClass(Pillager.class, ivy.getBoundingBox().inflate(16.0D))) {
+            if (!isValidTarget(pillager)) {
+                continue;
+            }
+            double distance = ivy.distanceToSqr(pillager);
+            if (distance < bestDistance && (distance <= 36.0D || ivy.hasLineOfSight(pillager))) {
+                best = pillager;
+                bestDistance = distance;
+            }
+        }
+        if (best != null) {
+            commitPillager(best);
+        }
+        return best;
+    }
+
+    @Nullable
+    private Witch findNearestWitch() {
+        Witch best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Witch witch : ivy.level().getEntitiesOfClass(Witch.class, ivy.getBoundingBox().inflate(16.0D))) {
+            if (!isValidTarget(witch)) {
+                continue;
+            }
+            double distance = ivy.distanceToSqr(witch);
+            if (distance < bestDistance && (distance <= 36.0D || ivy.hasLineOfSight(witch))) {
+                best = witch;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    @Nullable
+    private Vex findNearestVex() {
+        Vex best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Vex vex : ivy.level().getEntitiesOfClass(Vex.class, ivy.getBoundingBox().inflate(16.0D))) {
+            if (!isValidTarget(vex)) {
+                continue;
+            }
+            double distance = ivy.distanceToSqr(vex);
+            if (distance < bestDistance && (distance <= 36.0D || ivy.hasLineOfSight(vex))) {
+                best = vex;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    private boolean isValidTarget(@Nullable LivingEntity target) {
+        return ivy.canTargetForCombat(target);
+    }
+
+    @Nullable
+    private LivingEntity findNearestAggressorTargetingIvy() {
+        LivingEntity best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Mob mob : ivy.level().getEntitiesOfClass(Mob.class, ivy.getBoundingBox().inflate(16.0D))) {
+            if (!isValidTarget(mob) || mob == ivy || mob.getTarget() != ivy) {
+                continue;
+            }
+            double distance = ivy.distanceToSqr(mob);
+            if (distance < bestDistance && (distance <= 64.0D || ivy.hasLineOfSight(mob))) {
+                best = mob;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    private enum CombatState {
+        ENTERING_STANCE,
+        CLOSING_DISTANCE,
+        KEEPING_DISTANCE,
+        CIRCLING_LEFT,
+        CIRCLING_RIGHT,
+        ATTACKING,
+        DODGING,
+        EXITING,
+        RETREATING_TO_RECOVER,
+        RECOVERING
+    }
+
+    private enum CombatStance {
+        ORTHODOX(false, ORTHODOX_IDLE, ORTHODOX_WALK, ORTHODOX_WALK_BACKWARDS,
+                ORTHODOX_FAST_WALK, ORTHODOX_FAST_WALK_BACKWARDS,
+                "to_orthodox", ORTHODOX_STANCE_TRANSITION_TICKS, "exit_orthodox",
+                "orthodox_retreat_to_drink", "orthodox_retreat_to_eat",
+                "dodge_backwards", "dodge_left", "dodge_right"),
+        SWORD(true, SWORD_IDLE, SWORD_WALK, SWORD_WALK_BACKWARDS,
+                SWORD_RUN, SWORD_FAST_WALK_BACKWARDS,
+                "sword_unsheathe", SWORD_STANCE_TRANSITION_TICKS, "sword_unsheathe",
+                "sword_retreat_to_drink", "sword_retreat_to_eat",
+                "sword_dodge_backwards", "sword_dodge_left", "sword_dodge_right");
+
+        private final boolean usesSword;
+        private final RawAnimation idleAnimation;
+        private final RawAnimation walkAnimation;
+        private final RawAnimation walkBackwardsAnimation;
+        private final RawAnimation fastWalkAnimation;
+        private final RawAnimation fastWalkBackwardsAnimation;
+        private final String enterTrigger;
+        private final int enterTicks;
+        private final String exitTrigger;
+        private final String retreatDrinkTrigger;
+        private final String retreatEatTrigger;
+        private final String dodgeBackwardsTrigger;
+        private final String dodgeLeftTrigger;
+        private final String dodgeRightTrigger;
+
+        CombatStance(boolean usesSword, RawAnimation idleAnimation, RawAnimation walkAnimation,
+                     RawAnimation walkBackwardsAnimation, RawAnimation fastWalkAnimation,
+                     RawAnimation fastWalkBackwardsAnimation, String enterTrigger, int enterTicks,
+                     String exitTrigger, String retreatDrinkTrigger, String retreatEatTrigger,
+                     String dodgeBackwardsTrigger, String dodgeLeftTrigger, String dodgeRightTrigger) {
+            this.usesSword = usesSword;
+            this.idleAnimation = idleAnimation;
+            this.walkAnimation = walkAnimation;
+            this.walkBackwardsAnimation = walkBackwardsAnimation;
+            this.fastWalkAnimation = fastWalkAnimation;
+            this.fastWalkBackwardsAnimation = fastWalkBackwardsAnimation;
+            this.enterTrigger = enterTrigger;
+            this.enterTicks = enterTicks;
+            this.exitTrigger = exitTrigger;
+            this.retreatDrinkTrigger = retreatDrinkTrigger;
+            this.retreatEatTrigger = retreatEatTrigger;
+            this.dodgeBackwardsTrigger = dodgeBackwardsTrigger;
+            this.dodgeLeftTrigger = dodgeLeftTrigger;
+            this.dodgeRightTrigger = dodgeRightTrigger;
+        }
+
+        private static CombatStance fromSwordStyle(boolean swordStyle) {
+            return swordStyle ? SWORD : ORTHODOX;
+        }
+
+        private boolean usesSword() {
+            return usesSword;
+        }
+    }
+
+    private enum AttackType {
+        LEFT_JAB("orthodox_left_jab", JAB_ACTION_TICKS, JAB_IMPACT_TICKS, 0, 0, 0, 0, 0.0D, JAB_COOLDOWN_TICKS,
+                new AttackHit(2.5F, 0.015D, 0.0D, 2.35D, false, 0.0D), null, null),
+        RIGHT_HOOK("orthodox_right_hook", HOOK_ACTION_TICKS, HOOK_IMPACT_TICKS, 0, 0, 0, 0, 0.0D, HOOK_COOLDOWN_TICKS,
+                new AttackHit(6.0F, 0.28D, 0.08D, 2.45D, false, 0.0D), null, null),
+        LEFT_JAB_RIGHT_CROSS("orthodox_left_jab_right_cross", LEFT_JAB_RIGHT_CROSS_ACTION_TICKS, LEFT_JAB_RIGHT_CROSS_FIRST_IMPACT_TICKS,
+                LEFT_JAB_RIGHT_CROSS_SECOND_IMPACT_TICKS, 0, LEFT_JAB_RIGHT_CROSS_RETREAT_TICKS, 0, 0.0D, JAB_COOLDOWN_TICKS,
+                new AttackHit(2.0F, 0.02D, 0.0D, 2.55D, true, 0.0D),
+                new AttackHit(4.0F, 0.16D, 0.04D, 2.95D, true, 1), null),
+        JAB_JAB_HOOK("orthodox_jab_jab_hook", JAB_JAB_HOOK_ACTION_TICKS,
+                JAB_JAB_HOOK_FIRST_IMPACT_TICKS, JAB_JAB_HOOK_SECOND_IMPACT_TICKS,
+                JAB_JAB_HOOK_THIRD_IMPACT_TICKS, 0, 0, 0.0D, JAB_COOLDOWN_TICKS,
+                new AttackHit(1.8F, 0.0D, 0.0D, 2.45D, true, 0.0D),
+                new AttackHit(1.8F, 0.0D, 0.0D, 2.45D, true, 0.0D),
+                new AttackHit(5.5F, 0.24D, 0.06D, 3.05D, true, 0.55D)),
+        RIGHT_HOOK_UPPERCUT("orthodox_right_hook_uppercut", RIGHT_HOOK_UPPERCUT_ACTION_TICKS,
+                RIGHT_HOOK_UPPERCUT_FIRST_IMPACT_TICKS, RIGHT_HOOK_UPPERCUT_SECOND_IMPACT_TICKS,
+                0, 0, 0, 0.0D, HOOK_COOLDOWN_TICKS,
+                new AttackHit(4.0F, 0.015D, 0.0D, 2.55D, true, 0.0D),
+                new AttackHit(6.0F, 0.12D, 0.50D, 3.05D, true, 0.55D),
+                null),
+        DASH_FORWARD_RIGHT_CROSS("orthodox_dash_forward_right_cross", DASH_FORWARD_RIGHT_CROSS_ACTION_TICKS,
+                DASH_FORWARD_RIGHT_CROSS_IMPACT_TICKS, 0, 0, 0,
+                DASH_FORWARD_RIGHT_CROSS_NUDGE_TICKS, 1.15D, COMBO_COOLDOWN_TICKS,
+                new AttackHit(5.0F, 0.28D, 0.04D, 3.2D, true, 0.2D),
+                null,
+                null),
+        SWORD_SLASH_STAB_STAB("sword_slash_stab_stab", SWORD_SLASH_STAB_STAB_ACTION_TICKS,
+                SWORD_SLASH_STAB_STAB_FIRST_IMPACT_TICKS, SWORD_SLASH_STAB_STAB_SECOND_IMPACT_TICKS,
+                SWORD_SLASH_STAB_STAB_THIRD_IMPACT_TICKS, 0, 0, 0.0D, COMBO_COOLDOWN_TICKS,
+                new AttackHit(4.5F, 0.10D, 0.0D, 3.1D, true, 0.25D, true),
+                new AttackHit(3.5F, 0.02D, 0.0D, 2.85D, true, 0.2D, true),
+                new AttackHit(3.5F, 0.12D, 0.0D, 2.85D, true, 0.3D, true)),
+        THROW_PROJECTILES("orthodox_throw_projectiles", THROW_PROJECTILES_ACTION_TICKS,
+                0, 0, 0, 0, 0, 0.0D, COMBO_COOLDOWN_TICKS,
+                THROW_PROJECTILES_FIRST_THROW_TICKS, THROW_PROJECTILES_SECOND_THROW_TICKS, THROW_PROJECTILES_DASH_TICKS, THROW_PROJECTILES_DASH_STRENGTH,
+                null,
+                null,
+                null);
+
+        private final String trigger;
+        private final int actionTicks;
+        private final int firstImpactTicks;
+        private final int secondImpactTicks;
+        private final int thirdImpactTicks;
+        private final int retreatTicks;
+        private final int approachNudgeTicks;
+        private final double approachNudgeStrength;
+        private final int cooldownTicks;
+        private final int firstProjectileTicks;
+        private final int secondProjectileTicks;
+        private final int dashTicks;
+        private final double dashStrength;
+        private final AttackHit firstHit;
+        private final AttackHit secondHit;
+        private final AttackHit thirdHit;
+
+        AttackType(String trigger, int actionTicks, int firstImpactTicks, int secondImpactTicks, int thirdImpactTicks,
+                   int retreatTicks, int approachNudgeTicks, double approachNudgeStrength, int cooldownTicks,
+                   AttackHit firstHit, @Nullable AttackHit secondHit, @Nullable AttackHit thirdHit) {
+            this(trigger, actionTicks, firstImpactTicks, secondImpactTicks, thirdImpactTicks, retreatTicks,
+                    approachNudgeTicks, approachNudgeStrength, cooldownTicks, 0, 0, 0, 0.0D,
+                    firstHit, secondHit, thirdHit);
+        }
+
+        AttackType(String trigger, int actionTicks, int firstImpactTicks, int secondImpactTicks, int thirdImpactTicks,
+                   int retreatTicks, int approachNudgeTicks, double approachNudgeStrength, int cooldownTicks,
+                   int firstProjectileTicks, int secondProjectileTicks, int dashTicks, double dashStrength,
+                   @Nullable AttackHit firstHit, @Nullable AttackHit secondHit, @Nullable AttackHit thirdHit) {
+            this.trigger = trigger;
+            this.actionTicks = actionTicks;
+            this.firstImpactTicks = firstImpactTicks;
+            this.secondImpactTicks = secondImpactTicks;
+            this.thirdImpactTicks = thirdImpactTicks;
+            this.retreatTicks = retreatTicks;
+            this.approachNudgeTicks = approachNudgeTicks;
+            this.approachNudgeStrength = approachNudgeStrength;
+            this.cooldownTicks = cooldownTicks;
+            this.firstProjectileTicks = firstProjectileTicks;
+            this.secondProjectileTicks = secondProjectileTicks;
+            this.dashTicks = dashTicks;
+            this.dashStrength = dashStrength;
+            this.firstHit = firstHit;
+            this.secondHit = secondHit;
+            this.thirdHit = thirdHit;
+        }
+
+        private AttackMove move(boolean swordStyle) {
+            if (!swordStyle) {
+                return new AttackMove(trigger, actionTicks, firstImpactTicks, secondImpactTicks, thirdImpactTicks,
+                        retreatTicks, approachNudgeTicks, approachNudgeStrength, cooldownTicks,
+                        firstProjectileTicks, secondProjectileTicks, dashTicks, dashStrength,
+                        firstHit, secondHit, thirdHit);
+            }
+
+            return switch (this) {
+                case SWORD_SLASH_STAB_STAB -> new AttackMove(trigger, actionTicks, firstImpactTicks,
+                        secondImpactTicks, thirdImpactTicks,
+                        retreatTicks, approachNudgeTicks, approachNudgeStrength, cooldownTicks,
+                        0, 0, 0, 0.0D,
+                        firstHit, secondHit, thirdHit);
+                case LEFT_JAB -> new AttackMove("sword_quick_stab",
+                        SWORD_QUICK_STAB_ACTION_TICKS, SWORD_QUICK_STAB_IMPACT_TICKS, 0, 0,
+                        0, 0, 0.0D, cooldownTicks,
+                        0, 0, 0, 0.0D,
+                        swordDamageHit(firstHit), null, null);
+                case RIGHT_HOOK -> new AttackMove("sword_swing",
+                        SWORD_SWING_ACTION_TICKS, SWORD_SWING_IMPACT_TICKS, 0, 0,
+                        0, 0, 0.0D, cooldownTicks,
+                        0, 0, 0, 0.0D,
+                        swordDamageHit(firstHit), null, null);
+                case LEFT_JAB_RIGHT_CROSS -> new AttackMove("orthodox_sword_left_jab_right_swing",
+                        LEFT_JAB_RIGHT_CROSS_ACTION_TICKS, LEFT_JAB_RIGHT_CROSS_FIRST_IMPACT_TICKS,
+                        LEFT_JAB_RIGHT_CROSS_SECOND_IMPACT_TICKS, 0,
+                        LEFT_JAB_RIGHT_CROSS_RETREAT_TICKS, 0, 0.0D, cooldownTicks,
+                        0, 0, 0, 0.0D,
+                        firstHit, swordSlashHit(secondHit), null);
+                case JAB_JAB_HOOK -> new AttackMove("orthodox_sword_jab_jab_swing",
+                        JAB_JAB_HOOK_ACTION_TICKS, JAB_JAB_HOOK_FIRST_IMPACT_TICKS,
+                        JAB_JAB_HOOK_SECOND_IMPACT_TICKS, JAB_JAB_HOOK_THIRD_IMPACT_TICKS,
+                        0, 0, 0.0D, cooldownTicks,
+                        0, 0, 0, 0.0D,
+                        firstHit, secondHit, swordSlashHit(thirdHit));
+                case RIGHT_HOOK_UPPERCUT -> new AttackMove("sword_swing_slash",
+                        SWORD_SWING_SLASH_ACTION_TICKS, SWORD_SWING_SLASH_FIRST_IMPACT_TICKS,
+                        SWORD_SWING_SLASH_SECOND_IMPACT_TICKS, 0,
+                        0, SWORD_SWING_SLASH_NUDGE_TICKS, 0.0D, cooldownTicks,
+                        0, 0, 0, 1.35D,
+                        swordDamageHit(firstHit), swordSlashHit(secondHit), null);
+                case DASH_FORWARD_RIGHT_CROSS -> new AttackMove("sword_dash_forward_spin_slash",
+                        SWORD_DASH_FORWARD_SPIN_SLASH_ACTION_TICKS,
+                        SWORD_DASH_FORWARD_SPIN_SLASH_IMPACT_TICKS, 0, 0,
+                        0, SWORD_DASH_FORWARD_SPIN_SLASH_NUDGE_TICKS, 0.0D, cooldownTicks,
+                        0, 0, 0, dashStrength > 0.0D ? dashStrength : SWORD_DASH_STRENGTH,
+                        swordDamageHit(firstHit), null, null);
+                case THROW_PROJECTILES -> new AttackMove("sword_throw_projectiles", actionTicks, firstImpactTicks,
+                        secondImpactTicks, thirdImpactTicks,
+                        retreatTicks, approachNudgeTicks, approachNudgeStrength, cooldownTicks,
+                        firstProjectileTicks, secondProjectileTicks, dashTicks, dashStrength,
+                        firstHit, secondHit, thirdHit);
+            };
+        }
+
+        private static AttackHit swordSlashHit(AttackHit hit) {
+            return swordDamageHit(new AttackHit(hit.damage, hit.knockback, hit.lift,
+                    hit.range + SWORD_SWING_SLASH_RANGE_BONUS,
+                    hit.resetInvulnerability,
+                    hit.forwardNudge + SWORD_SWING_SLASH_FORWARD_NUDGE_BONUS));
+        }
+
+        private static AttackHit swordDamageHit(AttackHit hit) {
+            return new AttackHit(hit.damage, hit.knockback, hit.lift, hit.range,
+                    hit.resetInvulnerability, hit.forwardNudge, true);
+        }
+    }
+
+    private enum CounterType {
+        LEFT_LIVER_SHOT("dodge_left_liver_shot", new AttackHit(5.0F, 0.09D, 0.0D, 2.55D, true, 0.0D)),
+        RIGHT_LIVER_SHOT("dodge_right_liver_shot", new AttackHit(5.0F, 0.09D, 0.0D, 2.55D, true, 0.0D));
+
+        private final String trigger;
+        private final AttackHit hit;
+
+        CounterType(String trigger, AttackHit hit) {
+            this.trigger = trigger;
+            this.hit = hit;
+        }
+
+        private String trigger(boolean swordStyle) {
+            if (!swordStyle) {
+                return trigger;
+            }
+            return this == LEFT_LIVER_SHOT ? "sword_dodge_left_parry" : "sword_dodge_right_parry";
+        }
+
+        private int actionTicks(boolean swordStyle) {
+            return swordStyle ? SWORD_PARRY_ACTION_TICKS : LIVER_COUNTER_ACTION_TICKS;
+        }
+
+        private int swordImpactTicks() {
+            return this == LEFT_LIVER_SHOT ? SWORD_LEFT_PARRY_IMPACT_TICKS : SWORD_RIGHT_PARRY_IMPACT_TICKS;
+        }
+    }
+
+    private record AttackMove(String trigger, int actionTicks, int firstImpactTicks, int secondImpactTicks,
+                              int thirdImpactTicks, int retreatTicks, int approachNudgeTicks,
+                              double approachNudgeStrength, int cooldownTicks, int firstProjectileTicks,
+                              int secondProjectileTicks, int projectileDashTicks, double dashStrength,
+                              AttackHit firstHit, @Nullable AttackHit secondHit, @Nullable AttackHit thirdHit) {
+    }
+
+    private record AttackHit(float damage, double knockback, double lift, double range, boolean resetInvulnerability,
+                             double forwardNudge, boolean swordDamage) {
+        private AttackHit(float damage, double knockback, double lift, double range, boolean resetInvulnerability,
+                          double forwardNudge) {
+            this(damage, knockback, lift, range, resetInvulnerability, forwardNudge, false);
+        }
+    }
+
+    private record DashCrossRead(double retreatDot, double horizontalSpeedSqr, double previousDistanceSqr,
+                                 double currentDistanceSqr, boolean retreating) {
+    }
+}

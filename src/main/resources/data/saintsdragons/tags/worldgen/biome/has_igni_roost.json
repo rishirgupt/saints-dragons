@@ -1,0 +1,55 @@
+{
+  "values": [
+    {
+      "id": "#c:wasteland",
+      "required": false
+    },
+    {
+      "id": "#c:is_wasteland",
+      "required": false
+    },
+    {
+      "id": "#forge:is_wasteland",
+      "required": false
+    },
+    "minecraft:plains",
+    "minecraft:savanna",
+    "minecraft:desert",
+    {
+      "id": "regions_unexplored:ashen_woodland",
+      "required": false
+    },
+    {
+      "id": "terralith:volcanic_crater",
+      "required": false
+    },
+    {
+      "id": "terralith:caldera",
+      "required": false
+    },
+    {
+      "id": "terralith:ashen_savanna",
+      "required": false
+    },
+    {
+      "id": "biomesoplenty:wasteland_steppe",
+      "required": false
+    },
+    {
+      "id": "biomesoplenty:wasteland",
+      "required": false
+    },
+    {
+      "id": "biomesoplenty:volcano",
+      "required": false
+    },
+    {
+      "id": "biomesoplenty:volcanic_plains",
+      "required": false
+    },
+    {
+      "id": "biomesoplenty:dead_forest",
+      "required": false
+    }
+  ]
+}

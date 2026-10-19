@@ -1,0 +1,2814 @@
+package com.leon.saintsdragons.server.entity.base;
+
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfig;
+import net.minecraft.core.UUIDUtil;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfigLoader;
+import com.leon.saintsdragons.common.block.AbstractDragonEggBlockEntity;
+import com.leon.saintsdragons.common.registry.Dragons;
+import com.leon.saintsdragons.common.registry.DragonSpeciesRegistry;
+import com.leon.saintsdragons.common.SaintsDragonsCommon;
+import com.leon.saintsdragons.common.config.SaintsDragonsConfig;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonTargetLifecycle;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonBrainUtilities;
+import com.leon.saintsdragons.server.ai.navigation.GenericSwimSteeringController;
+import com.leon.saintsdragons.server.ai.DragonTargetingHelper;
+import com.leon.saintsdragons.server.ai.navigation.async.AsyncSwimController;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonMemories;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonHearingListener;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonInvestigation;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonVision;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonVisionProfile;
+import com.leon.saintsdragons.server.entity.ability.DragonAbility;
+import com.leon.saintsdragons.server.entity.ability.DragonAbilityType;
+import com.leon.saintsdragons.server.entity.component.DragonAiCombatPacingComponent;
+import com.leon.saintsdragons.server.entity.component.DragonBabyComponent;
+import com.leon.saintsdragons.server.entity.component.DragonCommandComponent;
+import com.leon.saintsdragons.server.entity.component.DragonGenderComponent;
+import com.leon.saintsdragons.server.entity.component.DragonGroomingComponent;
+import com.leon.saintsdragons.server.entity.component.DragonHappinessComponent;
+import com.leon.saintsdragons.server.entity.component.DragonHungerComponent;
+import com.leon.saintsdragons.server.entity.component.DragonRecoveryComponent;
+import com.leon.saintsdragons.server.entity.component.DragonSitComponent;
+import com.leon.saintsdragons.server.entity.component.DragonSleepComponent;
+import com.leon.saintsdragons.server.entity.component.ScreenShakeComponent;
+import com.leon.saintsdragons.server.entity.controller.DragonBodyControl;
+import com.leon.saintsdragons.server.entity.controller.DragonLookControl;
+import com.leon.saintsdragons.server.entity.handler.CompanionCombatRules;
+import com.leon.saintsdragons.server.entity.handler.DragonCombatHandler;
+import com.leon.saintsdragons.server.entity.handler.DragonSoundHandler;
+import com.leon.saintsdragons.server.entity.interfaces.DragonSoundProfile;
+import com.leon.saintsdragons.server.entity.interfaces.DragonSaddleCarrier;
+import com.leon.saintsdragons.server.entity.interfaces.DancingEntity;
+import com.leon.saintsdragons.server.entity.interfaces.DragonMovementCapable;
+import com.leon.saintsdragons.server.entity.interfaces.DragonMovementCapability;
+import com.leon.saintsdragons.server.entity.interfaces.SoundHandledDragon;
+import com.leon.saintsdragons.server.entity.handler.DragonAllyManager;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonBreedingRules;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonDestructionManager;
+import com.leon.saintsdragons.server.entity.variant.SaintsDragonVariantRegistry;
+import com.leon.saintsdragons.util.animation.AnimationHelper;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
+import com.leon.saintsdragons.util.math.SmoothValue;
+import com.leon.saintsdragons.util.animation.TickingGeoEntity;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.ai.control.BodyRotationControl;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.memory.MemoryStatus;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.gameevent.DynamicGameEventListener;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Mth;
+import org.jetbrains.annotations.NotNull;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.animation.RawAnimation;
+import com.leon.saintsdragons.server.data.DragonCodexSavedData;
+import java.util.List;
+import java.util.UUID;
+import java.util.EnumSet;
+
+public abstract class DragonEntity extends TamableAnimal implements TickingGeoEntity, SoundHandledDragon, DragonMovementCapable, DancingEntity {
+    private DragonBrainUtilities brainUtilities;
+
+    public final DragonBrainUtilities getBrainUtilities() {
+        if (brainUtilities == null) brainUtilities = new DragonBrainUtilities();
+        return brainUtilities;
+    }
+
+    protected static final int DAMAGE_SLEEP_SUPPRESSION_TICKS = 20 * 30;
+    private static final DragonVariantSet DEFAULT_VARIANTS = DragonVariantSet.of(
+            DragonVariant.of(0, "default", 1)
+    );
+    protected static final EntityDataAccessor<Integer> DATA_COMMAND =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.INT);
+    public static final EntityDataAccessor<Float> DATA_SIT_PROGRESS =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Byte> DATA_GENDER =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.BYTE);
+    private static final EntityDataAccessor<Integer> DATA_HAPPINESS =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_SLEEPING =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_SLEEPING_ENTERING =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_SLEEPING_EXITING =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_DANCING =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_SCENT_ASSESSING =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_TEXTURE_VARIANT =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_PENDING_ADULT_TEXTURE_VARIANT =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<String> DATA_TEXTURE_VARIANT_ID =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> DATA_PENDING_ADULT_TEXTURE_VARIANT_ID =
+            SynchedEntityData.defineId(DragonEntity.class, EntityDataSerializers.STRING);
+    public static final int HUNGER_MAX = DragonHungerComponent.HUNGER_MAX;
+    public static final int HAPPINESS_MAX = DragonHappinessComponent.HAPPINESS_MAX;
+    private DragonAbility<?> activeAbility = null;
+    public final DragonCombatHandler combatManager;
+    public final DragonAllyManager allyManager;
+    private final DragonSoundHandler soundHandler = new DragonSoundHandler(this);
+    private int ambientSoundTimer;
+    private int nextAmbientSoundDelay;
+    @Nullable
+    private final DragonCommandComponent commandComponent;
+    @Nullable
+    private final DragonGenderComponent genderComponent;
+    @Nullable
+    private final DragonHungerComponent hungerComponent;
+    @Nullable
+    private final DragonHappinessComponent happinessComponent;
+    @Nullable
+    private final DragonGroomingComponent groomingComponent;
+    @Nullable
+    private final DragonSitComponent sitComponent;
+    private final DragonSitTransitionController sitTransition = new DragonSitTransitionController(this);
+    @Nullable
+    private final DragonSleepComponent sleepComponent;
+    @Nullable
+    private final DragonRecoveryComponent recoveryComponent;
+    @Nullable
+    private final DragonBabyComponent babyComponent;
+    private final DragonVision vision = new DragonVision(this);
+
+    public DragonVision getVision() {
+        return vision;
+    }
+
+    /** Species override this with their stat profile's shared sight geometry. */
+    public DragonVisionProfile getVisionProfile() {
+        return DragonVisionProfile.standard(getAttributeValue(Attributes.FOLLOW_RANGE), getBbWidth());
+    }
+
+    private final DragonAiCombatPacingComponent aiCombatPacing = new DragonAiCombatPacingComponent();
+    private final DynamicGameEventListener<DragonHearingListener> hearingListener =
+            new DynamicGameEventListener<>(new DragonHearingListener(this));
+
+    private final SmoothValue fallbackBodyRotDeviation = SmoothValue.rotation(0.0);
+    private final SmoothValue fallbackPitchDeviation = SmoothValue.rotation(0.0);
+    private final SmoothValue fallbackYawVelocity = SmoothValue.value(0.0);
+    private float tailDragVelocity = 0.0f;
+    private float previousTailDragVelocity = 0.0f;
+    private boolean clientBabyStateInitialized;
+    private boolean clientBabyState;
+    @Nullable
+    private Dragons cachedDragonType;
+    @Nullable
+    private RawAnimation cachedDanceAnimation;
+    private boolean dying = false;
+    @Nullable
+    private LivingEntity lastDamager;
+    private int lastDamagerTimestamp;
+    private DamageSource killDataCause;
+    private int killDataRecentlyHit;
+    private Player killDataAttackingPlayer;
+    private @Nullable Player combatTargetPlayer;
+    private boolean boundInBinder = false;
+    private boolean growthStunted = false;
+    @Nullable
+    private UUID assignedParentUuid;
+    @Nullable
+    private UUID passiveHuntTargetUuid;
+    private boolean huntFoodPursuitActive;
+    private boolean familySpawnPending = false;
+    private int pendingFamilyBabyCount = 0;
+    private final GenericSwimSteeringController waterPathSteering;
+    private final AsyncSwimController waterPathController;
+    private DragonLocomotionMode locomotionMode = DragonLocomotionMode.GROUND;
+
+    protected DragonEntity(EntityType<? extends TamableAnimal> entityType, Level level) {
+        super(entityType, level);
+        this.combatManager = new DragonCombatHandler(this);
+        this.allyManager = new DragonAllyManager(this);
+        this.commandComponent = createCommandComponent();
+        this.genderComponent = createGenderComponent();
+        this.hungerComponent = createHungerComponent();
+        this.happinessComponent = createHappinessComponent();
+        this.groomingComponent = createGroomingComponent();
+        this.sleepComponent = createSleepComponent();
+        this.recoveryComponent = createRecoveryComponent();
+        this.sitComponent = createSitComponent();
+        this.babyComponent = createBabyComponent();
+        this.lookControl = new DragonLookControl<>(this);
+        this.waterPathSteering = new GenericSwimSteeringController(this);
+        this.waterPathController = new AsyncSwimController(this, this.waterPathSteering);
+    }
+
+    private boolean isSimulationActiveForTracking() {
+        if (!(level() instanceof ServerLevel serverLevel)) return true;
+        Entity vehicle = getRootVehicle();
+        if (vehicle instanceof ServerPlayer) return true;
+        for (Entity passenger : vehicle.getIndirectPassengers()) {
+            if (passenger instanceof ServerPlayer) return true;
+        }
+        return serverLevel.isPositionEntityTicking(vehicle.blockPosition());
+    }
+
+    @Override
+    public boolean broadcastToPlayer(ServerPlayer player) {
+        return super.broadcastToPlayer(player) && isSimulationActiveForTracking();
+    }
+
+    @Override
+    public DragonSoundHandler getSoundHandler() {
+        return soundHandler;
+    }
+
+    @Override
+    public EnumSet<DragonMovementCapability> movementCapabilities() {
+        return EnumSet.of(DragonMovementCapability.WALK);
+    }
+
+    protected boolean breaksWaterliliesOnContact() {
+        return true;
+    }
+
+    public AsyncSwimController getAiSwimController() {
+        return this.waterPathController;
+    }
+
+    @Override
+    public void updateDynamicGameEventListener(
+            BiConsumer<DynamicGameEventListener<?>, ServerLevel> listenerConsumer) {
+        super.updateDynamicGameEventListener(listenerConsumer);
+        if (getBrain().checkMemory(DragonMemories.HEARD_STIMULUS, MemoryStatus.REGISTERED)
+                && level() instanceof ServerLevel serverLevel) {
+            listenerConsumer.accept(hearingListener, serverLevel);
+        }
+    }
+
+    protected void clearWaterPathController() {
+        AsyncSwimController controller = getAiSwimController();
+        controller.clear();
+        if (controller != this.waterPathController) {
+            this.waterPathController.clear();
+        }
+    }
+
+    public DragonLocomotionMode getLocomotionMode() {
+        return this.locomotionMode;
+    }
+
+    protected void tickLocomotionMode() {
+        DragonLocomotionMode desiredMode = resolveLocomotionMode();
+        if (desiredMode == this.locomotionMode) {
+            onLocomotionModeTick(desiredMode);
+            return;
+        }
+
+        DragonLocomotionMode previousMode = this.locomotionMode;
+        onExitLocomotionMode(previousMode, desiredMode);
+        this.locomotionMode = desiredMode;
+        onEnterLocomotionMode(desiredMode, previousMode);
+        onLocomotionModeChanged(previousMode, desiredMode);
+    }
+
+    protected DragonLocomotionMode resolveLocomotionMode() {
+        if (isInWater()) {
+            return DragonLocomotionMode.WATER;
+        }
+        if (this instanceof RideableDragonBase rideableDragon && rideableDragon.isAerial()) {
+            return DragonLocomotionMode.AIR;
+        }
+        return DragonLocomotionMode.GROUND;
+    }
+
+    protected void onLocomotionModeTick(DragonLocomotionMode mode) {
+    }
+
+    protected void onExitLocomotionMode(DragonLocomotionMode previousMode, DragonLocomotionMode nextMode) {
+        if (previousMode == DragonLocomotionMode.WATER && nextMode != DragonLocomotionMode.WATER) {
+            clearWaterPathController();
+        }
+    }
+
+    protected void onEnterLocomotionMode(DragonLocomotionMode mode, DragonLocomotionMode previousMode) {
+    }
+
+    protected void onLocomotionModeChanged(DragonLocomotionMode previousMode, DragonLocomotionMode nextMode) {
+    }
+
+    protected void handleAnimationSound(String soundKey) {
+        if (soundKey == null || soundKey.isEmpty()) {
+            return;
+        }
+        DragonSoundProfile profile = getSoundProfile();
+        if (profile == null || !profile.handleAnimationSound(getSoundHandler(), this, soundKey, null)) {
+            getSoundHandler().playVocal(soundKey);
+        }
+    }
+
+    public final void playAnimationKeyframeSound(String soundKey) {
+        if (soundKey == null || soundKey.isEmpty()) {
+            return;
+        }
+
+        Identifier soundId = null;
+        Identifier entityTypeId = BuiltInRegistries.ENTITY_TYPE.getKey(getType());
+        if ("step".equals(soundKey) && entityTypeId != null) {
+            soundId = Identifier.fromNamespaceAndPath(entityTypeId.getNamespace(), entityTypeId.getPath() + "_step");
+        } else if (soundKey.endsWith("_step") && entityTypeId != null) {
+            soundId = Identifier.fromNamespaceAndPath(entityTypeId.getNamespace(), soundKey);
+        } else if (soundKey.indexOf(':') >= 0) {
+            soundId = Identifier.tryParse(soundKey);
+        }
+
+        if (soundId != null) {
+            SoundEvent sound = soundId != null ? BuiltInRegistries.SOUND_EVENT.getValue(soundId) : null;
+            if (sound != null) {
+                getSoundHandler().playClientSound(this, position(), sound, 1.0f, 1.0f);
+                return;
+            }
+        }
+
+        handleAnimationSound(soundKey);
+    }
+
+    protected void resetAmbientSoundTimer(int minDelayTicks, int maxDelayTicks) {
+        ambientSoundTimer = 0;
+        int min = Math.max(1, minDelayTicks);
+        int max = Math.max(min, maxDelayTicks);
+        nextAmbientSoundDelay = min + getRandom().nextInt(max - min + 1);
+    }
+
+    protected void seedAmbientSoundTimer(int minDelayTicks, int maxDelayTicks, int initialTimerBound) {
+        ambientSoundTimer = initialTimerBound > 0 ? getRandom().nextInt(initialTimerBound) : 0;
+        int min = Math.max(1, minDelayTicks);
+        int max = Math.max(min, maxDelayTicks);
+        nextAmbientSoundDelay = min + getRandom().nextInt(max - min + 1);
+    }
+
+    protected void tickAmbientVocalSounds(int minDelayTicks, int maxDelayTicks, Supplier<String> vocalSelector) {
+        if (nextAmbientSoundDelay <= 0) {
+            resetAmbientSoundTimer(minDelayTicks, maxDelayTicks);
+        }
+        if (++ambientSoundTimer < nextAmbientSoundDelay) {
+            return;
+        }
+
+        String vocalKey = vocalSelector != null ? vocalSelector.get() : null;
+        if (vocalKey != null && !vocalKey.isEmpty()) {
+            getSoundHandler().playVocal(vocalKey);
+        }
+        resetAmbientSoundTimer(minDelayTicks, maxDelayTicks);
+    }
+
+    protected String selectWeightedAmbientVocal(String first, float firstChance, String second, float secondChance, String fallback) {
+        float roll = getRandom().nextFloat();
+        if (roll < firstChance) {
+            return first;
+        }
+        if (roll < secondChance) {
+            return second;
+        }
+        return fallback;
+    }
+
+    @Nullable
+    protected DragonCommandComponent createCommandComponent() {
+        return new DragonCommandComponent(this, DATA_COMMAND);
+    }
+
+    @Nullable
+    protected DragonGenderComponent createGenderComponent() {
+        return new DragonGenderComponent(this, DATA_GENDER);
+    }
+
+    @Nullable
+    protected DragonHungerComponent createHungerComponent() {
+        return new DragonHungerComponent(this);
+    }
+
+    @Nullable
+    protected DragonHappinessComponent createHappinessComponent() {
+        return new DragonHappinessComponent(this, DATA_HAPPINESS);
+    }
+
+    @Nullable
+    protected DragonGroomingComponent createGroomingComponent() {
+        return new DragonGroomingComponent(this);
+    }
+
+    @Nullable
+    protected DragonSleepComponent createSleepComponent() {
+        return new DragonSleepComponent(this, DATA_SLEEPING, DATA_SLEEPING_ENTERING, DATA_SLEEPING_EXITING);
+    }
+
+    @Nullable
+    protected DragonRecoveryComponent createRecoveryComponent() {
+        return new DragonRecoveryComponent(this);
+    }
+
+    @Nullable
+    protected DragonSitComponent createSitComponent() {
+        return new DragonSitComponent(this, DATA_SIT_PROGRESS);
+    }
+
+    @Nullable
+    protected DragonBabyComponent createBabyComponent() {
+        return new DragonBabyComponent(this);
+    }
+
+    @Nullable
+    public DragonBabyComponent getBabyComponent() {
+        return babyComponent;
+    }
+
+    public DragonAiCombatPacingComponent getAiCombatPacing() {
+        return aiCombatPacing;
+    }
+
+    @Override
+    protected @NotNull BodyRotationControl createBodyControl() {
+        return new DragonBodyControl(this, getBodyTurnSpeed());
+    }
+
+    protected float getBodyTurnSpeed() {
+        return 0.6f;
+    }
+
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_COMMAND, 0);
+        builder.define(DATA_SIT_PROGRESS, 0.0f);
+        builder.define(DATA_GENDER, DragonGender.MALE.getId());
+        builder.define(DATA_HAPPINESS, HAPPINESS_MAX);
+        builder.define(DATA_SLEEPING, false);
+        builder.define(DATA_SLEEPING_ENTERING, false);
+        builder.define(DATA_SLEEPING_EXITING, false);
+        builder.define(DATA_DANCING, false);
+        builder.define(DATA_SCENT_ASSESSING, false);
+        builder.define(DATA_TEXTURE_VARIANT, 0);
+        builder.define(DATA_PENDING_ADULT_TEXTURE_VARIANT, -1);
+        builder.define(DATA_TEXTURE_VARIANT_ID, SaintsDragonVariantRegistry.DEFAULT_VARIANT_ID.toString());
+        builder.define(DATA_PENDING_ADULT_TEXTURE_VARIANT_ID, "");
+    }
+
+    @Override
+    public void onSyncedDataUpdated(@NotNull EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        if (level().isClientSide()) {
+            if (DATA_COMMAND.equals(key)) {
+                applyCommandState(this.entityData.get(DATA_COMMAND));
+            }
+            resetClientAnimationsOnAgeBoundary();
+        }
+    }
+
+    private void resetClientAnimationsOnAgeBoundary() {
+        boolean baby = isBaby();
+        if (!clientBabyStateInitialized) {
+            clientBabyState = baby;
+            clientBabyStateInitialized = true;
+            return;
+        }
+        if (clientBabyState == baby || getId() < 0) {
+            return;
+        }
+
+        clientBabyState = baby;
+        var animationManager = getAnimatableInstanceCache().getManagerForId(getId());
+        animationManager.getAnimationControllers().values().forEach(controller -> {
+            controller.reset();
+        });
+    }
+
+    @Override
+    public void setRecordPlayingNearby(BlockPos jukebox, boolean playing) {
+        super.setRecordPlayingNearby(jukebox, playing);
+        setDancing(playing);
+    }
+
+    @Override
+    public boolean isDancing() {
+        return this.entityData.get(DATA_DANCING);
+    }
+
+    @Override
+    public void setDancing(boolean dancing) {
+        this.entityData.set(DATA_DANCING, dancing);
+    }
+
+    public boolean isScentAssessing() {
+        return this.entityData.get(DATA_SCENT_ASSESSING);
+    }
+
+    public void setScentAssessing(boolean scentAssessing) {
+        this.entityData.set(DATA_SCENT_ASSESSING, scentAssessing);
+    }
+
+    @Override
+    public RawAnimation getDanceAnimation() {
+        if (cachedDanceAnimation == null) {
+            Identifier entityTypeId = BuiltInRegistries.ENTITY_TYPE.getKey(getType());
+            String dragonName = entityTypeId != null ? entityTypeId.getPath() : "dragon";
+            cachedDanceAnimation = AnimationHelper.loop(dragonName, AnimationHelper.DANCE);
+        }
+        return cachedDanceAnimation;
+    }
+
+    @Override
+    public boolean canDance() {
+        return isAlive()
+                && isBaby()
+                && !isDying()
+                && !isSleeping()
+                && !isSleepTransitioning()
+                && !isVehicle()
+                && getTarget() == null;
+    }
+
+    public float smoothTailDragVelocity(float targetDegrees) {
+        tailDragVelocity = Mth.lerp(0.15f, tailDragVelocity, targetDegrees);
+        return tailDragVelocity;
+    }
+
+    public float getTickedTailDragVelocity(float partialTick) {
+        return Mth.lerp(partialTick, previousTailDragVelocity, tailDragVelocity);
+    }
+
+    protected boolean updatesModelPoseOnServer() {
+        return false;
+    }
+
+    public SmoothValue getBodyRotDeviation() {
+        return fallbackBodyRotDeviation;
+    }
+
+    public SmoothValue getPitchDeviation() {
+        return fallbackPitchDeviation;
+    }
+
+    public SmoothValue getYawVelocity() {
+        return fallbackYawVelocity;
+    }
+
+    public DragonGender getGender() {
+        if (genderComponent == null) {
+            return DragonGender.MALE;
+        }
+        return genderComponent.getGender();
+    }
+
+    public void setGender(@Nullable DragonGender gender) {
+        if (genderComponent != null) {
+            genderComponent.setGender(gender);
+        }
+    }
+
+    public boolean isFemale() {
+        return genderComponent != null && genderComponent.isFemale();
+    }
+
+    public void setFemale(boolean female) {
+        if (genderComponent != null) {
+            genderComponent.setFemale(female);
+        }
+    }
+
+    public int getHunger() {
+        if (hungerComponent == null) {
+            return HUNGER_MAX;
+        }
+        return hungerComponent.getHunger();
+    }
+
+    public boolean isHungry() {
+        return hungerComponent != null && hungerComponent.isHungry();
+    }
+
+    public int getMaxHunger() {
+        return HUNGER_MAX;
+    }
+
+    public boolean isHungerEnabled() {
+        return SaintsDragonsConfig.HUNGER_DECAY_ENABLED.get();
+    }
+
+    public boolean shouldTickHunger() {
+        return true;
+    }
+
+    public int getHungerDecayIntervalTicks() {
+        return 4800;
+    }
+
+    public int getHungerDecayStep() {
+        return getControllingPassenger() instanceof Player ? 2 : 1;
+    }
+
+    public int getHungerStarvationIntervalTicks() {
+        return 80;
+    }
+
+    public float getHungerStarvationDamage() {
+        return 2.0F;
+    }
+
+    public int getHungerFeedingAmount(boolean heartyMeal) {
+        return heartyMeal ? 20 : 10;
+    }
+
+    public int getHungerHealingIntervalTicks() {
+        return 100;
+    }
+
+    public float getHungerHealingAmount() {
+        return 0.0F;
+    }
+
+    public int getHungerHealingCost() {
+        return 5;
+    }
+
+    public int getMinimumHungerAfterHealing() {
+        return 30;
+    }
+
+    public boolean canHealFromHunger() {
+        return isAlive() && getHealth() < getMaxHealth();
+    }
+
+    public boolean feedHunger(int amount) {
+        return hungerComponent != null && hungerComponent.applyFeeding(amount);
+    }
+
+    public int getHappiness() {
+        if (happinessComponent == null) {
+            return HAPPINESS_MAX;
+        }
+        return happinessComponent.getHappiness();
+    }
+
+    public int getMaxHappiness() {
+        if (happinessComponent == null) {
+            return HAPPINESS_MAX;
+        }
+        return happinessComponent.getMaxHappiness();
+    }
+
+    public void setHappiness(int happiness) {
+        if (happinessComponent != null) {
+            happinessComponent.setHappiness(happiness);
+        }
+    }
+
+    public void setHunger(int hunger) {
+        if (hungerComponent != null) {
+            hungerComponent.setHunger(hunger);
+        }
+    }
+
+    public boolean applyFeedingHunger(boolean heartyMeal) {
+        boolean wasHungry = hungerComponent != null && hungerComponent.isHungry();
+        if (hungerComponent != null) {
+            hungerComponent.applyFeeding(heartyMeal);
+        }
+        applyFeedingHappiness(heartyMeal);
+        return wasHungry;
+    }
+
+    public void applyFeedingHappiness(boolean heartyMeal) {
+        if (happinessComponent != null) {
+            happinessComponent.applyFeeding(heartyMeal);
+        }
+    }
+
+    public float getHappinessSpeedMultiplier() {
+        if (happinessComponent == null) {
+            return 1.0f;
+        }
+        return happinessComponent.getSpeedMultiplier();
+    }
+
+    public float getHungerMeleeDamageMultiplier() {
+        if (hungerComponent == null) {
+            return 1.0f;
+        }
+        return hungerComponent.getMeleeDamageMultiplier();
+    }
+
+    public boolean hasGender() {
+        return genderComponent != null && genderComponent.hasGender();
+    }
+
+    @Nullable
+    public UUID getAssignedParentUuid() {
+        return assignedParentUuid;
+    }
+
+    public void setAssignedParentUuid(@Nullable UUID assignedParentUuid) {
+        this.assignedParentUuid = assignedParentUuid;
+    }
+
+    public void markPassiveHuntTarget(@Nullable LivingEntity target) {
+        this.passiveHuntTargetUuid = target == null ? null : target.getUUID();
+    }
+
+    public void clearPassiveHuntTarget() {
+        this.passiveHuntTargetUuid = null;
+    }
+
+    public boolean isPassiveHuntTarget(@Nullable LivingEntity target) {
+        return target != null
+                && target == getTarget()
+                && passiveHuntTargetUuid != null
+                && passiveHuntTargetUuid.equals(target.getUUID());
+    }
+
+    public boolean isHuntFoodPursuitActive() {
+        return huntFoodPursuitActive;
+    }
+
+    public void setHuntFoodPursuitActive(boolean active) {
+        this.huntFoodPursuitActive = active;
+    }
+
+    public void clearAssignedParentUuid() {
+        this.assignedParentUuid = null;
+    }
+
+    public <T extends DragonEntity> List<T> getNearbyAssignedBabies(Class<T> dragonClass) {
+        return this.level().getEntitiesOfClass(
+                dragonClass,
+                this.getBoundingBox().inflate(16.0D),
+                baby -> baby != null
+                        && baby.isBaby()
+                        && baby.isAlive()
+                        && this.getUUID().equals(baby.getAssignedParentUuid())
+        );
+    }
+
+    public <T extends DragonEntity> boolean hasNearbyAssignedBabies(Class<T> dragonClass) {
+        return !getNearbyAssignedBabies(dragonClass).isEmpty();
+    }
+
+    @Override
+    public boolean canMate(@NotNull Animal otherAnimal) {
+        if (!DragonBreedingRules.isEnabled()) {
+            return false;
+        }
+        if (otherAnimal == this || otherAnimal.getClass() != this.getClass()) {
+            return false;
+        }
+        if (!(otherAnimal instanceof DragonEntity otherDragon)) {
+            return false;
+        }
+        return !this.isBaby()
+                && !otherDragon.isBaby()
+                && this.isTame()
+                && otherDragon.isTame()
+                && this.getAge() == 0
+                && otherDragon.getAge() == 0
+                && this.isInLove()
+                && otherDragon.isInLove()
+                && this.isFemale() != otherDragon.isFemale();
+    }
+
+    protected void assignMotherToBaby(DragonEntity baby, @Nullable AgeableMob otherParent) {
+        DragonEntity mother = this.isFemale()
+                ? this
+                : (otherParent instanceof DragonEntity otherDragon && otherDragon.isFemale() ? otherDragon : null);
+        if (mother != null) {
+            baby.setAssignedParentUuid(mother.getUUID());
+        } else {
+            baby.clearAssignedParentUuid();
+        }
+    }
+
+    protected void scheduleFamilyBabies(int count) {
+        this.pendingFamilyBabyCount = Math.max(0, count);
+        this.familySpawnPending = this.pendingFamilyBabyCount > 0;
+    }
+
+    protected boolean hasPendingFamilyBabies() {
+        return familySpawnPending && pendingFamilyBabyCount > 0;
+    }
+
+    protected <T extends DragonEntity> void spawnPendingFamilyBabies(EntityType<T> babyType, Consumer<T> configureBaby) {
+        if (!hasPendingFamilyBabies()) {
+            return;
+        }
+
+        this.familySpawnPending = false;
+
+        if (!(level() instanceof ServerLevel serverLevel)) {
+            this.pendingFamilyBabyCount = 0;
+            return;
+        }
+
+        int spawnCount = this.pendingFamilyBabyCount;
+        this.pendingFamilyBabyCount = 0;
+
+        serverLevel.getServer().execute(() -> {
+            if (this.isRemoved()) {
+                return;
+            }
+
+            for (int i = 0; i < spawnCount; i++) {
+                T baby = babyType.create(serverLevel, net.minecraft.world.entity.EntitySpawnReason.MOB_SUMMONED);
+                if (baby == null) {
+                    continue;
+                }
+
+                baby.setGender(this.random.nextBoolean() ? DragonGender.FEMALE : DragonGender.MALE);
+                assignMotherToBaby(baby, null);
+                baby.setBaby(true);
+                baby.setAge(-24000);
+                configureBaby.accept(baby);
+                baby.setHealth(baby.getMaxHealth());
+
+                double angle = (Math.PI * 2.0 * i) / spawnCount;
+                double distance = 1.0 + this.random.nextDouble() * 0.5;
+                double offsetX = Math.cos(angle) * distance;
+                double offsetZ = Math.sin(angle) * distance;
+                baby.snapTo(
+                        this.getX() + offsetX,
+                        this.getY(),
+                        this.getZ() + offsetZ,
+                        this.random.nextFloat() * 360.0F,
+                        0.0F
+                );
+                serverLevel.addFreshEntity(baby);
+            }
+        });
+    }
+
+    protected <T extends DragonEntity> T createBreedOffspring(ServerLevel level, AgeableMob otherParent, EntityType<T> babyType, Consumer<T> configureBaby) {
+        T baby = babyType.create(level, net.minecraft.world.entity.EntitySpawnReason.MOB_SUMMONED);
+        if (baby == null) {
+            return null;
+        }
+
+        baby.setGender(this.random.nextBoolean() ? DragonGender.FEMALE : DragonGender.MALE);
+        assignMotherToBaby(baby, otherParent);
+        UUID ownerId = this.getOwnerUUID();
+        if (ownerId != null) {
+            baby.setOwnerUUID(ownerId);
+            baby.setTame(true, true);
+        }
+
+        baby.setAge(-24000);
+        baby.setBaby(true);
+        configureBaby.accept(baby);
+        baby.setHealth(baby.getMaxHealth());
+
+        BlockPos safePos = findSafeBabySpawnPos(level, this.blockPosition());
+        double spawnY = safePos != null ? safePos.getY() : this.getY();
+        baby.snapTo(this.getX(), spawnY, this.getZ(), this.getYRot(), 0.0F);
+        return baby;
+    }
+
+    public int getTextureVariant() {
+        return SaintsDragonVariantRegistry.variantIdToLegacy(getDragonVariantTypeId(), getTextureVariantId());
+    }
+
+    public void setTextureVariant(int variant) {
+        setTextureVariantId(SaintsDragonVariantRegistry.legacyToVariantId(getDragonVariantTypeId(), variant));
+    }
+
+    public Identifier getTextureVariantId() {
+        return parseVariantId(this.entityData.get(DATA_TEXTURE_VARIANT_ID), SaintsDragonVariantRegistry.defaultVariantId(getDragonVariantTypeId()));
+    }
+
+    public void setTextureVariantId(Identifier variantId) {
+        Identifier dragonId = getDragonVariantTypeId();
+        Identifier normalized = SaintsDragonVariantRegistry.normalize(dragonId, variantId);
+        if (!level().isClientSide() && isBaby() && shouldPersistAdultTextureVariantOnBabies()) {
+            setPendingAdultTextureVariantId(normalized);
+            setCurrentTextureVariantId(SaintsDragonVariantRegistry.defaultVariantId(dragonId));
+            return;
+        }
+        setCurrentTextureVariantId(normalized);
+    }
+
+    private Identifier setCurrentTextureVariantId(Identifier variantId) {
+        Identifier dragonId = getDragonVariantTypeId();
+        Identifier normalized = SaintsDragonVariantRegistry.normalize(dragonId, variantId);
+        this.entityData.set(DATA_TEXTURE_VARIANT_ID, normalized.toString());
+        this.entityData.set(DATA_TEXTURE_VARIANT, SaintsDragonVariantRegistry.variantIdToLegacy(dragonId, normalized));
+        return normalized;
+    }
+
+    protected boolean shouldPersistAdultTextureVariantOnBabies() {
+        return SaintsDragonVariantRegistry.getVariants(getDragonVariantTypeId()).size() > 1;
+    }
+
+    protected int chooseAdultTextureVariant() {
+        return SaintsDragonVariantRegistry.variantIdToLegacy(getDragonVariantTypeId(), chooseAdultTextureVariantId());
+    }
+
+    protected Identifier chooseAdultTextureVariantId() {
+        if (this.level() instanceof ServerLevelAccessor serverLevelAccessor) {
+            return SaintsDragonVariantRegistry.chooseSpawnVariant(serverLevelAccessor, this, getDragonVariantTypeId());
+        }
+        return SaintsDragonVariantRegistry.legacyToVariantId(getDragonVariantTypeId(), getVariantSet().roll(this.getRandom()));
+    }
+
+    public int getPendingAdultTextureVariant() {
+        Identifier pending = getPendingAdultTextureVariantId();
+        return pending == null ? -1 : SaintsDragonVariantRegistry.variantIdToLegacy(getDragonVariantTypeId(), pending);
+    }
+
+    public void setPendingAdultTextureVariant(int variant) {
+        if (variant < 0) {
+            setPendingAdultTextureVariantId(null);
+            return;
+        }
+        setPendingAdultTextureVariantId(SaintsDragonVariantRegistry.legacyToVariantId(getDragonVariantTypeId(), variant));
+    }
+
+    @Nullable
+    public Identifier getPendingAdultTextureVariantId() {
+        String value = this.entityData.get(DATA_PENDING_ADULT_TEXTURE_VARIANT_ID);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return parseVariantId(value, null);
+    }
+
+    public void setPendingAdultTextureVariantId(@Nullable Identifier variantId) {
+        Identifier dragonId = getDragonVariantTypeId();
+        if (variantId == null) {
+            this.entityData.set(DATA_PENDING_ADULT_TEXTURE_VARIANT_ID, "");
+            this.entityData.set(DATA_PENDING_ADULT_TEXTURE_VARIANT, -1);
+            return;
+        }
+        Identifier normalized = SaintsDragonVariantRegistry.normalize(dragonId, variantId);
+        this.entityData.set(DATA_PENDING_ADULT_TEXTURE_VARIANT_ID, normalized.toString());
+        this.entityData.set(DATA_PENDING_ADULT_TEXTURE_VARIANT, SaintsDragonVariantRegistry.variantIdToLegacy(dragonId, normalized));
+    }
+
+    protected void ensurePendingAdultTextureVariant() {
+        if (!shouldPersistAdultTextureVariantOnBabies()) {
+            return;
+        }
+        if (getPendingAdultTextureVariantId() == null) {
+            setPendingAdultTextureVariantId(chooseAdultTextureVariantId());
+        }
+    }
+
+    protected void applyPendingAdultTextureVariant() {
+        if (!shouldPersistAdultTextureVariantOnBabies()) {
+            return;
+        }
+        Identifier pending = getPendingAdultTextureVariantId();
+        if (pending == null) {
+            pending = chooseAdultTextureVariantId();
+        }
+        setTextureVariantId(pending);
+        setPendingAdultTextureVariantId(null);
+    }
+
+    public int getCodexTextureVariant() {
+        return SaintsDragonVariantRegistry.variantIdToLegacy(getDragonVariantTypeId(), getCodexTextureVariantId());
+    }
+
+    public Identifier getCodexTextureVariantId() {
+        if (this.isBaby() && shouldPersistAdultTextureVariantOnBabies()) {
+            Identifier pending = getPendingAdultTextureVariantId();
+            if (pending != null) {
+                return pending;
+            }
+        }
+        return getTextureVariantId();
+    }
+
+    protected int getMaxTextureVariant() {
+        return getVariantSet().maxId();
+    }
+
+
+    public Map<String, Integer> getTextureVariantNameMap() {
+        return SaintsDragonVariantRegistry.legacyNameMap(getDragonVariantTypeId());
+    }
+
+    public Map<String, Identifier> getTextureVariantIdNameMap() {
+        return SaintsDragonVariantRegistry.variantNameMap(getDragonVariantTypeId());
+    }
+
+    public List<String> getTextureVariantCommandSuggestions() {
+        return SaintsDragonVariantRegistry.commandSuggestions(getDragonVariantTypeId());
+    }
+
+    protected DragonVariantSet getVariantSet() {
+        return DEFAULT_VARIANTS;
+    }
+
+    public String getTextureVariantName(int variantId) {
+        return getTextureVariantName(SaintsDragonVariantRegistry.legacyToVariantId(getDragonVariantTypeId(), variantId));
+    }
+
+    public String getTextureVariantName(Identifier variantId) {
+        Identifier normalized = SaintsDragonVariantRegistry.normalize(getDragonVariantTypeId(), variantId);
+        var definition = SaintsDragonVariantRegistry.get(getDragonVariantTypeId(), normalized);
+        return definition != null ? definition.name() : normalized.getPath();
+    }
+
+    public String getTextureVariantTranslationKey(int variantId) {
+        return getTextureVariantTranslationKey(SaintsDragonVariantRegistry.legacyToVariantId(getDragonVariantTypeId(), variantId));
+    }
+
+    public String getTextureVariantTranslationKey(Identifier variantId) {
+        Identifier normalized = SaintsDragonVariantRegistry.normalize(getDragonVariantTypeId(), variantId);
+        var definition = SaintsDragonVariantRegistry.get(getDragonVariantTypeId(), normalized);
+        return definition != null ? definition.translationKey() : "saintsdragons.variant." + normalized.getNamespace() + "." + normalized.getPath().replace('/', '.');
+    }
+
+    protected int chooseSpawnTextureVariant(@NotNull ServerLevelAccessor levelAccessor,
+                                            @NotNull DifficultyInstance difficulty,
+                                            @NotNull EntitySpawnReason reason,
+                                            @Nullable SpawnGroupData spawnData,
+                                            @Nullable CompoundTag spawnTag) {
+        return SaintsDragonVariantRegistry.variantIdToLegacy(getDragonVariantTypeId(),
+                chooseSpawnTextureVariantId(levelAccessor, difficulty, reason, spawnData, null));
+    }
+
+    protected Identifier chooseSpawnTextureVariantId(@NotNull ServerLevelAccessor levelAccessor,
+                                                          @NotNull DifficultyInstance difficulty,
+                                                          @NotNull EntitySpawnReason reason,
+                                                          @Nullable SpawnGroupData spawnData,
+                                                          @Nullable CompoundTag spawnTag) {
+        return SaintsDragonVariantRegistry.chooseSpawnVariant(levelAccessor, this, getDragonVariantTypeId());
+    }
+
+    public boolean hasCustomTextureVariant() {
+        Identifier variantId = getTextureVariantId();
+        return !SaintsDragonVariantRegistry.isLegacyVariant(getDragonVariantTypeId(), variantId);
+    }
+
+    public Identifier getCustomAdultTextureResource(boolean female) {
+        return SaintsDragonVariantRegistry.adultTexture(getDragonVariantTypeId(), getTextureVariantId(), female);
+    }
+
+    protected Identifier getDragonVariantTypeId() {
+        return SaintsDragonVariantRegistry.dragonId(this);
+    }
+
+    public Identifier getDragonSpeciesId() {
+        return DragonSpeciesRegistry.speciesId(this);
+    }
+
+    @Nullable
+    public DragonSpeciesRegistry.Definition getDragonSpecies() {
+        return DragonSpeciesRegistry.get(getDragonSpeciesId());
+    }
+
+    @Nullable
+    private static Identifier parseVariantId(@Nullable String value, @Nullable Identifier fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Identifier.parse(value);
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    public boolean tryBrush(Player player, ItemStack brushStack) {
+        return groomingComponent != null && player != null && brushStack != null
+                && groomingComponent.tryBrush(player, brushStack);
+    }
+
+    public boolean tryPluckScale(Player player, ItemStack pluckerStack) {
+        return groomingComponent != null && player != null && pluckerStack != null
+                && groomingComponent.tryPluck(player, pluckerStack);
+    }
+
+    public boolean isBrushingAvailable() {
+        return groomingComponent != null && groomingComponent.isBrushingAvailable();
+    }
+
+    public int getScaleRegrowthTicks() {
+        return groomingComponent != null ? groomingComponent.getScaleRegrowthTicks() : 0;
+    }
+
+    public int getBrushingProgressPercent() {
+        return groomingComponent != null ? groomingComponent.getBrushingProgressPercent() : 100;
+    }
+
+    public boolean isBoundInBinder() {
+        return this.boundInBinder;
+    }
+
+    public void setBoundInBinder(boolean boundInBinder) {
+        this.boundInBinder = boundInBinder;
+    }
+
+    @Override
+    public boolean removeWhenFarAway(double distanceToClosestPlayer) {
+        return !this.isTame() && super.removeWhenFarAway(distanceToClosestPlayer);
+    }
+
+    @Override
+    public boolean requiresCustomPersistence() {
+        return super.requiresCustomPersistence() || this.isTame() || this.hasCustomName();
+    }
+
+    protected void ensureGenderInitialized() {
+        if (genderComponent != null) {
+            genderComponent.ensureInitialized();
+        }
+    }
+
+
+    @Override
+    public abstract void registerControllers(AnimatableManager.ControllerRegistrar controllers);
+
+
+    public void syncAnimState(int groundState, int flightMode) {
+    }
+
+    @Override
+    public @NotNull SpawnGroupData finalizeSpawn(@NotNull ServerLevelAccessor levelAccessor, @NotNull DifficultyInstance difficulty, @NotNull EntitySpawnReason reason,
+                                                 @Nullable SpawnGroupData spawnData) {
+        SpawnGroupData data = super.finalizeSpawn(levelAccessor, difficulty, reason, spawnData);
+        ensureGenderInitialized();
+        Identifier chosenVariant = chooseSpawnTextureVariantId(levelAccessor, difficulty, reason, spawnData, null);
+        if (this.isBaby() && shouldPersistAdultTextureVariantOnBabies()) {
+            setPendingAdultTextureVariantId(chosenVariant);
+            setCurrentTextureVariantId(SaintsDragonVariantRegistry.defaultVariantId(getDragonVariantTypeId()));
+        } else {
+            setTextureVariantId(chosenVariant);
+        }
+
+        if (this.isBaby() && reason == EntitySpawnReason.SPAWN_ITEM_USE) {
+            BlockPos safePos = findSafeBabySpawnPos(levelAccessor, this.blockPosition());
+            if (safePos != null && safePos.getY() < this.getY()) {
+                this.snapTo(this.getX(), safePos.getY(), this.getZ(), this.getYRot(), this.getXRot());
+            }
+        }
+        return data;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T extends DragonEntity> DragonAbility<T> getActiveAbility() {
+        return (DragonAbility<T>) activeAbility;
+    }
+
+    public void setActiveAbility(DragonAbility<?> ability) {
+        this.activeAbility = ability;
+    }
+
+    public void lockAbilities(int ticks) {
+        combatManager.lockGlobalCooldown(ticks);
+    }
+
+    public <T extends DragonEntity> void tryActivateAbility(DragonAbilityType<T, ?> abilityType) {
+        if (abilityType == null || level().isClientSide()) {
+            return;
+        }
+        combatManager.tryUseAbility(abilityType);
+    }
+
+    public boolean isAbilityActive(DragonAbilityType<?, ?> abilityType) {
+        return combatManager.isAbilityActive(abilityType);
+    }
+
+    public void forceEndAbility(DragonAbilityType<?, ?> abilityType) {
+        combatManager.forceEndAbility(abilityType);
+    }
+
+    public void forceEndActiveAbility() {
+        combatManager.forceEndActiveAbility();
+    }
+
+    @Nullable
+    protected ScreenShakeComponent getScreenShakeComponent() {
+        return null;
+    }
+
+    public float getScreenShakeAmount(float partialTicks) {
+        ScreenShakeComponent screenShake = getScreenShakeComponent();
+        return screenShake != null ? screenShake.getAmount(partialTicks) : 0.0F;
+    }
+
+    public boolean canFeelShake(Entity player) {
+        return true;
+    }
+
+    public void triggerScreenShake(float intensity) {
+        ScreenShakeComponent screenShake = getScreenShakeComponent();
+        if (screenShake != null) {
+            if (!SaintsDragonsConfig.SCREEN_SHAKE_ENABLED.get()) {
+                screenShake.clear();
+                return;
+            }
+            screenShake.trigger(intensity);
+        }
+    }
+
+    public void triggerScreenShake(float intensity, int durationTicks) {
+        ScreenShakeComponent screenShake = getScreenShakeComponent();
+        if (screenShake != null) {
+            if (!SaintsDragonsConfig.SCREEN_SHAKE_ENABLED.get()) {
+                screenShake.clear();
+                return;
+            }
+            screenShake.hold(intensity, durationTicks);
+        }
+    }
+
+    public void clearScreenShake() {
+        ScreenShakeComponent screenShake = getScreenShakeComponent();
+        if (screenShake != null) {
+            screenShake.clear();
+        }
+    }
+
+    public Map<String, VocalEntry> getVocalEntries() {
+        return Collections.emptyMap();
+    }
+
+    public DragonSoundProfile getSoundProfile() {
+        return DragonSoundProfile.EMPTY;
+    }
+
+    public record VocalEntry(String controllerId, String animationId, Supplier<SoundEvent> soundSupplier,
+                             float volume, float basePitch, float pitchVariance, boolean allowWhenSitting,
+                             boolean allowDuringSleep, boolean preventOverlap) {
+    }
+
+    public static final class VocalEntryBuilder {
+        private final Map<String, VocalEntry> entries = new HashMap<>();
+
+        public VocalEntryBuilder add(String key, String controller, String animation,
+                                     Supplier<SoundEvent> sound, float volume,
+                                     float basePitch, float variance,
+                                     boolean allowWhenSitting, boolean allowDuringSleep,
+                                     boolean preventOverlap) {
+            entries.put(key, new VocalEntry(controller, animation, sound,
+                    volume, basePitch, variance, allowWhenSitting,
+                    allowDuringSleep, preventOverlap));
+            return this;
+        }
+
+        public VocalEntryBuilder add(String key, String controller, String animation,
+                                     Supplier<SoundEvent> sound) {
+            return add(key, controller, animation, sound,
+                    1.0f, 1.0f, 0.0f, false, false, false);
+        }
+
+        public Map<String, VocalEntry> build() {
+            return Map.copyOf(entries);
+        }
+    }
+
+    protected DragonAbilityType<?, ?> getHurtAbilityType() {
+        return null;
+    }
+
+    public int getHurtAnimationDurationTicks() {
+        return 11;
+    }
+
+    protected DragonAbilityType<?, ?> getDeathAbilityType() {
+        return null;
+    }
+
+    protected void onSuccessfulDamage(DamageSource source, float amount) {
+        triggerHurtReaction();
+    }
+
+    public void triggerHurtReaction() {
+        if (level().isClientSide() || isDying()) {
+            return;
+        }
+        DragonAbilityType<?, ?> hurtAbility = getHurtAbilityType();
+        if (hurtAbility != null) {
+            combatManager.tryUseAbility(hurtAbility);
+        }
+    }
+
+    @Override
+    protected void playStepSound(@NotNull BlockPos pos, @NotNull BlockState state) {
+    }
+
+    @Override
+    public boolean isPushable() {
+        return false;
+    }
+
+    @Override
+    public void push(double x, double y, double z) {
+    }
+
+    @Override
+    public void knockback(double strength, double x, double z, DamageSource source, float damage, boolean comesFromEffect) {
+    }
+
+    @Override
+    public boolean fireImmune() {
+        return super.fireImmune();
+    }
+
+    @Override
+    public boolean causeFallDamage(double fallDistance, float damageMultiplier, @NotNull DamageSource source) {
+        this.fallDistance = 0.0F;
+        return false;
+    }
+
+    @Override
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel hurtLevel, @NotNull DamageSource source, float amount) {
+        if (isDamageFromCurrentRider(source) && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return false;
+        }
+
+        rememberIncomingProjectile(source);
+        boolean result = super.hurtServer(hurtLevel, source, amount);
+        if (result) {
+            if (isSleeping() || isSleepingEntering() || isSleepTransitioning()) {
+                startSleepExit();
+            }
+            suppressSleep(DAMAGE_SLEEP_SUPPRESSION_TICKS);
+
+            LivingEntity attacker = null;
+            if (source.getEntity() instanceof LivingEntity living) {
+                attacker = living;
+            } else if (source.getDirectEntity() instanceof LivingEntity living) {
+                attacker = living;
+            } else if (source.getDirectEntity() instanceof Projectile projectile
+                    && projectile.getOwner() instanceof LivingEntity living) {
+                attacker = living;
+            }
+
+            if (attacker != null) {
+                if (attacker instanceof Player player) {
+                    awardDragonEncounterAdvancement(player);
+                }
+                this.setLastHurtByMob(attacker);
+                this.lastDamager = attacker;
+                this.lastDamagerTimestamp = this.tickCount;
+            }
+            onSuccessfulDamage(source, amount);
+        }
+        if (result && !level().isClientSide() && this.isTame() && this.getOwnerUUID() != null) {
+            ServerLevel serverLevel = (ServerLevel) level();
+            DragonCodexSavedData.get(serverLevel).updateDragonStats(this.getOwnerUUID(), this);
+            applyHappinessHitPenalty(serverLevel);
+        }
+        return result;
+    }
+
+    protected final void rememberIncomingProjectile(DamageSource source) {
+        if (!level().isClientSide()
+                && (!isDamageFromCurrentRider(source)
+                || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY))
+                && source.getDirectEntity() instanceof Projectile projectile) {
+            DragonInvestigation.rememberProjectileOrigin(this, projectile);
+        }
+    }
+
+    private boolean isDamageFromCurrentRider(@NotNull DamageSource source) {
+        Entity directAttacker = source.getEntity();
+        if (directAttacker instanceof Player player && player.getVehicle() == this) {
+            return true;
+        }
+        if (directAttacker != null && directAttacker == this.getControllingPassenger()) {
+            return true;
+        }
+
+        Entity projectileEntity = source.getDirectEntity();
+        if (projectileEntity instanceof Projectile projectile) {
+            Entity projectileOwner = projectile.getOwner();
+            if (projectileOwner instanceof Player player && player.getVehicle() == this) {
+                return true;
+            }
+            return projectileOwner != null && projectileOwner == this.getControllingPassenger();
+        }
+
+        return false;
+    }
+
+    @Nullable
+    public LivingEntity getLastDamager() {
+        return lastDamager;
+    }
+
+    public int getLastDamagerTimestamp() {
+        return lastDamagerTimestamp;
+    }
+
+    @Override
+    public void die(@NotNull DamageSource cause) {
+        if (!this.dead) {
+            killDataCause = cause;
+            killDataRecentlyHit = this.lastHurtByPlayerMemoryTime;
+            killDataAttackingPlayer = this.getLastHurtByPlayer();
+
+            dying = true;
+
+            DragonAbilityType<?, ?> deathAbility = getDeathAbilityType();
+            if (deathAbility != null && !level().isClientSide()) {
+                combatManager.forceUseAbility(deathAbility);
+            }
+        }
+        if (!level().isClientSide() && this.isTame() && this.getOwnerUUID() != null) {
+            ServerLevel serverLevel = (ServerLevel) level();
+            DragonCodexSavedData.get(serverLevel).removeDragon(this.getOwnerUUID(), this.getUUID());
+        }
+        super.die(cause);
+    }
+
+    @Override
+    public void tame(@NotNull Player player) {
+        super.tame(player);
+        if (!level().isClientSide() && player instanceof ServerPlayer serverPlayer) {
+            DragonCodexSavedData.get(serverPlayer.level()).addDragon(serverPlayer, this);
+        }
+    }
+
+    @Override
+    public void setCustomName(@Nullable Component name) {
+        super.setCustomName(name);
+        if (!level().isClientSide() && this.isTame() && this.getOwnerUUID() != null) {
+           ServerLevel serverLevel = (ServerLevel) level();
+            DragonCodexSavedData.get(serverLevel).updateDragonName(this.getOwnerUUID(), this.getUUID(), this.getName().getString());
+            DragonCodexSavedData.get(serverLevel).updateDragonStats(this.getOwnerUUID(), this);
+        }
+    }
+
+    @Override
+    public void heal(float amount) {
+        super.heal(amount);
+        if (!level().isClientSide() && this.isTame() && this.getOwnerUUID() != null) {
+            ServerLevel serverLevel = (ServerLevel) level();
+            DragonCodexSavedData.get(serverLevel).updateDragonStats(this.getOwnerUUID(), this);
+        }
+    }
+
+
+    @Override
+    protected void tickDeath() {
+        ++this.deathTime;
+        int deathDuration = getDeathAnimationDurationTicks();
+
+        if (this.deathTime >= deathDuration && !this.level().isClientSide()) {
+
+            if (killDataAttackingPlayer != null) {
+                this.setLastHurtByPlayer(killDataAttackingPlayer, killDataRecentlyHit);
+            }
+
+            if (killDataCause != null) {
+                this.dropAllDeathLoot((net.minecraft.server.level.ServerLevel) this.level(), killDataCause);
+            }
+            this.level().broadcastEntityEvent(this, (byte)60);
+            this.remove(Entity.RemovalReason.KILLED);
+        }
+    }
+
+    @Override
+    public void remove(@NotNull Entity.RemovalReason reason) {
+        if (brainUtilities != null) brainUtilities.clear();
+        removeCodexEntryForTerminalRemoval(reason);
+        if (shouldLogDragonRemoval(reason)) {
+            System.out.println("[SD-DRAGON-REMOVE] type=" + EntityType.getKey(this.getType())
+                    + " uuid=" + this.getUUID()
+                    + " reason=" + reason
+                    + " pos=" + this.position()
+                    + " dim=" + this.level().dimension().identifier()
+                    + " health=" + this.getHealth()
+                    + " alive=" + this.isAlive()
+                    + " dying=" + this.isDying()
+                    + " vehicle=" + this.isVehicle()
+                    + " passenger=" + this.isPassenger()
+                    + " owner=" + this.getOwnerUUID()
+                    + " command=" + this.getCommand());
+            new Exception("[SD-DRAGON-REMOVE stack]").printStackTrace(System.out);
+        }
+        super.remove(reason);
+    }
+
+    private void removeCodexEntryForTerminalRemoval(Entity.RemovalReason reason) {
+        if (this.level().isClientSide() || !this.isTame() || this.getOwnerUUID() == null) {
+            return;
+        }
+        if (reason != Entity.RemovalReason.KILLED && reason != Entity.RemovalReason.DISCARDED) {
+            return;
+        }
+        // Binder capture deliberately discards the world entity while retaining its Codex record.
+        if (reason == Entity.RemovalReason.DISCARDED && this.isBoundInBinder()) {
+            return;
+        }
+        DragonCodexSavedData.get((ServerLevel) this.level()).removeDragon(this.getOwnerUUID(), this.getUUID());
+    }
+
+    private boolean shouldLogDragonRemoval(Entity.RemovalReason reason) {
+        if (this.level().isClientSide() || !this.isTame() || this.isBoundInBinder()) {
+            return false;
+        }
+        if (reason == Entity.RemovalReason.DISCARDED) {
+            return true;
+        }
+        return reason == Entity.RemovalReason.KILLED
+                && (this.getHealth() > 0.0F || this.isVehicle() || this.isPassenger() || !this.isDying());
+    }
+
+    @Override
+    protected void dropAllDeathLoot(net.minecraft.server.level.ServerLevel lootLevel, @NotNull DamageSource source) {
+        if (deathTime < getDeathAnimationDurationTicks()) {
+            return;
+        }
+        super.dropAllDeathLoot(lootLevel, source);
+        dropAdditionalDeathLootAfterBase(source);
+    }
+
+    protected void dropAdditionalDeathLootAfterBase(@NotNull DamageSource source) {
+    }
+
+    /** Culling bounds for the renderer (the entity-side hook was removed in 1.21.2). */
+    public @NotNull AABB getBoundingBoxForCulling() {
+        return this.getBoundingBox().inflate(
+                getCullingInflateX(),
+                getCullingInflateY(),
+                getCullingInflateZ());
+    }
+
+    protected double getCullingInflateX() {
+        return 0.0D;
+    }
+
+    protected double getCullingInflateY() {
+        return 0.0D;
+    }
+
+    protected double getCullingInflateZ() {
+        return 0.0D;
+    }
+
+    @Nullable
+    public Dragons getDragonType() {
+        if (cachedDragonType == null) {
+            cachedDragonType = Dragons.fromEntity(this);
+        }
+        return cachedDragonType;
+    }
+
+    public abstract DragonAbilityType<?, ?> getPrimaryAttackAbility();
+
+    public DragonAbilityType<?, ?> getRoaringAbility() {
+        return null;
+    }
+    public DragonAbilityType<?, ?> getChannelingAbility() {
+        return null;
+    }
+
+    @Nullable
+    public BlockState getEggBlockState() {
+        Supplier<? extends Block> eggBlock = getEggBlock();
+        return eggBlock == null ? null : eggBlock.get().defaultBlockState();
+    }
+
+    @Nullable
+    protected Supplier<? extends Block> getEggBlock() {
+        return null;
+    }
+
+    public void configureEggBlockEntity(BlockEntity blockEntity, @Nullable DragonEntity partner) {
+        if (!(blockEntity instanceof AbstractDragonEggBlockEntity eggEntity)) {
+            return;
+        }
+
+        UUID ownerUUID = resolveEggOwnerUUID(partner);
+        if (ownerUUID != null) {
+            eggEntity.setOwnerUUID(ownerUUID);
+        }
+
+        eggEntity.setBabyGender(this.getRandom().nextBoolean() ? DragonGender.FEMALE : DragonGender.MALE);
+    }
+
+    @Nullable
+    protected UUID resolveEggOwnerUUID(@Nullable DragonEntity partner) {
+        if (babyComponent != null) {
+            return babyComponent.resolveEggOwnerUUID(partner);
+        }
+        if (this.isTame() && this.getOwnerUUID() != null) return this.getOwnerUUID();
+        return null;
+    }
+
+    protected void registerToOwnerCodex(@Nullable DragonEntity dragon, @Nullable ServerLevel level) {
+        if (babyComponent != null) {
+            babyComponent.registerToOwnerCodex(dragon, level);
+            return;
+        }
+        if (dragon == null || level == null || level.isClientSide()) {
+            return;
+        }
+        if (dragon.isTame() && dragon.getOwnerUUID() != null) {
+            DragonCodexSavedData.get(level).addDragon(dragon.getOwnerUUID(), dragon);
+        }
+    }
+
+    public boolean isDying() {
+        return dying;
+    }
+
+    public void onDeathAbilityStarted() {
+
+    }
+
+    public int getDeathAnimationDurationTicks() {
+        return 62;
+    }
+
+    public boolean isStayOrSitMuted() {
+        return this.isOrderedToSit() || this.isInSittingPose();
+    }
+
+    public boolean supportsSleep() {
+        return false;
+    }
+
+    public boolean isWildAggressionEnabled() {
+        return false;
+    }
+
+    public boolean usesBrainSleepBehaviour() {
+        return getBrain().checkMemory(DragonMemories.SLEEP_PRESSURE, MemoryStatus.REGISTERED);
+    }
+
+    public void tickBrainSleepBehaviour() {
+        if (sleepComponent != null) {
+            sleepComponent.tickBrainDecisions();
+        }
+    }
+
+    public float getSleepPressure() {
+        return sleepComponent == null ? 0.0F : sleepComponent.getSleepPressure();
+    }
+
+    public float getSleepDisturbance() {
+        return sleepComponent == null ? 0.0F : sleepComponent.getSleepDisturbance();
+    }
+
+    public float getSleepDisturbanceThreshold() {
+        return sleepComponent == null ? 0.0F : sleepComponent.getSleepDisturbanceThreshold();
+    }
+
+    public String getSleepDisturbanceCause() {
+        return sleepComponent == null ? "none" : sleepComponent.getLastDisturbanceCause();
+    }
+
+    public boolean wantsToSleep() {
+        return sleepComponent != null && sleepComponent.wantsToSleep();
+    }
+
+    public boolean wantsToReturnToSleepSite() {
+        return wantsToSleep();
+    }
+
+    public String getSleepDecision() {
+        return sleepComponent == null ? "unsupported" : sleepComponent.getLastDecision();
+    }
+
+    public boolean isSleepTransitioning() {
+        return sleepComponent != null && sleepComponent.isSleepTransitioning();
+    }
+
+    public boolean isSleeping() {
+        return sleepComponent != null && sleepComponent.isSleeping();
+    }
+
+    public boolean isSleepingEntering() {
+        return sleepComponent != null && sleepComponent.isSleepingEntering();
+    }
+
+    public boolean isSleepingExiting() {
+        return sleepComponent != null && sleepComponent.isSleepingExiting();
+    }
+
+    public boolean isSleepLocked() {
+        return sleepComponent != null && sleepComponent.isSleepLocked();
+    }
+
+    public void startSleepEnter() {
+        if (sleepComponent != null) {
+            sleepComponent.startSleepEnter();
+        }
+    }
+    public void startSleepExit() {
+        if (sleepComponent != null) {
+            sleepComponent.startSleepExit();
+        }
+    }
+
+    public void wakeUpImmediately() {
+        if (sleepComponent != null) {
+            sleepComponent.wakeUpImmediately();
+        }
+    }
+
+    public void suppressSleep(int ticks) {
+        if (sleepComponent != null) {
+            sleepComponent.suppressSleep(ticks);
+        }
+    }
+
+    public boolean isSleepSuppressed() {
+        return sleepComponent != null && sleepComponent.isSleepSuppressed();
+    }
+
+    public int getSleepAmbientCooldownTicks() {
+        if (sleepComponent == null) {
+            return 0;
+        }
+        return sleepComponent.getAmbientCooldownTicks();
+    }
+
+    protected void clearSleepCooldowns() {
+        if (sleepComponent != null) {
+            sleepComponent.clearCooldowns();
+        }
+    }
+
+    protected boolean useSleepSitDownTimer() {
+        return false;
+    }
+
+    protected boolean requireSeatedBeforeFallAsleep() {
+        return false;
+    }
+
+    protected boolean sleepForceSitDownOnEnter() {
+        return false;
+    }
+
+    protected boolean useSleepSitUpAfterWake() {
+        return true;
+    }
+
+    protected int getSleepSitDownDuration() {
+        return 0;
+    }
+
+    protected int getSleepFallAsleepDuration() {
+        return 0;
+    }
+
+    protected int getSleepWakeUpDuration() {
+        return 0;
+    }
+
+    protected int getSleepSitUpDuration() {
+        return 0;
+    }
+
+    protected int getSleepLoopLeadTicks() {
+        return 0;
+    }
+
+    protected int getSleepExitSuppressionTicks() {
+        return 40;
+    }
+
+    protected int getSleepWakeUpSuppressionTicks() {
+        return 40;
+    }
+
+    protected boolean isAlreadySeatedForSleep() {
+        return this.isOrderedToSit() || this.getSitProgress() >= this.maxSitTicks();
+    }
+
+    protected boolean shouldStaySeatedAfterWake(int sleepCommandSnapshot) {
+        return sleepCommandSnapshot == 1;
+    }
+
+    protected void onSleepLockCommand(int snapshot) {
+        if (this.getCommand() != 1) {
+            this.setCommand(1);
+            this.setOrderedToSit(true);
+        }
+    }
+
+    protected void onSleepUnlockCommand(int desired) {
+        if (desired >= 0 && desired != this.getCommand()) {
+            this.setCommand(desired);
+            this.setOrderedToSit(desired == 1);
+        }
+    }
+
+    protected void onSleepFreezeTick() {
+        this.getNavigation().stop();
+        if (shouldClearTargetOnSleepFreeze()) {
+            this.setTarget(null);
+        }
+        this.setDeltaMovement(getSleepFreezeDeltaMovement());
+    }
+
+    protected boolean shouldClearTargetOnSleepFreeze() {
+        return !isSleepingExiting();
+    }
+
+    protected Vec3 getSleepFreezeDeltaMovement() {
+        return Vec3.ZERO;
+    }
+
+    protected void onSleepSitDownAnimation() {
+    }
+
+    protected void onSleepFallAsleepAnimation() {
+    }
+
+    protected void onSleepLoopAnimation() {
+    }
+
+    protected void onSleepWakeUpAnimation() {
+    }
+
+    protected void onSleepSitUpAnimation() {
+    }
+
+    protected void onSleepEntered() {
+        this.setOrderedToSit(true);
+    }
+
+    protected void onSleepExitStarted() {
+        this.setOrderedToSit(true);
+    }
+
+    protected void onSleepExitSeated() {
+        this.setOrderedToSit(true);
+    }
+
+    protected void onSleepWakeUpImmediate() {
+        this.setOrderedToSit(false);
+    }
+
+    public final boolean sleepUseSitDownTimer() {
+        return useSleepSitDownTimer();
+    }
+
+    public final boolean sleepShouldForceSitDownOnEnter() {
+        return sleepForceSitDownOnEnter();
+    }
+
+    public final boolean sleepUseSitUpAfterWake() {
+        return useSleepSitUpAfterWake();
+    }
+
+    public final boolean sleepRequireSeatedBeforeFallAsleep() {
+        return requireSeatedBeforeFallAsleep();
+    }
+
+    public final int sleepGetSitDownDuration() {
+        return getSleepSitDownDuration();
+    }
+
+    public final int sleepGetFallAsleepDuration() {
+        return getSleepFallAsleepDuration();
+    }
+
+    public final int sleepGetWakeUpDuration() {
+        return getSleepWakeUpDuration();
+    }
+
+    public final int sleepGetSitUpDuration() {
+        return getSleepSitUpDuration();
+    }
+
+    public final int sleepGetLoopLeadTicks() {
+        return getSleepLoopLeadTicks();
+    }
+
+    public final int sleepGetExitSuppressionTicks() {
+        return getSleepExitSuppressionTicks();
+    }
+
+    public final int sleepGetWakeUpSuppressionTicks() {
+        return getSleepWakeUpSuppressionTicks();
+    }
+
+    public final boolean sleepIsAlreadySeatedForSleep() {
+        return isAlreadySeatedForSleep();
+    }
+
+    public final boolean sleepShouldStaySeatedAfterWake(int sleepCommandSnapshot) {
+        return shouldStaySeatedAfterWake(sleepCommandSnapshot);
+    }
+
+    public final void sleepOnLockCommand(int snapshot) {
+        onSleepLockCommand(snapshot);
+    }
+
+    public final void sleepOnUnlockCommand(int desired) {
+        onSleepUnlockCommand(desired);
+    }
+
+    public final void sleepOnFreezeTick() {
+        onSleepFreezeTick();
+    }
+
+    public final void sleepOnSitDownAnimation() {
+        onSleepSitDownAnimation();
+    }
+
+    public final void sleepOnFallAsleepAnimation() {
+        onSleepFallAsleepAnimation();
+    }
+
+    public final void sleepOnLoopAnimation() {
+        onSleepLoopAnimation();
+    }
+
+    public final void sleepOnWakeUpAnimation() {
+        onSleepWakeUpAnimation();
+    }
+
+    public final void sleepOnSitUpAnimation() {
+        onSleepSitUpAnimation();
+    }
+
+    public final void sleepOnEntered() {
+        onSleepEntered();
+    }
+
+    public final void sleepOnExitStarted() {
+        onSleepExitStarted();
+    }
+
+    public final void sleepOnExitSeated() {
+        onSleepExitSeated();
+    }
+
+    public final void sleepOnWakeUpImmediate() {
+        onSleepWakeUpImmediate();
+    }
+
+    public DragonSleepPreferences getSleepPreferences() {
+        return DragonSleepPreferences.FLEXIBLE();
+    }
+
+    public boolean canSleepNow() {
+        return true; // Override for custom logic
+    }
+
+    public boolean canSleepInWater() {
+        return false;
+    }
+
+    public record DragonSleepPreferences(
+            boolean canSleepAtNight,
+            boolean canSleepDuringDay
+    ) {
+        public boolean canSleepDuringConditions(Level level) {
+            boolean isDay = isNaturalDay(level);
+            if (isDay && !canSleepDuringDay) return false;
+            if (!isDay && !canSleepAtNight) return false;
+            return true;
+        }
+
+        public static DragonSleepPreferences DIURNAL() {
+            return new DragonSleepPreferences(false, true);
+        }
+
+        public static DragonSleepPreferences NOCTURNAL() {
+            return new DragonSleepPreferences(true, false);
+        }
+
+        public static DragonSleepPreferences FLEXIBLE() {
+            return new DragonSleepPreferences(true, true);
+        }
+
+        public static boolean isNaturalDay(Level level) {
+            long dayTime = level.getOverworldClockTime() % 24000L;
+            return dayTime < 12000L;
+        }
+    }
+
+    public boolean isFlying() {
+        return false;
+    }
+    public boolean isRunning() {
+        return false;
+    }
+    public boolean isWalking() {
+        return false;
+    }
+
+    public boolean isActuallyRunning() {
+        return false;
+    }
+    public double getCachedHorizontalSpeed() {
+        return 0.0;
+    }
+
+    protected Identifier getDragonAttributesId() {
+        DragonSpeciesRegistry.Definition species = getDragonSpecies();
+        return species != null ? species.attributesId() : getDragonSpeciesId();
+    }
+
+    public DragonAttributeConfig getConfiguredDragonAttributes() {
+        return DragonAttributeConfigLoader.getInstance().getConfig(getDragonAttributesId());
+    }
+
+    public float getConfiguredAbilityDamage(String key, float fallback) {
+        return (float) getConfiguredDragonAttributes().abilityDamage(key, fallback);
+    }
+
+    public double getConfiguredExtra(String key, double fallback) {
+        return getConfiguredDragonAttributes().extraDouble(key, fallback);
+    }
+
+    public boolean getConfiguredExtraBoolean(String key, boolean fallback) {
+        return getConfiguredDragonAttributes().extraBoolean(key, fallback);
+    }
+
+    protected void setAttributeBase(net.minecraft.core.Holder<Attribute> attribute, double value) {
+        AttributeInstance instance = this.getAttribute(attribute);
+        if (instance != null) {
+            instance.setBaseValue(value);
+        }
+    }
+
+    protected double configuredMaxHealth(DragonAttributeConfig config, double babyMaxHealth) {
+        return isBaby() ? babyMaxHealth : config.maxHealth();
+    }
+
+    protected double configuredArmor(DragonAttributeConfig config, double babyArmor) {
+        return isBaby() ? babyArmor : config.armor();
+    }
+
+    protected void applyConfiguredHealthAndArmor(DragonAttributeConfig config, double babyMaxHealth, double babyArmor) {
+        setAttributeBase(Attributes.MAX_HEALTH, configuredMaxHealth(config, babyMaxHealth));
+        setAttributeBase(Attributes.ARMOR, configuredArmor(config, babyArmor));
+    }
+
+    protected void applyConfiguredFlyingHealthAndArmor(DragonAttributeConfig config, double babyMaxHealth, double babyArmor) {
+        applyConfiguredFlyingHealthAndArmor(config, babyMaxHealth, babyArmor, 0.0D);
+    }
+
+    protected void applyConfiguredFlyingHealthAndArmor(DragonAttributeConfig config, double babyMaxHealth, double babyArmor, double babyFlyingSpeed) {
+        applyConfiguredHealthAndArmor(config, babyMaxHealth, babyArmor);
+        setAttributeBase(Attributes.FLYING_SPEED, isBaby() ? babyFlyingSpeed : config.flyingSpeed());
+    }
+
+    protected void clampHealthToMax() {
+        if (this.getHealth() > this.getMaxHealth()) {
+            this.setHealth(this.getMaxHealth());
+        }
+    }
+
+    protected float getBabyHitboxScale() {
+        return 1.0F;
+    }
+
+    @Override
+    public @NotNull EntityDimensions getDefaultDimensions(@NotNull Pose pose) {
+        EntityDimensions baseDimensions = super.getDefaultDimensions(pose);
+        float babyScale = getBabyHitboxScale();
+        return isBaby() && babyScale != 1.0F ? baseDimensions.scale(babyScale) : baseDimensions;
+    }
+
+    public boolean areRiderControlsLocked() {
+        return false;
+    }
+    public Vec3 getClientLocatorPosition(String locator) {
+        return null;
+    }
+    public float maxSitTicks() {
+        return 15.0F;
+    }
+
+    public float getSitProgress() {
+        if (sitComponent == null) {
+            return 0f;
+        }
+        return sitComponent.getSitProgress();
+    }
+
+    public float getPrevSitProgress() {
+        if (sitComponent == null) {
+            return 0f;
+        }
+        return sitComponent.getPrevSitProgress();
+    }
+
+    protected void setSitProgress(float value) {
+        if (sitComponent != null) {
+            sitComponent.setSitProgress(value);
+        }
+    }
+
+    protected void setPrevSitProgress(float value) {
+        if (sitComponent != null) {
+            sitComponent.setPrevSitProgress(value);
+        }
+    }
+
+    public void clearSitProgress() {
+        if (sitComponent != null) {
+            sitComponent.clearSitProgress();
+        }
+    }
+
+    public void forceSitProgress(float value) {
+        if (sitComponent != null) {
+            sitComponent.forceSitProgress(value);
+        }
+    }
+
+    protected void syncClientSitProgress() {
+        if (sitComponent != null) {
+            sitComponent.syncClientProgress();
+        }
+    }
+
+    protected void saveSitProgress(CompoundTag tag) {
+        if (sitComponent != null) {
+            sitComponent.saveToNBT(tag);
+        }
+    }
+
+    protected void loadSitProgress(CompoundTag tag, boolean orderedToSit) {
+        if (sitComponent != null) {
+            sitComponent.loadFromNBT(tag, orderedToSit);
+        }
+    }
+
+    protected final void tickSitTransition(int sitDownTicks, int sitUpTicks,
+                                           Runnable sitDownAnimation, Runnable sitUpAnimation) {
+        sitTransition.tick(sitDownTicks, sitUpTicks, sitDownAnimation, sitUpAnimation);
+    }
+
+    protected final void clearSitTransitionState() {
+        sitTransition.clear();
+    }
+
+    protected final void clearSitTransitionFlags() {
+        sitTransition.clearTransitionOnly();
+    }
+
+    public final boolean isInSitTransition() {
+        return sitTransition.isInTransition();
+    }
+
+    public final boolean isSittingDownAnimation() {
+        return sitTransition.isSittingDown();
+    }
+
+    public final boolean isStandingUpAnimation() {
+        return sitTransition.isStandingUp();
+    }
+
+    public boolean isGoingUp() {
+        return false;
+
+    }
+    public void setGoingUp(boolean goingUp) {
+    }
+
+    public boolean isGoingDown() {
+        return false;
+    }
+
+    public void setGoingDown(boolean goingDown) {
+    }
+
+    public Player getRidingPlayer() {
+        if (this.getControllingPassenger() instanceof Player player) {
+            return player;
+        }
+        return null;
+    }
+
+    protected void tickAbilities() {
+        if (!level().isClientSide()) {
+            combatManager.tick();
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (updatesModelPoseOnServer()) {
+            tickRotationAnimationState();
+        }
+        this.soundHandler.tick();
+        tickAbilities();
+        if (!level().isClientSide()) {
+            if (breaksWaterliliesOnContact() && level() instanceof ServerLevel serverLevel) {
+                DragonDestructionManager.applyWaterlilyContactDestruction(serverLevel, this);
+            }
+            tickLocomotionMode();
+            aiCombatPacing.tick();
+            if (sleepComponent != null) {
+                sleepComponent.tick();
+            }
+            clearStaleSittingPoseForMovement();
+            boolean careComponentsActive = !this.isBoundInBinder();
+            if (careComponentsActive && hungerComponent != null) {
+                hungerComponent.tick();
+            }
+            if (this.isTame() && careComponentsActive) {
+                if (groomingComponent != null) {
+                    groomingComponent.tick();
+                }
+                if (happinessComponent != null) {
+                    int currentHunger = hungerComponent != null ? hungerComponent.getHunger() : HUNGER_MAX;
+                    happinessComponent.tick(currentHunger);
+                    happinessComponent.updateSpeedModifiers();
+                }
+            } else if (happinessComponent != null) {
+                happinessComponent.clearSpeedModifiers();
+            }
+            if (recoveryComponent != null) {
+                recoveryComponent.tick();
+            }
+            tickDancing();
+        }
+
+        if (level().isClientSide()) {
+            syncClientSitProgress();
+            if (!updatesModelPoseOnServer()) {
+                tickRotationAnimationState();
+            }
+        }
+    }
+
+    private void tickDancing() {
+        if ((!isBaby() && !isDancing()) || !DancingEntity.shouldScanForJukebox(this)) {
+            if (isDancing() && canDance()) {
+                DancingEntity.holdStillForDance(this);
+            }
+            return;
+        }
+        setDancing(DancingEntity.hasPlayingJukeboxNearby(this));
+        if (isDancing() && canDance()) {
+            DancingEntity.holdStillForDance(this);
+        }
+    }
+
+    private void tickRotationAnimationState() {
+        double bodyYawDelta = Mth.wrapDegrees(this.yBodyRot - this.yBodyRotO) * 2.0;
+        fallbackYawVelocity.setTo(bodyYawDelta);
+        fallbackYawVelocity.update(0.25f);
+
+        if (updatesModelPoseOnServer()) {
+            previousTailDragVelocity = tailDragVelocity;
+            smoothTailDragVelocity(Mth.clamp((float) fallbackYawVelocity.get(1.0F), -30.0F, 30.0F));
+        }
+
+        if (this.isVehicle()) {
+            fallbackBodyRotDeviation.setTo(0.0);
+            fallbackBodyRotDeviation.update(0.25f);
+            fallbackPitchDeviation.setTo(0.0);
+            fallbackPitchDeviation.update(0.25f);
+            return;
+        }
+
+        double headToBody = Mth.wrapDegrees(this.yHeadRot - this.yBodyRot) * 0.25;
+        double pitchDelta = (this.getXRot() - this.xRotO) * 0.5f;
+
+        fallbackBodyRotDeviation.setTo(headToBody);
+        fallbackBodyRotDeviation.update(0.25f);
+
+        fallbackPitchDeviation.setTo(pitchDelta);
+        fallbackPitchDeviation.update(0.25f);
+    }
+
+    public int getCommand() {
+        if (commandComponent == null) {
+            return this.entityData.get(DATA_COMMAND);
+        }
+        return commandComponent.getCommand();
+    }
+
+
+    public void setCommand(int command) {
+        if (commandComponent == null) {
+            this.entityData.set(DATA_COMMAND, command);
+            if (this.isTame()) {
+                this.applyCommandState(command);
+            }
+            return;
+        }
+        commandComponent.setCommand(command);
+    }
+
+    public int getNextCommand() {
+        int nextCommand = (getCommand() + 1) % 3;
+        if (nextCommand == 1 && !canAcceptSitCommand()) {
+            nextCommand = (nextCommand + 1) % 3;
+        }
+        return nextCommand;
+    }
+
+    public boolean canAcceptSitCommand() {
+        return !isAirborneForSitCommandProtection();
+    }
+
+    protected boolean isAirborneForSitCommandProtection() {
+        return !onGround() && !isInWater();
+    }
+
+    public void applyCommandState(int command) {
+        switch (command) {
+            case 0, 2 -> {
+                this.setOrderedToSit(false);
+                this.clearStaleSittingPoseForMovement();
+            }
+            case 1 -> this.setOrderedToSit(true);
+            default -> {
+            }
+        }
+    }
+
+    public void clearStaleSittingPoseForMovement() {
+        if (this.isTame()
+                && this.isInSittingPose()
+                && this.getCommand() != 1
+                && !this.isOrderedToSit()
+                && !this.isSleeping()
+                && !this.isSleepTransitioning()
+                && !this.isInSitTransition()) {
+            this.setInSittingPose(false);
+        }
+    }
+
+    public void refreshCommandState() {
+        applyCommandState(getCommand());
+    }
+
+    public boolean canOwnerCommand(Player player) {
+        return player != null && player.isCrouching() && this.isOwnedBy(player);
+    }
+
+    public boolean canReceiveFoodFrom(Player player) {
+        return player != null && !player.isSpectator() && this.isTame();
+    }
+
+    public boolean canOwnerMount(Player player) {
+        if (this.isBaby()) {
+            return false;
+        }
+        if (this instanceof DragonSaddleCarrier saddleCarrier && !saddleCarrier.hasSaddle()) {
+            return false;
+        }
+        if (this.getHappiness() <= 30) {
+            if (!this.level().isClientSide() && this.level() instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(
+                        ParticleTypes.ANGRY_VILLAGER,
+                        this.getX(),
+                        this.getY() + this.getBbHeight() + 0.3,
+                        this.getZ(),
+                        6,
+                        0.3,
+                        0.2,
+                        0.3,
+                        0.0
+                );
+            }
+            return false;
+        }
+        return true;
+    }
+
+    // Leash handling moved to Leashable hooks in 1.21; these replace the old PathfinderMob#tickLeash mixin.
+    @Override
+    public double leashSnapDistance() {
+        return ignoresLeashPull() ? getLeashBreakDistance() : super.leashSnapDistance();
+    }
+
+    @Override
+    public boolean checkElasticInteractions(net.minecraft.world.entity.Entity leashHolder, net.minecraft.world.entity.Leashable.LeashData leashData) {
+        return !ignoresLeashPull() && super.checkElasticInteractions(leashHolder, leashData);
+    }
+
+    @Override
+    public void closeRangeLeashBehaviour(net.minecraft.world.entity.Entity leashHolder) {
+        if (ignoresLeashPull()) {
+            this.setHomeTo(net.minecraft.core.BlockPos.containing(leashHolder.position()), 5);
+            return;
+        }
+        super.closeRangeLeashBehaviour(leashHolder);
+    }
+
+    public boolean ignoresLeashPull() {
+        return false;
+    }
+
+    public float getLeashBreakDistance() {
+        return 10.0F;
+    }
+
+    public boolean isAlly(Entity entity) {
+        return entity != null
+                && (DragonTargetingHelper.isVillageDefender(entity)
+                || CompanionCombatRules.isTrusted(entity, getOwnerUUID(), level())
+                || super.considersEntityAsAlly(entity));
+    }
+
+    @Override
+    public boolean considersEntityAsAlly(@NotNull Entity entity) {
+        return isAlly(entity);
+    }
+
+    public boolean canTarget(Entity entity) {
+        if (entity == null) return false;
+
+        if (entity instanceof LivingEntity living && !isTargetValid(living)) {
+            return false;
+        }
+
+        if (isAlly(entity)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public boolean isTargetValid(@Nullable LivingEntity target) {
+        if (target == null) return false;
+        if (!target.isAlive() || target.isRemoved()) return false;
+        if (target instanceof Player player && (player.isCreative() || player.isSpectator())) return false;
+        return true;
+    }
+
+    @Override
+    public void setTarget(@Nullable LivingEntity target) {
+        LivingEntity previousTarget = getTarget();
+        Player playerSource = target instanceof Player player ? player
+                : target != null && target == previousTarget ? combatTargetPlayer : null;
+        LivingEntity sourceTarget = playerSource != null ? playerSource : target;
+        target = sourceTarget == null ? null : DragonTargetingHelper.combatTarget(sourceTarget);
+        if (target != null && (target == this || target.level() != level()
+                || !canTarget(sourceTarget) || !canTarget(target))) target = null;
+        combatTargetPlayer = target == null ? null : playerSource;
+        if (target != null
+                && !level().isClientSide()
+                && (isSleeping() || isSleepingEntering() || isSleepTransitioning())) {
+            startSleepExit();
+            suppressSleep(DAMAGE_SLEEP_SUPPRESSION_TICKS);
+        }
+        super.setTarget(target);
+        if (!level().isClientSide() && previousTarget != target) {
+            DragonTargetLifecycle.combatTargetChanged(this, target);
+        }
+        if (target == null) {
+            setAggressive(false);
+        }
+    }
+
+    public @Nullable LivingEntity getCombatTargetSource() {
+        return combatTargetPlayer != null ? combatTargetPlayer : getTarget();
+    }
+
+    public void refreshMountedCombatTarget() {
+        LivingEntity source = getCombatTargetSource();
+        if (source == null) return;
+        if (!isTargetValid(source) || source.level() != level() || !canTarget(source)) {
+            setTarget(null);
+        } else if (DragonTargetingHelper.combatTarget(source) != getTarget()) {
+            setTarget(source);
+        }
+    }
+
+    @Override
+    public @NotNull InteractionResult mobInteract(@NotNull Player player, @NotNull InteractionHand hand) {
+        InteractionResult creativeTool = com.leon.saintsdragons.common.item.CreativeDragonToolItem.tryHandle(this, player, hand);
+        if (creativeTool != InteractionResult.PASS) return creativeTool;
+        awardDragonEncounterAdvancement(player);
+        if (this.isTame() && this.isOwnedBy(player)) {
+            if (canOwnerCommand(player) && hand == InteractionHand.MAIN_HAND && player.getItemInHand(hand).isEmpty()) {
+                int next = getNextCommand();
+                setCommand(next);
+                return InteractionResult.SUCCESS;
+            }
+        }
+        return super.mobInteract(player, hand);
+    }
+
+    public void awardDragonEncounterAdvancement(Player player) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return;
+        }
+        var advancement = serverPlayer.level().getServer().getAdvancements()
+                .get(SaintsDragonsCommon.rl("encounter_dragon"));
+        if (advancement != null) {
+            serverPlayer.getAdvancements().award(advancement, "encounter_dragon");
+        }
+    }
+
+    @Override
+    public void handleEntityEvent(byte eventId) {
+        if (eventId == 6) {
+            spawnClientEventParticles(ParticleTypes.SMOKE);
+            return;
+        }
+        if (eventId == 7) {
+            spawnClientEventParticles(ParticleTypes.HEART);
+            return;
+        }
+        super.handleEntityEvent(eventId);
+    }
+
+    private void spawnClientEventParticles(ParticleOptions particle) {
+        if (!level().isClientSide()) {
+            return;
+        }
+        for (int i = 0; i < 7; ++i) {
+            double d0 = this.random.nextGaussian() * 0.02D;
+            double d1 = this.random.nextGaussian() * 0.02D;
+            double d2 = this.random.nextGaussian() * 0.02D;
+            this.level().addParticle(
+                    particle,
+                    this.getRandomX(1.0D),
+                    this.getRandomY() + 0.5D,
+                    this.getRandomZ(1.0D),
+                    d0,
+                    d1,
+                    d2
+            );
+        }
+    }
+
+    
+    public void addAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        if (commandComponent != null) {
+            commandComponent.saveToNBT(tag);
+        }
+        if (hungerComponent != null) {
+            hungerComponent.saveToNBT(tag);
+        }
+        if (happinessComponent != null) {
+            happinessComponent.saveToNBT(tag);
+        }
+        if (groomingComponent != null) {
+            groomingComponent.saveToNBT(tag);
+        }
+        if (sleepComponent != null) {
+            sleepComponent.saveToNBT(tag);
+        }
+        if (genderComponent != null) {
+            genderComponent.saveToNBT(tag);
+        }
+        tag.putInt("TextureVariant", getTextureVariant());
+        tag.putInt("PendingAdultTextureVariant", getPendingAdultTextureVariant());
+        tag.putString("TextureVariantId", getTextureVariantId().toString());
+        Identifier pendingAdultVariantId = getPendingAdultTextureVariantId();
+        if (pendingAdultVariantId != null) {
+            tag.putString("PendingAdultTextureVariantId", pendingAdultVariantId.toString());
+        }
+        tag.putBoolean("BoundInBinder", this.boundInBinder);
+        tag.putBoolean("GrowthStunted", this.growthStunted);
+        if (assignedParentUuid != null) {
+            tag.store("AssignedParentUuid", UUIDUtil.CODEC, assignedParentUuid);
+        }
+        if (hasPendingFamilyBabies()) {
+            tag.putBoolean("FamilySpawnPending", true);
+            tag.putInt("FamilySpawnCount", pendingFamilyBabyCount);
+        }
+
+        allyManager.saveToNBT(tag);
+    }
+
+    
+    public void readAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+
+        if (commandComponent != null) {
+            commandComponent.loadFromNBT(tag);
+        }
+        if (genderComponent != null) {
+            genderComponent.loadFromNBT(tag);
+        }
+        if (hungerComponent != null) {
+            hungerComponent.loadFromNBT(tag);
+        }
+        if (happinessComponent != null) {
+            happinessComponent.loadFromNBT(tag);
+        }
+        if (groomingComponent != null) {
+            groomingComponent.loadFromNBT(tag);
+        }
+        if (sleepComponent != null) {
+            sleepComponent.loadFromNBT(tag);
+        }
+        Identifier storedTextureVariant = null;
+        if (tag.contains("TextureVariantId")) {
+            storedTextureVariant = parseVariantId(tag.getStringOr("TextureVariantId", ""), SaintsDragonVariantRegistry.defaultVariantId(getDragonVariantTypeId()));
+            setTextureVariantId(storedTextureVariant);
+        } else if (tag.contains("TextureVariant")) {
+            storedTextureVariant = SaintsDragonVariantRegistry.legacyToVariantId(getDragonVariantTypeId(), tag.getIntOr("TextureVariant", 0));
+            setTextureVariantId(storedTextureVariant);
+        }
+        if (tag.contains("PendingAdultTextureVariantId")) {
+            setPendingAdultTextureVariantId(parseVariantId(tag.getStringOr("PendingAdultTextureVariantId", ""), null));
+        } else if (tag.contains("PendingAdultTextureVariant")) {
+            setPendingAdultTextureVariant(tag.getIntOr("PendingAdultTextureVariant", 0));
+        }
+        Identifier defaultVariant = SaintsDragonVariantRegistry.defaultVariantId(getDragonVariantTypeId());
+        if (isBaby() && storedTextureVariant != null && !storedTextureVariant.equals(defaultVariant)) {
+            setPendingAdultTextureVariantId(storedTextureVariant);
+            setCurrentTextureVariantId(defaultVariant);
+        }
+        this.assignedParentUuid = tag.contains("AssignedParentUuid") ? tag.read("AssignedParentUuid", UUIDUtil.CODEC).orElse(null) : null;
+        this.boundInBinder = tag.getBooleanOr("BoundInBinder", false);
+        this.growthStunted = tag.getBooleanOr("GrowthStunted", false);
+        if (this.growthStunted && !this.isBaby()) {
+            this.setAge(-24000);
+            this.setBaby(true);
+        }
+        if (tag.contains("FamilySpawnPending")) {
+            this.familySpawnPending = tag.getBooleanOr("FamilySpawnPending", false);
+            this.pendingFamilyBabyCount = Math.max(0, tag.getIntOr("FamilySpawnCount", 0));
+        } else {
+            this.familySpawnPending = false;
+            this.pendingFamilyBabyCount = 0;
+        }
+        allyManager.loadFromNBT(tag);
+    }
+
+    private void applyHappinessHitPenalty(ServerLevel serverLevel) {
+        if (happinessComponent != null) {
+            happinessComponent.applyHitPenalty(serverLevel);
+        }
+    }
+
+
+    @Override
+    public void travel(@NotNull Vec3 travelVector) {
+        if (this.isOrderedToSit() && !this.isVehicle() && !this.isPassenger()) {
+            this.setDeltaMovement(Vec3.ZERO);
+            super.travel(Vec3.ZERO);
+            return;
+        }
+        super.travel(travelVector);
+    }
+
+    @Override
+    public void setAge(int age) {
+        if (this.growthStunted) {
+            int currentAge = this.getAge();
+            if (!this.isBaby() || currentAge >= 0) {
+                age = Math.min(age, -24000);
+            } else if (age > currentAge) {
+                age = currentAge;
+            }
+        }
+
+        boolean wasBaby = this.isBaby();
+        super.setAge(age);
+        boolean isNowBaby = this.isBaby();
+        if (wasBaby != isNowBaby) {
+            afterBabyStateChanged(isNowBaby);
+        }
+
+        if (wasBaby && !isNowBaby && !level().isClientSide()) {
+            applyPendingAdultTextureVariant();
+        }
+
+        if (wasBaby != isNowBaby && !level().isClientSide() && this.tickCount > 0) {
+            level().broadcastEntityEvent(this, (byte) 7);
+            if (this.isTame() && this.getOwnerUUID() != null) {
+                DragonCodexSavedData.get((ServerLevel) level()).updateDragonStats(this.getOwnerUUID(), this);
+            }
+        }
+    }
+
+    // setBaby is final since 1.21; what the old override did after super.setBaby now runs from setAge.
+    private void afterBabyStateChanged(boolean baby) {
+
+        if (level().isClientSide() || !shouldPersistAdultTextureVariantOnBabies()) {
+            return;
+        }
+
+        if (baby) {
+            ensurePendingAdultTextureVariant();
+            setCurrentTextureVariantId(SaintsDragonVariantRegistry.defaultVariantId(getDragonVariantTypeId()));
+        }
+    }
+
+    public boolean isGrowthStunted() {
+        return growthStunted;
+    }
+
+    public void setGrowthStunted(boolean growthStunted) {
+        if (this.growthStunted == growthStunted) {
+            return;
+        }
+        this.growthStunted = growthStunted;
+        if (growthStunted) {
+            this.setAge(-24000);
+            this.setBaby(true);
+        }
+    }
+
+
+    @Override
+    public void spawnChildFromBreeding(@NotNull ServerLevel level, Animal otherParent) {
+        AgeableMob baby = this.getBreedOffspring(level, otherParent);
+        if (baby != null) {
+           BlockPos safePos = findSafeBabySpawnPos(level, this.blockPosition());
+            baby.setBaby(true);
+            baby.snapTo(this.getX(), safePos != null ? safePos.getY() : this.getY(), this.getZ(), 0.0F, 0.0F);
+            if (level.addFreshEntity(baby) && baby instanceof DragonEntity dragonBaby) {
+                registerToOwnerCodex(dragonBaby, level);
+            }
+        }
+    }
+
+    @Nullable
+    protected BlockPos findSafeBabySpawnPos(LevelAccessor level, BlockPos start) {
+        if (level == null || start == null) return null;
+        BlockPos.MutableBlockPos cursor = start.mutable();
+        int minY = level.getMinY();
+
+        while (cursor.getY() >= minY) {
+            BlockState state = level.getBlockState(cursor);
+            if (isStableBabyLandingSurface(level, cursor, state)) {
+                BlockPos above = cursor.above();
+                BlockState aboveState = level.getBlockState(above);
+                if (aboveState.getCollisionShape(level, above).isEmpty() && aboveState.getFluidState().isEmpty()) {
+                    return above;
+                }
+            }
+            cursor.move(Direction.DOWN);
+        }
+        return null;
+    }
+
+    private boolean isStableBabyLandingSurface(BlockGetter level, BlockPos pos,
+                                               BlockState state) {
+        if (state.isAir() || !state.getFluidState().isEmpty()) {
+            return false;
+        }
+        return state.isSolidRender() || state.isFaceSturdy(level, pos, Direction.UP);
+    }
+
+    // 26.x save bridge: mod data is kept in one compound so the tag-based save code stays unchanged.
+    @Override
+    protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput output) {
+        super.addAdditionalSaveData(output);
+        CompoundTag modData = new CompoundTag();
+        this.addAdditionalSaveDataTag(modData);
+        output.store("SaintsDragonsData", CompoundTag.CODEC, modData);
+    }
+
+    @Override
+    protected void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput input) {
+        super.readAdditionalSaveData(input);
+        this.readAdditionalSaveDataTag(input.read("SaintsDragonsData", CompoundTag.CODEC).orElseGet(CompoundTag::new));
+    }
+
+    // 26.x: vanilla replaced the owner UUID accessors with EntityReference; kept here so callers stay unchanged.
+    @Nullable
+    public UUID getOwnerUUID() {
+        net.minecraft.world.entity.EntityReference<LivingEntity> owner = this.getOwnerReference();
+        return owner != null ? owner.getUUID() : null;
+    }
+
+    public void setOwnerUUID(@Nullable UUID ownerId) {
+        this.setOwnerReference(ownerId != null ? net.minecraft.world.entity.EntityReference.of(ownerId) : null);
+    }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "saintsdragons:draconic_crucible",
+  "pattern": [
+    "W W",
+    "HSH",
+    "CSC"
+  ],
+  "key": {
+    "W": "saintsdragons:raevyx_wingtalon",
+    "H": "saintsdragons:raevyx_wing_hide",
+    "S": "saintsdragons:raevyx_scale",
+    "C": "saintsdragons:dragonheart_chunk"
+  },
+  "result": {
+    "id": "saintsdragons:blood_tempest_chestplate",
+    "count": 1
+  },
+  "required_heat_level": 3,
+  "processing_time": 1800
+}

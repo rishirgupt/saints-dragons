@@ -1,0 +1,38 @@
+{
+  "parent": "saintsdragons:root",
+  "display": {
+    "icon": {
+      "id": "saintsdragons:dragon_scale_icon"
+    },
+    "title": {
+      "translate": "advancement.saintsdragons.acquire_dragon_scale.title"
+    },
+    "description": {
+      "translate": "advancement.saintsdragons.acquire_dragon_scale.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_dragon_scale": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "saintsdragons:atroxiia_scale",
+              "saintsdragons:cindervane_scale",
+              "saintsdragons:ignivorus_scale",
+              "saintsdragons:raevyx_scale",
+              "saintsdragons:stegonaut_scale",
+              "saintsdragons:varasuchus_scale",
+              "saintsdragons:volitans_scale"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

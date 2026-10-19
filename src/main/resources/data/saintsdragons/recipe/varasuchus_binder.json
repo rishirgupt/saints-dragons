@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " N ",
+    "SCN",
+    " S "
+  ],
+  "key": {
+    "S": "saintsdragons:varasuchus_scale",
+    "N": "minecraft:nautilus_shell",
+    "C": "saintsdragons:dragon_binder_core"
+  },
+  "result": {
+    "id": "saintsdragons:varasuchus_binder",
+    "count": 1
+  }
+}

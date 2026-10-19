@@ -1,0 +1,287 @@
+package com.leon.saintsdragons.server.entity.dragons.volitans.handlers;
+
+import com.leon.saintsdragons.common.config.dragon.profile.VolitansStatProfile;
+
+import com.leon.saintsdragons.common.SaintsDragonsCommon;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfig;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfigLoader;
+import com.leon.saintsdragons.common.config.dragon.DragonTamingChance;
+import com.leon.saintsdragons.common.registry.ModItems;
+import com.leon.saintsdragons.server.entity.dragons.handlers.AbstractDragonInteractionHandler;
+import com.leon.saintsdragons.server.entity.dragons.handlers.DragonBreedingInteractionHelper;
+import com.leon.saintsdragons.server.entity.dragons.volitans.Volitans;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
+public final class VolitansInteractionHandler extends AbstractDragonInteractionHandler<Volitans> {
+    public VolitansInteractionHandler(Volitans dragon) {
+        super(dragon);
+    }
+
+    @Override
+    protected Item getBinderItem() {
+        return ModItems.VOLITANS_BINDER.get();
+    }
+
+    @Override
+    protected InteractionResult handleUntamedInteraction(Player player, InteractionHand hand, ItemStack itemstack) {
+        boolean client = dragon.level().isClientSide();
+        DragonAttributeConfig config = DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.VOLITANS_ID);
+        boolean legacyTaming = config.extraBoolean("legacy_taming", false);
+
+        if (dragon.isBaby()) {
+            return handleBabyTaming(player, itemstack, config);
+        }
+
+        if (!dragon.isFood(itemstack)) {
+            return InteractionResult.PASS;
+        }
+
+        if (!legacyTaming && dragon.isTamingStunned() && !dragon.isReadyForTamingFeed()) {
+            sendStatusMessage(player, "entity.saintsdragons.volitans.taming_dazed");
+            return InteractionResult.CONSUME;
+        }
+
+        if (!dragon.canFeed()) {
+            if (!client && player instanceof ServerPlayer serverPlayer) {
+                serverPlayer.sendOverlayMessage(
+                        Component.translatable("entity.saintsdragons.volitans.still_eating", dragon.getName()));
+            }
+            return InteractionResult.CONSUME;
+        }
+
+        if (!legacyTaming) {
+            float minRequiredHealth = dragon.getTamingThreshold();
+            if (!dragon.isReadyForTamingFeed() && dragon.getHealth() > minRequiredHealth + 1.0F) {
+                sendStatusMessage(player, "entity.saintsdragons.volitans.taming_need_weakened", dragon.getName(), Math.round(minRequiredHealth));
+                return InteractionResult.CONSUME;
+            }
+        }
+
+        if (!client) {
+            consumeItem(player, itemstack);
+            dragon.triggerAnim("interaction", "eat");
+            dragon.playEatMovingSound();
+            dragon.setFeedingCooldown(61);
+
+            boolean hearty = itemstack.is(ModItems.HEARTY_DRAGON_MEAL.get());
+            if (legacyTaming && hearty) {
+                dragon.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 1));
+            }
+            dragon.applyFeedingHunger(hearty);
+
+            if (legacyTaming) {
+                float healAmount = hearty ? 28.0F : 10.0F;
+                dragon.setHealth(Math.min(dragon.getHealth() + healAmount, dragon.getMaxHealth()));
+            } else {
+                dragon.enterTamingStun();
+            }
+
+            double tameChance = hearty
+                    ? config.extraDouble("taming_chance_hearty", VolitansStatProfile.InteractionHandler.FALLBACK_TAMING_CHANCE_HEARTY)
+                    : config.extraDouble("taming_chance_base", VolitansStatProfile.InteractionHandler.FALLBACK_TAMING_CHANCE_BASE);
+            boolean success = DragonTamingChance.rollPercent(dragon.getRandom(), tameChance);
+            if (success) {
+                dragon.tame(player);
+                if (!legacyTaming && hearty) {
+                    dragon.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 1));
+                }
+                dragon.setOrderedToSit(true);
+                dragon.setCommand(1);
+                dragon.level().broadcastEntityEvent(dragon, (byte) 7);
+                if (!legacyTaming) {
+                    dragon.resetTamingFailures();
+                    dragon.clearTamingRecovery();
+                }
+                triggerTamingAdvancement(player);
+            } else {
+                if (!legacyTaming) {
+                    dragon.setTamingRecoveryTarget(nextFailureHealTarget());
+                    dragon.incrementTamingFailures();
+                }
+                dragon.level().broadcastEntityEvent(dragon, (byte) 6);
+                sendStatusMessage(player, "entity.saintsdragons.volitans.taming_failed");
+            }
+        }
+
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    protected InteractionResult handleTamedInteraction(Player player, InteractionHand hand, ItemStack itemstack) {
+        boolean isOwner = player.equals(dragon.getOwner());
+        InteractionResult growthStuntResult = tryHandleGrowthStuntingFood(
+                player,
+                itemstack,
+                "entity.saintsdragons.volitans",
+                dragon.canFeed(),
+                24,
+                () -> playEatFeedback(itemstack),
+                dragon::setFeedingCooldown
+        );
+        if (growthStuntResult != InteractionResult.PASS) {
+            return growthStuntResult;
+        }
+
+        if (dragon.canReceiveFoodFrom(player) && isVolitansFood(itemstack)) {
+            if (player.isCrouching()) {
+                return handleBreeding(player, itemstack);
+            }
+            return handleFeeding(player, itemstack);
+        }
+
+        if (isOwner) {
+            if (player.isCrouching() && dragon.canOwnerCommand(player) && hand == InteractionHand.MAIN_HAND) {
+                return handleCommandCycling(player);
+            }
+            if (!player.isCrouching() && !isVolitansFood(itemstack) && hand == InteractionHand.MAIN_HAND && dragon.canOwnerMount(player)) {
+                return handleMounting(player);
+            }
+        }
+
+        return InteractionResult.PASS;
+    }
+
+    private InteractionResult handleBabyTaming(Player player, ItemStack itemstack, DragonAttributeConfig config) {
+        var baby = dragon.getBabyComponent();
+        boolean hearty = itemstack.is(ModItems.HEARTY_DRAGON_MEAL.get());
+        boolean validFood = dragon.isFood(itemstack);
+        if (baby == null) {
+            return validFood ? InteractionResult.SUCCESS : InteractionResult.PASS;
+        }
+
+        double tameChance = hearty
+                ? config.extraDouble("taming_chance_hearty", VolitansStatProfile.InteractionHandler.FALLBACK_TAMING_CHANCE_HEARTY)
+                : config.extraDouble("taming_chance_base", VolitansStatProfile.InteractionHandler.FALLBACK_TAMING_CHANCE_BASE);
+        return baby.tryHandleBabyFoodTaming(
+                player,
+                itemstack,
+                "entity.saintsdragons.volitans",
+                validFood,
+                dragon.canFeed(),
+                61,
+                hearty,
+                () -> {
+                    dragon.triggerAnim("interaction", "eat");
+                    dragon.playEatMovingSound();
+                },
+                dragon::setFeedingCooldown,
+                tameChance,
+                () -> {
+                    dragon.tame(player);
+                    dragon.setOrderedToSit(true);
+                    dragon.setCommand(1);
+                    triggerTamingAdvancement(player);
+                }
+        );
+    }
+
+    private InteractionResult handleBreeding(Player player, ItemStack food) {
+        return DragonBreedingInteractionHelper.handleBreeding(
+                dragon,
+                player,
+                food,
+                dragon::canFeed,
+                "entity.saintsdragons.volitans.still_eating",
+                61,
+                () -> playEatFeedback(food),
+                dragon::setFeedingCooldown
+        );
+    }
+
+    private InteractionResult handleFeeding(Player player, ItemStack food) {
+        var baby = dragon.getBabyComponent();
+        if (baby != null && !baby.ensureCanFeed(player, "entity.saintsdragons.volitans", dragon.canFeed())) {
+            return InteractionResult.CONSUME;
+        }
+
+        if (!dragon.level().isClientSide()) {
+            consumeItem(player, food);
+            dragon.setFeedingCooldown(24);
+            playEatFeedback(food);
+
+            boolean heartyMeal = food.is(ModItems.HEARTY_DRAGON_MEAL.get());
+            boolean wasHungry = dragon.isHungry();
+
+            if (dragon.isBaby()) {
+                if (baby != null) {
+                    baby.applyBabyGrowth(player, heartyMeal, "entity.saintsdragons.volitans", 2400, 4800);
+                }
+            } else {
+                float healAmount = heartyMeal ? 28.0F : 10.0F;
+                float newHealth = Math.min(dragon.getHealth() + healAmount, dragon.getMaxHealth());
+                dragon.setHealth(newHealth);
+                dragon.applyFeedingHunger(heartyMeal);
+                if (heartyMeal) {
+                    dragon.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 1));
+                }
+                dragon.level().broadcastEntityEvent(dragon, (byte) 7);
+                sendFeedingMessage(player, newHealth, wasHungry);
+            }
+        }
+
+        return InteractionResult.SUCCESS;
+    }
+
+    private InteractionResult handleMounting(Player player) {
+        if (dragon.isVehicle()) {
+            return InteractionResult.SUCCESS;
+        }
+
+        if (!dragon.level().isClientSide()) {
+            dragon.prepareForMounting();
+            player.startRiding(dragon);
+        }
+        return InteractionResult.SUCCESS;
+    }
+
+    private void playEatFeedback(ItemStack food) {
+        dragon.triggerAnim("interaction", "eat");
+        dragon.playEatMovingSound();
+        dragon.level().broadcastEntityEvent(dragon, (byte) 6);
+        if (food.is(ModItems.HEARTY_DRAGON_MEAL.get())) {
+            dragon.level().broadcastEntityEvent(dragon, (byte) 7);
+        }
+    }
+
+    private void consumeItem(Player player, ItemStack food) {
+        consumeHeldItem(player, food);
+    }
+
+    private boolean isVolitansFood(ItemStack stack) {
+        return dragon.isFood(stack);
+    }
+
+    private Float nextFailureHealTarget() {
+        return dragon.getMaxHealth();
+    }
+
+    private void sendFeedingMessage(Player player, float newHealth, boolean wasHungry) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            String messageKey = newHealth >= dragon.getMaxHealth()
+                    ? (wasHungry ? "entity.saintsdragons.dragon.feeding" : "entity.saintsdragons.volitans.fed")
+                    : "entity.saintsdragons.volitans.fed_partial";
+            serverPlayer.sendOverlayMessage(Component.translatable(messageKey, dragon.getName()));
+        }
+    }
+
+    private void triggerTamingAdvancement(Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            var advancement = serverPlayer.level().getServer().getAdvancements()
+                    .get(SaintsDragonsCommon.rl("tame_volitans"));
+            if (advancement != null) {
+                serverPlayer.getAdvancements().award(advancement, "tame_volitans");
+            }
+        }
+    }
+
+}

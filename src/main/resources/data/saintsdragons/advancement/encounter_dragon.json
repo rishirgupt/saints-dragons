@@ -1,0 +1,23 @@
+{
+  "parent": "saintsdragons:root",
+  "display": {
+    "icon": {
+      "id": "saintsdragons:dragon_encounter_icon"
+    },
+    "title": {
+      "translate": "advancement.saintsdragons.encounter_dragon.title"
+    },
+    "description": {
+      "translate": "advancement.saintsdragons.encounter_dragon.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "encounter_dragon": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,0 +1,377 @@
+package com.leon.saintsdragons.server.entity.effect.raevyx;
+
+import com.leon.saintsdragons.common.particle.raevyx.RaevyxLightningStormData;
+import net.minecraft.core.UUIDUtil;
+import com.leon.saintsdragons.common.particle.raevyx.RaevyxLightningChainData;
+import com.leon.saintsdragons.common.registry.ModEntities;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonElementalImmunity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.PushReaction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.NotNull;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.UUID;
+
+public class RaevyxLightningChainEntity extends Entity {
+    private static final EntityDataAccessor<Float> DAMAGE = SynchedEntityData.defineId(RaevyxLightningChainEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> SIZE = SynchedEntityData.defineId(RaevyxLightningChainEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> LIFESPAN = SynchedEntityData.defineId(RaevyxLightningChainEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DELAY = SynchedEntityData.defineId(RaevyxLightningChainEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> IS_CHAIN = SynchedEntityData.defineId(RaevyxLightningChainEntity.class, EntityDataSerializers.BOOLEAN);
+
+    @Nullable
+    private LivingEntity owner;
+    @Nullable
+    private UUID ownerUUID;
+    private Vec3 startPos;
+    private Vec3 endPos;
+    private int chainCount = 0;
+    private int maxChains = 3;
+
+    public RaevyxLightningChainEntity(EntityType<? extends RaevyxLightningChainEntity> entityType, Level level) {
+        super(entityType, level);
+    }
+
+    public RaevyxLightningChainEntity(Level level, double x, double y, double z, float damage, float size,
+                                      LivingEntity caster, boolean isChain) {
+        this(ModEntities.RAEVYX_LIGHTNING_CHAIN.get(), level);
+        this.setPos(x, y, z);
+        this.setDamage(damage);
+        this.setSize(size);
+        this.setCaster(caster);
+        this.setIsChain(isChain);
+        this.setDelay(0);
+        this.setLifespan(0);
+    }
+
+    public RaevyxLightningChainEntity(Level level, Vec3 startPos, Vec3 endPos, float damage, float size,
+                                      LivingEntity caster, boolean isChain) {
+        this(level, startPos.x, startPos.y, startPos.z, damage, size, caster, isChain);
+        this.startPos = startPos;
+        this.endPos = endPos;
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        builder.define(DAMAGE, 0F);
+        builder.define(SIZE, 1.0F);
+        builder.define(LIFESPAN, 0);
+        builder.define(DELAY, 0);
+        builder.define(IS_CHAIN, false);
+    }
+
+    public int getLifespan() {
+        return this.entityData.get(LIFESPAN);
+    }
+
+    public void setLifespan(int lifespan) {
+        this.entityData.set(LIFESPAN, lifespan);
+    }
+
+    public int getDelay() {
+        return this.entityData.get(DELAY);
+    }
+
+    public void setDelay(int delay) {
+        this.entityData.set(DELAY, delay);
+    }
+
+    public float getSize() {
+        return this.entityData.get(SIZE);
+    }
+
+    public void setSize(float size) {
+        if (!this.level().isClientSide()) {
+            this.entityData.set(SIZE, Mth.clamp(size, 0.5F, 3.0F));
+        }
+    }
+
+    public float getDamage() {
+        return entityData.get(DAMAGE);
+    }
+
+    public void setDamage(float damage) {
+        entityData.set(DAMAGE, damage);
+    }
+
+    public boolean getIsChain() {
+        return entityData.get(IS_CHAIN);
+    }
+
+    public void setIsChain(boolean isChain) {
+        entityData.set(IS_CHAIN, isChain);
+    }
+
+    public void setCaster(@Nullable LivingEntity caster) {
+        this.owner = caster;
+        this.ownerUUID = caster == null ? null : caster.getUUID();
+    }
+
+    @Nullable
+    public LivingEntity getCaster() {
+        if (this.owner == null && this.ownerUUID != null && this.level() instanceof ServerLevel) {
+            Entity entity = ((ServerLevel)this.level()).getEntity(this.ownerUUID);
+            if (entity instanceof LivingEntity) {
+                this.owner = (LivingEntity)entity;
+            }
+        }
+        return this.owner;
+    }
+
+    @Override
+    public boolean shouldRenderAtSqrDistance(double distance) {
+        double d0 = 64.0F * getViewScale();
+        return distance < d0 * d0;
+    }
+
+    @Override
+    public @NotNull PushReaction getPistonPushReaction() {
+        return PushReaction.IGNORE;
+    }
+
+    @Override
+    public @NotNull EntityDimensions getDimensions(@Nonnull Pose pose) {
+        return EntityDimensions.scalable(this.getSize() * 0.5F, this.getSize());
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        
+        setLifespan(this.getLifespan() + 1);
+        int adjustedLifespan = this.getLifespan() - this.getDelay();
+
+        if (this.level().isClientSide()) {
+            // Client-side particle effects
+            if (adjustedLifespan == 1) {
+                spawnLightningParticles();
+            }
+        } else {
+            // Server-side damage and chain logic
+            if (adjustedLifespan == 5) {
+                dealDamage();
+                if (getIsChain() && chainCount < maxChains) {
+                    attemptChainLightning();
+                }
+            }
+            
+            if (adjustedLifespan > 20) {
+                this.discard();
+            }
+        }
+    }
+
+    private void spawnLightningParticles() {
+        if (startPos != null && endPos != null) {
+            if (getIsChain()) {
+                this.level().addAlwaysVisibleParticle(
+                    new RaevyxLightningChainData(getSize(), startPos, endPos),
+                    startPos.x, startPos.y, startPos.z,
+                    0, 0, 0
+                );
+            } else {
+                // Static lightning storm for single strikes
+                Vec3 delta = endPos.subtract(startPos);
+                int segments = Math.max(3, (int)(delta.length() * 4));
+                Vec3 step = delta.scale(1.0 / segments);
+                
+                for (int i = 0; i <= segments; i++) {
+                    Vec3 pos = startPos.add(step.scale(i));
+                    Vec3 dir = step.normalize();
+                    
+                    this.level().addAlwaysVisibleParticle(
+                        new RaevyxLightningStormData(getSize()),
+                        pos.x, pos.y, pos.z,
+                        dir.x, dir.y, dir.z
+                    );
+                }
+            }
+        } else {
+            this.level().addAlwaysVisibleParticle(
+                new RaevyxLightningStormData(getSize()),
+                this.getX(), this.getY(), this.getZ(),
+                0, 0, 0
+            );
+        }
+    }
+
+    private void dealDamage() {
+        AABB damageBox = this.getBoundingBox().inflate(getSize() * 2.0);
+        
+        for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class, damageBox)) {
+            if (entity.isAlive()
+                    && !entity.isInvulnerable()
+                    && entity != getCaster()
+                    && !DragonElementalImmunity.isElectricityImmune(entity)) {
+                LivingEntity caster = getCaster();
+                if (isProtectedFromCaster(caster, entity)) {
+                    DamageSource damageSource = caster != null ? 
+                        this.damageSources().mobAttack(caster) : 
+                        this.damageSources().magic();
+                    
+                    entity.hurt(damageSource, getDamage());
+                    spawnImpactEffects(entity.position().add(0, entity.getBbHeight() / 2, 0));
+                }
+            }
+        }
+    }
+
+    private void spawnImpactEffects(Vec3 impactPos) {
+        if (!(this.level() instanceof ServerLevel server)) return;
+        float size = getSize() * 0.8f;
+        server.sendParticles(new RaevyxLightningStormData(size),
+                impactPos.x, impactPos.y, impactPos.z,
+                1, 0, 0, 0, 0.0);
+    }
+
+    private void spawnChainImpactEffects(Vec3 chainPos) {
+        if (!(this.level() instanceof ServerLevel server)) return;
+        float size = getSize() * 0.6f;
+
+        server.sendParticles(new RaevyxLightningStormData(size),
+                chainPos.x, chainPos.y, chainPos.z,
+                1, 0, 0, 0, 0.0);
+    }
+
+    private void attemptChainLightning() {
+        if (!(this.level() instanceof ServerLevel serverLevel)) return;
+        
+        AABB searchBox = this.getBoundingBox().inflate(getSize() * 4.0);
+        LivingEntity nearestTarget = null;
+        double nearestDistance = Double.MAX_VALUE;
+        
+        for (LivingEntity entity : serverLevel.getEntitiesOfClass(LivingEntity.class, searchBox)) {
+            if (entity.isAlive()
+                    && !entity.isInvulnerable()
+                    && entity != getCaster()
+                    && !DragonElementalImmunity.isElectricityImmune(entity)) {
+                LivingEntity caster = getCaster();
+                if (isProtectedFromCaster(caster, entity)) {
+                    double distance = this.distanceTo(entity);
+                    if (distance < nearestDistance) {
+                        nearestTarget = entity;
+                        nearestDistance = distance;
+                    }
+                }
+            }
+        }
+        
+        if (nearestTarget != null) {
+            Vec3 chainStart = this.position();
+            Vec3 chainEnd = nearestTarget.position().add(0, nearestTarget.getBbHeight() / 2, 0);
+            spawnChainImpactEffects(chainStart);
+            RaevyxLightningChainEntity chainEntity = new RaevyxLightningChainEntity(
+                serverLevel, chainStart, chainEnd, 
+                getDamage() * 0.8f, getSize() * 0.9f, 
+                getCaster(), true
+            );
+            chainEntity.chainCount = this.chainCount + 1;
+            chainEntity.maxChains = this.maxChains;
+            
+            serverLevel.addFreshEntity(chainEntity);
+        }
+    }
+
+    private boolean isProtectedFromCaster(@Nullable LivingEntity caster, LivingEntity target) {
+        if (caster == null) {
+            return true;
+        }
+
+        if (caster instanceof DragonEntity dragon && dragon.isAlly(target)) {
+            return false;
+        }
+
+        return !caster.isAlliedTo(target);
+    }
+
+    
+    protected void addAdditionalSaveDataTag(@Nonnull CompoundTag compound) {
+        compound.putInt("lifespan", this.getLifespan());
+        compound.putInt("delay", this.getDelay());
+        compound.putFloat("damage", this.getDamage());
+        compound.putFloat("size", this.getSize());
+        compound.putBoolean("isChain", this.getIsChain());
+        compound.putInt("chainCount", this.chainCount);
+        compound.putInt("maxChains", this.maxChains);
+        
+        if (this.ownerUUID != null) {
+            compound.store("Owner", UUIDUtil.CODEC, this.ownerUUID);
+        }
+        
+        if (startPos != null) {
+            compound.putDouble("startX", startPos.x);
+            compound.putDouble("startY", startPos.y);
+            compound.putDouble("startZ", startPos.z);
+        }
+        
+        if (endPos != null) {
+            compound.putDouble("endX", endPos.x);
+            compound.putDouble("endY", endPos.y);
+            compound.putDouble("endZ", endPos.z);
+        }
+    }
+
+    
+    protected void readAdditionalSaveDataTag(@Nonnull CompoundTag compound) {
+        this.setLifespan(compound.getIntOr("lifespan", 0));
+        this.setDelay(compound.getIntOr("delay", 0));
+        this.setDamage(compound.getFloatOr("damage", 0.0F));
+        this.setSize(compound.getFloatOr("size", 0.0F));
+        this.setIsChain(compound.getBooleanOr("isChain", false));
+        this.chainCount = compound.getIntOr("chainCount", 0);
+        this.maxChains = compound.getIntOr("maxChains", 0);
+        
+        if (compound.contains("Owner")) {
+            this.ownerUUID = compound.read("Owner", UUIDUtil.CODEC).orElse(null);
+        }
+        
+        if (compound.contains("startX")) {
+            this.startPos = new Vec3(
+                compound.getDoubleOr("startX", 0.0D),
+                compound.getDoubleOr("startY", 0.0D),
+                compound.getDoubleOr("startZ", 0.0D)
+            );
+        }
+        
+        if (compound.contains("endX")) {
+            this.endPos = new Vec3(
+                compound.getDoubleOr("endX", 0.0D),
+                compound.getDoubleOr("endY", 0.0D),
+                compound.getDoubleOr("endZ", 0.0D)
+            );
+        }
+    }
+
+    // 26.x save bridge: mod data is kept in one compound so the tag-based save code stays unchanged.
+    @Override
+    protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput output) {
+        CompoundTag modData = new CompoundTag();
+        this.addAdditionalSaveDataTag(modData);
+        output.store("SaintsDragonsData", CompoundTag.CODEC, modData);
+    }
+
+    @Override
+    protected void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput input) {
+        this.readAdditionalSaveDataTag(input.read("SaintsDragonsData", CompoundTag.CODEC).orElseGet(CompoundTag::new));
+    }
+
+    @Override
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel level, net.minecraft.world.damagesource.DamageSource source, float amount) {
+        return false;
+    }
+}

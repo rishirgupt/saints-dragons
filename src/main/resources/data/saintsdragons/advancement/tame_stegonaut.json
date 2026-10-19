@@ -1,0 +1,26 @@
+{
+  "parent": "saintsdragons:encounter_dragon",
+  "display": {
+    "icon": {
+      "id": "saintsdragons:stegonaut_binder"
+    },
+    "title": {
+      "translate": "advancement.saintsdragons.tame_stegonaut.title"
+    },
+    "description": {
+      "translate": "advancement.saintsdragons.tame_stegonaut.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "tame_stegonaut": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "rewards": {
+    "experience": 5
+  }
+}

@@ -1,0 +1,623 @@
+package com.leon.saintsdragons.common.registry;
+
+import com.leon.saintsdragons.common.item.*;
+import com.leon.saintsdragons.common.item.dragonfood.HeartyDragonMealItem;
+import com.leon.saintsdragons.common.item.tools.DragonheartWeaponTier;
+import com.leon.saintsdragons.common.item.tools.ConfiguredWorldrootItems;
+import com.leon.saintsdragons.common.SaintsDragonsCommon;
+import com.leon.saintsdragons.platform.RegistryHelper;
+import com.leon.saintsdragons.platform.Services;
+import com.leon.saintsdragons.server.entity.dragons.Mossback;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffects;
+
+import java.util.function.Supplier;
+
+public class ModItems {
+    public static final RegistryHelper.RegistryWrapper<Item> REGISTER =
+            Services.PLATFORM.getRegistryHelper()
+                    .create(Registries.ITEM, () -> BuiltInRegistries.ITEM, SaintsDragonsCommon.MOD_ID);
+
+    public static final Supplier<Item> RAEVYX_SPAWN_EGG =
+            REGISTER.register("raevyx_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.RAEVYX,
+                            0x000000, 0x8B0000,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> STEGONAUT_SPAWN_EGG =
+            REGISTER.register("stegonaut_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.STEGONAUT,
+                            0x9E8B70, 0x7148AC,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> CINDERVANE_SPAWN_EGG =
+            REGISTER.register("cindervane_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.CINDERVANE,
+                            0xF88017, 0x414F49,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> VARASUCHUS_SPAWN_EGG =
+            REGISTER.register("varasuchus_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.VARASUCHUS,
+                            0x849B59, 0xE8CE74,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> IGNIVORUS_SPAWN_EGG =
+            REGISTER.register("ignivorus_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.IGNIVORUS,
+                            0x0A0A0A, 0x5A5A5A,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> VOLITANS_SPAWN_EGG =
+            REGISTER.register("volitans_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.VOLITANS,
+                            0x2E6B7A, 0x9AD0D9,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> NULLJAW_SPAWN_EGG =
+            REGISTER.register("nulljaw_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.NULLJAW,
+                            0x121118, 0x7E8BA6,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+    public static final Supplier<Item> ATROXIIA_SPAWN_EGG =
+            REGISTER.register("atroxiia_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.ATROXIIA,
+                            0xFFFFFF, 0x808080,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> MOOP_SPAWN_EGG =
+            REGISTER.register("moop_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.MOOP,
+                            0x8CC7C8, 0xF2E5B8,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> MOSSBACK_SPAWN_EGG =
+            REGISTER.register("mossback_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.MOSSBACK,
+                            0x4F6F3A, 0xB7C46A,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> LATCHER_SPAWN_EGG =
+            REGISTER.register("latcher_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.LATCHER,
+                            0x000000, 0xFFFFFF,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> WINGED_SPAWN_EGG =
+            REGISTER.register("winged_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.WINGED,
+                            0x000000, 0xFFFFFF,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> WHETTLED_SPAWN_EGG =
+            REGISTER.register("whettled_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.WHETTLED,
+                            0x000000, 0xFFFFFF,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> DRACONIAN_SWARM_SPAWN_EGG =
+            REGISTER.register("draconian_swarm_spawn_egg",
+                    () -> Services.PLATFORM.createDraconianSwarmSpawnEgg(
+                            ModEntities.LATCHER,
+                            0x000000, 0xFFFFFF,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> DRACONIAN_FLESH =
+            REGISTER.register("draconian_flesh", () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRAGON_SEAL_STONE =
+            REGISTER.register("dragon_seal_stone", () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRAGON_BINDER_CORE =
+            REGISTER.register("dragon_binder_core", () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> RAW_WORLDROOT =
+            REGISTER.register("raw_worldroot", () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRAGONHEART_CHUNK =
+            REGISTER.register("dragonheart_chunk", () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRAGONHEART_ALLOY =
+            REGISTER.register("dragonheart_alloy", () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> WORLDROOT_INGOT =
+            REGISTER.register("worldroot_ingot", () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> WORLDROOT_SWORD =
+            REGISTER.register("worldroot_sword",
+                    () -> new ConfiguredWorldrootItems.Sword(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> BLOOD_TEMPEST_KATANA =
+            REGISTER.register("blood_tempest_katana",
+                    () -> Services.PLATFORM.createDragonheartSword(
+                            DragonheartWeaponTier.CHUNK, 3, -1.0F, 5.0D, 0.8F,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().rarity(Rarity.RARE)));
+
+    public static final Supplier<Item> DRAGONLORD_SWORD =
+            REGISTER.register("dragonlord_sword",
+                    () -> Services.PLATFORM.createDragonheartSword(
+                            DragonheartWeaponTier.ALLOY, 5, -2.6F, 7.0D, 0.0F,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().rarity(Rarity.EPIC).fireResistant()));
+
+    public static final Supplier<Item> WORLDROOT_PICKAXE =
+            REGISTER.register("worldroot_pickaxe",
+                    () -> new ConfiguredWorldrootItems.Pickaxe(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> WORLDROOT_AXE =
+            REGISTER.register("worldroot_axe",
+                    () -> new ConfiguredWorldrootItems.Axe(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> WORLDROOT_SHOVEL =
+            REGISTER.register("worldroot_shovel",
+                    () -> new ConfiguredWorldrootItems.Shovel(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> WORLDROOT_HOE =
+            REGISTER.register("worldroot_hoe",
+                    () -> new ConfiguredWorldrootItems.Hoe(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> IVY_THE_MERCHANT_SPAWN_EGG =
+            REGISTER.register("ivy_the_merchant_spawn_egg",
+                    () -> Services.PLATFORM.createSpawnEgg(
+                            ModEntities.IVY_THE_DRAGON_MERCHANT,
+                            0x6B5B4B, 0xC2A27A,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> IVY_OCTOPUS_PLUSHIE =
+            REGISTER.register("ivy_octopus_plushie",
+                    () -> new IvyOctopusPlushieItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .rarity(Rarity.RARE)
+                    ));
+
+    // Block Items
+    public static final Supplier<Item> DRACONIAN_PELLUCIDA =
+            REGISTER.register("draconian_pellucida",
+                    () -> new BlockItem(ModBlocks.DRACONIAN_PELLUCIDA.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> DRACONIAN_NUCLEUS =
+            REGISTER.register("draconian_nucleus",
+                    () -> new BlockItem(ModBlocks.DRACONIAN_NUCLEUS.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> DRACONIC_CRUCIBLE =
+            REGISTER.register("draconic_crucible",
+                    () -> new BlockItem(ModBlocks.DRACONIC_CRUCIBLE.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> DRAGONHEART_ORE =
+            REGISTER.register("dragonheart_ore",
+                    () -> new BlockItem(ModBlocks.DRAGONHEART_ORE.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> DRAGONHEART_ALLOY_BLOCK =
+            REGISTER.register("dragonheart_alloy_block",
+                    () -> new BlockItem(ModBlocks.DRAGONHEART_ALLOY_BLOCK.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> DRAGONHEART_BLOCK =
+            REGISTER.register("dragonheart_block",
+                    () -> new BlockItem(ModBlocks.DRAGONHEART_BLOCK.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> DEEPSLATE_WORLDROOT_ORE =
+            REGISTER.register("deepslate_worldroot_ore",
+                    () -> new BlockItem(ModBlocks.DEEPSLATE_WORLDROOT_ORE.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> WORLDROOT_BLOCK =
+            REGISTER.register("worldroot_block",
+                    () -> new BlockItem(ModBlocks.WORLDROOT_BLOCK.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> RAW_WORLDROOT_BLOCK =
+            REGISTER.register("raw_worldroot_block",
+                    () -> new BlockItem(ModBlocks.RAW_WORLDROOT_BLOCK.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> IGNIVORUS_INCUBATOR_BLOCK =
+            REGISTER.register("ignivorus_incubator_block",
+                    () -> new BlockItem(ModBlocks.IGNIVORUS_INCUBATOR_BLOCK.get(), com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> RAEVYX_EGG =
+            REGISTER.register("raevyx_egg",
+                    () -> new BlockItem(ModBlocks.RAEVYX_EGG.get(),
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> IGNIVORUS_EGG =
+            REGISTER.register("ignivorus_egg",
+                    () -> new BlockItem(ModBlocks.IGNIVORUS_EGG.get(),
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> CINDERVANE_EGG =
+            REGISTER.register("cindervane_egg",
+                    () -> new BlockItem(ModBlocks.CINDERVANE_EGG.get(),
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> VARASUCHUS_EGG =
+            REGISTER.register("varasuchus_egg",
+                    () -> new BlockItem(ModBlocks.VARASUCHUS_EGG.get(),
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> STEGONAUT_EGG =
+            REGISTER.register("stegonaut_egg",
+                    () -> new BlockItem(ModBlocks.STEGONAUT_EGG.get(),
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> VOLITANS_EGG =
+            REGISTER.register("volitans_egg",
+                    () -> new BlockItem(ModBlocks.VOLITANS_EGG.get(),
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> ATROXIIA_EGG =
+            REGISTER.register("atroxiia_egg",
+                    () -> new BlockItem(ModBlocks.ATROXIIA_EGG.get(),
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps().useBlockDescriptionPrefix()));
+
+    public static final Supplier<Item> DRACONIC_CODEX =
+            REGISTER.register("draconic_codex",
+                    () -> new DragonAllyBookItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+
+    //it's unused but important
+    public static final Supplier<Item> DRAGON_ENCOUNTER_ICON =
+            REGISTER.register("dragon_encounter_icon",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRACONIAN_NUCLEUS_PARTICLE_ICON =
+            REGISTER.register("draconian_nucleus_particle_icon",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRAGON_BINDER_ICON =
+            REGISTER.register("dragon_binder_icon",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRAGON_SCALE_ICON =
+            REGISTER.register("dragon_scale_icon",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> WATER_SPLASH_ICON =
+            REGISTER.register("water_splash_icon",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> BLOOD_TEMPEST_ARMOR_SET_ICON =
+            REGISTER.register("blood_tempest_armor_set_icon",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRAGONLORD_ARMOR_SET_ICON =
+            REGISTER.register("dragonlord_armor_set_icon",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()));
+
+    public static final Supplier<Item> DRAGON_BRUSH =
+            REGISTER.register("dragon_brush",
+                    () -> new DragonBrushItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(256)
+                    ));
+    public static final Supplier<Item> CREATIVE_DRAGON_GENDER_WAND =
+            REGISTER.register("creative_dragon_gender_wand", () -> new CreativeDragonToolItem(
+                    com.leon.saintsdragons.platform.RegistrationContext.itemProps().stacksTo(1), CreativeDragonToolItem.Action.GENDER));
+    public static final Supplier<Item> CREATIVE_DRAGON_TAME_MEAL =
+            REGISTER.register("creative_dragon_tame_meal", () -> new CreativeDragonToolItem(
+                    com.leon.saintsdragons.platform.RegistrationContext.itemProps().stacksTo(1), CreativeDragonToolItem.Action.TAME));
+    public static final Supplier<Item> CREATIVE_DRAGON_VARIANT_BRUSH =
+            REGISTER.register("creative_dragon_variant_brush", () -> new CreativeDragonToolItem(
+                    com.leon.saintsdragons.platform.RegistrationContext.itemProps().stacksTo(1), CreativeDragonToolItem.Action.VARIANT));
+    //end
+
+    public static final Supplier<Item> GOLDEN_DRAGON_BRUSH =
+            REGISTER.register("golden_dragon_brush",
+                    () -> new DragonBrushItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(256)
+                    ));
+
+    public static final Supplier<Item> SCALE_PLUCKER =
+            REGISTER.register("scale_plucker",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(64)
+                    ));
+
+    public static final Supplier<Item> RAW_MOOP =
+            REGISTER.register("raw_moop",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .food(new FoodProperties.Builder()
+                                            .nutrition(2)
+                                            .saturationModifier(0.1F)
+                                            .build())
+                    ));
+
+    public static final Supplier<Item> COOKED_MOOP =
+            REGISTER.register("cooked_moop",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .food(new FoodProperties.Builder()
+                                            .nutrition(5)
+                                            .saturationModifier(0.6F)
+                                            .build())
+                    ));
+
+    public static final Supplier<Item> BUCKET_OF_MOOP =
+            REGISTER.register("bucket_of_moop",
+                    () -> Services.PLATFORM.createMobBucket(
+                            ModEntities.MOOP,
+                            Fluids.WATER,
+                            SoundEvents.BUCKET_EMPTY_FISH,
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                    ));
+
+    public static final Supplier<Item> MOSSBACK =
+            REGISTER.register("mossback",
+                    () -> new MossbackItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(16)
+                    ));
+
+    public static final Supplier<Item> RAW_MOSSBACK =
+            REGISTER.register("raw_mossback",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .food(new FoodProperties.Builder()
+                                            .nutrition(4)
+                                            .saturationModifier(0.3F)
+                                            .build(),
+                                            net.minecraft.world.item.component.Consumables.defaultFood()
+                                                    .onConsume(new net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect(java.util.List.of(
+                                                            Mossback.createToxinEffect(MobEffects.POISON),
+                                                            Mossback.createToxinEffect(MobEffects.NAUSEA),
+                                                            Mossback.createToxinEffect(MobEffects.BLINDNESS))))
+                                                    .build())
+                    ));
+
+    public static final Supplier<Item> COOKED_MOSSBACK =
+            REGISTER.register("cooked_mossback",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .food(new FoodProperties.Builder()
+                                            .nutrition(8)
+                                            .saturationModifier(0.5F)
+                                            .build())
+                    ));
+
+    public static final Supplier<Item> RAEVYX_SCALE =
+            REGISTER.register("raevyx_scale",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> RAEVYX_WING_HIDE =
+            REGISTER.register("raevyx_wing_hide",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> RAEVYX_WINGTALON =
+            REGISTER.register("raevyx_wingtalon",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> CINDERVANE_SCALE =
+            REGISTER.register("cindervane_scale",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> SEARING_COAL =
+            REGISTER.register("searing_coal",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> ANCIENT_DRAGONITE_FRAGMENT =
+            REGISTER.register("ancient_dragonite_fragment",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> IGNIVORUS_SCALE =
+            REGISTER.register("ignivorus_scale",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> IGNIVORUS_WING_HIDE =
+            REGISTER.register("ignivorus_wing_hide",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> IGNIVORUS_HEART =
+            REGISTER.register("ignivorus_heart",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> IGNIVORUS_TOOTH =
+            REGISTER.register("ignivorus_tooth",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> VARASUCHUS_SCALE =
+            REGISTER.register("varasuchus_scale",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> VOLITANS_SCALE =
+            REGISTER.register("volitans_scale",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> VOLITANS_SPINE =
+            REGISTER.register("volitans_spine",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> ARROW_OF_VENOM =
+            REGISTER.register("arrow_of_venom",
+                    () -> new ArrowOfVenomItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> STEGONAUT_SCALE =
+            REGISTER.register("stegonaut_scale",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> ATROXIIA_SCALE =
+            REGISTER.register("atroxiia_scale",
+                    () -> new Item(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                    ));
+
+    public static final Supplier<Item> STEGONAUT_BINDER =
+            REGISTER.register("stegonaut_binder",
+                    () -> new StegonautBinderItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+
+    public static final Supplier<Item> ATROXIIA_BINDER =
+            REGISTER.register("atroxiia_binder",
+                    () -> new AtroxiiaBinderItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+
+    public static final Supplier<Item> RAEVYX_BINDER =
+            REGISTER.register("raevyx_binder",
+                    () -> new RaevyxBinderItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+
+    public static final Supplier<Item> CINDERVANE_BINDER =
+            REGISTER.register("cindervane_binder",
+                    () -> new CindervaneBinderItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+
+    public static final Supplier<Item> VARASUCHUS_BINDER =
+            REGISTER.register("varasuchus_binder",
+                    () -> new VarasuchusBinderItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+    public static final Supplier<Item> IGNIVORUS_BINDER =
+            REGISTER.register("ignivorus_binder",
+                    () -> new IgnivorusBinderItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+    public static final Supplier<Item> VOLITANS_BINDER =
+            REGISTER.register("volitans_binder",
+                    () -> new VolitansBinderItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+
+    public static final Supplier<Item> NULLJAW_BINDER =
+            REGISTER.register("nulljaw_binder",
+                    () -> new NulljawBinderItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+
+    public static final Supplier<Item> HEARTY_DRAGON_MEAL =
+            REGISTER.register("hearty_dragon_meal",
+                    () -> new HeartyDragonMealItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(16)
+                                    .food(new FoodProperties.Builder()
+                                            .nutrition(10)
+                                            .saturationModifier(1.2f)
+                                            .build())
+                    ));
+    public static final Supplier<Item> DRACONIAN_CONTROLLER =
+            REGISTER.register("draconian_controller",
+                    () -> new DraconianControllerItem(
+                            com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .durability(0)
+                    ));
+
+    public static final Supplier<Item> BLEEDING_BOLT_MUSIC_DISC =
+            REGISTER.register("bleeding_bolt_music_disc",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .rarity(Rarity.RARE)
+                                    .jukeboxPlayable(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.JUKEBOX_SONG,
+                                            net.minecraft.resources.Identifier.fromNamespaceAndPath("saintsdragons", "bleeding_bolt")))));
+    public static final Supplier<Item> MOSSBACK_MUSIC_MUSIC_DISC =
+            REGISTER.register("mossback_music_music_disc",
+                    () -> new Item(com.leon.saintsdragons.platform.RegistrationContext.itemProps()
+                                    .stacksTo(1)
+                                    .rarity(Rarity.COMMON)
+                                    .jukeboxPlayable(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.JUKEBOX_SONG,
+                                            net.minecraft.resources.Identifier.fromNamespaceAndPath("saintsdragons", "mossback_music")))));
+
+    public static boolean isDragonBrush(ItemStack stack) {
+        return stack.is(ModTags.Items.DRAGON_BRUSHES);
+    }
+
+    public static boolean isScalePlucker(ItemStack stack) {
+        return stack.is(SCALE_PLUCKER.get());
+    }
+
+    public static void register() {
+        ModArmors.init();
+        ModPotionItems.init();
+        REGISTER.register();
+    }
+}

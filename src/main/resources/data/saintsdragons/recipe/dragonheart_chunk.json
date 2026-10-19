@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "D"
+  ],
+  "key": {
+    "D": "saintsdragons:dragonheart_block"
+  },
+  "result": {
+    "id": "saintsdragons:dragonheart_chunk",
+    "count": 9
+  }
+}

@@ -1,0 +1,166 @@
+package com.leon.saintsdragons.server.entity.ability.abilities.raevyx;
+
+import com.leon.saintsdragons.common.config.dragon.profile.RaevyxStatProfile;
+
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfigLoader;
+import com.leon.saintsdragons.common.registry.ModSounds;
+import com.leon.saintsdragons.server.entity.ability.DragonAbility;
+import com.leon.saintsdragons.server.entity.ability.DragonAbilitySection;
+import com.leon.saintsdragons.server.entity.ability.DragonAbilityType;
+import com.leon.saintsdragons.server.entity.ability.DragonMeleeGeometry;
+import com.leon.saintsdragons.server.entity.ability.debug.DragonAbilityDebug;
+import com.leon.saintsdragons.server.entity.dragons.raevyx.Raevyx;
+import com.leon.saintsdragons.server.entity.dragons.raevyx.handlers.RaevyxAnimationHandler;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import static com.leon.saintsdragons.server.entity.ability.DragonAbilitySection.*;
+
+public class RaevyxHornGoreAbility extends DragonAbility<Raevyx> {
+    private static final float DEFAULT_GORE_DAMAGE = RaevyxStatProfile.HornGoreAbility.DEFAULT_GORE_DAMAGE;
+    private static final double GORE_RANGE = RaevyxStatProfile.HornGoreAbility.GORE_RANGE;
+    private static final double HITBOX_FORWARD_OFFSET = 2.0;
+    private static final int DEBUG_COLOR = 0xFFCC33;
+    private static final int DEBUG_TICKS = 20;
+
+    private static final DragonAbilitySection[] TRACK = new DragonAbilitySection[] {
+            new AbilitySectionDuration(AbilitySectionType.STARTUP, 3),
+            new AbilitySectionDuration(AbilitySectionType.ACTIVE, 2),
+            new AbilitySectionDuration(AbilitySectionType.RECOVERY, 3)
+    };
+
+    private final Set<Integer> hitIdsThisUse = new HashSet<>();
+    private boolean sentDebugThisUse = false;
+
+    public RaevyxHornGoreAbility(DragonAbilityType<Raevyx, RaevyxHornGoreAbility> type, Raevyx user) {
+        super(type, user, TRACK, 3);
+    }
+
+    @Override
+    protected void beginSection(DragonAbilitySection section) {
+        if (section == null) return;
+        if (section.sectionType == AbilitySectionType.STARTUP) {
+            getUser().triggerAnim(RaevyxAnimationHandler.FAST_ACTION_CONTROLLER, "horn_gore");
+            if (!getUser().level().isClientSide()) {
+                float pitch = 0.9f + getUser().getRandom().nextFloat() * 0.2f;
+                getUser().getSoundHandler().playMovingEntitySound(ModSounds.RAEVYX_HORNGORE.get(), 1.3f, pitch, 19);
+            }
+            hitIdsThisUse.clear();
+            sentDebugThisUse = false;
+        } else if (section.sectionType == AbilitySectionType.ACTIVE) {
+            hitIdsThisUse.clear();
+        }
+    }
+
+    @Override
+    public void tickUsing() {
+        DragonAbilitySection section = getCurrentSection();
+        if (section == null) return;
+        if (section.sectionType != AbilitySectionType.ACTIVE) return;
+        List<LivingEntity> candidates = findTargets();
+        List<LivingEntity> newHits = new ArrayList<>();
+        for (LivingEntity le : candidates) {
+            if (hitIdsThisUse.add(le.getId())) {
+                newHits.add(le);
+            }
+        }
+        if (!newHits.isEmpty()) {
+            for (LivingEntity le : newHits) {
+                applyGore(le);
+            }
+        }
+    }
+
+    private List<LivingEntity> findTargets() {
+        Raevyx wyvern = getUser();
+        boolean ridden = wyvern.getControllingPassenger() != null;
+        double range = GORE_RANGE;
+
+        if (!ridden) {
+            LivingEntity target = wyvern.getTarget();
+            sendDebugBox(wyvern, range);
+            if (DragonMeleeGeometry.isDirectAiTargetValid(wyvern, target)) {
+                return List.of(target);
+            }
+            return List.of();
+        }
+
+        sendDebugBox(wyvern, range);
+        return DragonMeleeGeometry.findBodySweepTargets(
+                wyvern,
+                range,
+                range,
+                range,
+                HITBOX_FORWARD_OFFSET,
+                entity -> !isAllied(wyvern, entity)
+        );
+    }
+
+    private void sendDebugBox(Raevyx wyvern, double range) {
+        if (sentDebugThisUse || wyvern.level().isClientSide()) {
+            return;
+        }
+        DragonMeleeGeometry.ForwardAttack attack = DragonMeleeGeometry.bodyForwardAttack(wyvern).offset(HITBOX_FORWARD_OFFSET);
+        DragonAbilityDebug.sendBox(wyvern, attack.sweep(range, range, range), DEBUG_COLOR, DEBUG_TICKS);
+        sentDebugThisUse = true;
+    }
+
+    private void applyGore(LivingEntity target) {
+        Raevyx wyvern = getUser();
+        DamageSource src = wyvern.level().damageSources().mobAttack(wyvern);
+        float mult = wyvern.getDamageMultiplier() * wyvern.getHungerMeleeDamageMultiplier();
+        boolean isSupercharged = wyvern.isSupercharged();
+        float armorPenetration = isSupercharged ? 4.0f : 2.0f;
+        float armor = (float) target.getAttributeValue(Attributes.ARMOR);
+        float toughness = (float) target.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
+        float desiredPostArmor = damageAfterArmor(resolveGoreDamage() * mult, Math.max(0f, armor - armorPenetration), toughness);
+        float rawToDeal = solveRawDamageForPostArmor(desiredPostArmor, armor, toughness);
+        target.hurt(src, rawToDeal);
+        wyvern.noteAggroFrom(target);
+        Vec3 look = wyvern.getLookAngle().normalize();
+        double strength = isSupercharged ? 2.8 : 1.4;
+        target.knockback((float) strength, -look.x, -look.z, target.damageSources().generic(), 0.0F);
+        Vec3 dv = target.getDeltaMovement();
+        float verticalLift = isSupercharged ? 0.7f : 0.35f;
+        target.setDeltaMovement(dv.x, Math.max(dv.y, verticalLift), dv.z);
+
+    }
+
+    private static float damageAfterArmor(float damage, float armor, float toughness) {
+        float f = 2.0F + toughness / 4.0F;
+        float reduction = Mth.clamp(armor - damage / f, armor * 0.2F, 20.0F);
+        return damage * (1.0F - reduction / 25.0F);
+    }
+
+    private static float solveRawDamageForPostArmor(float desiredPostArmor, float armor, float toughness) {
+        float lo = 0.0f;
+        float hi = Math.max(desiredPostArmor + 16.0f, 16.0f);
+        for (int i = 0; i < 8 && damageAfterArmor(hi, armor, toughness) < desiredPostArmor; i++) {
+            hi *= 2.0f;
+        }
+        for (int it = 0; it < 20; it++) {
+            float mid = (lo + hi) * 0.5f;
+            float val = damageAfterArmor(mid, armor, toughness);
+            if (val < desiredPostArmor) lo = mid; else hi = mid;
+        }
+        return (lo + hi) * 0.5f;
+    }
+
+    private boolean isAllied(Raevyx wyvern, Entity other) {
+        return wyvern.isAlly(other);
+    }
+
+    private float resolveGoreDamage() {
+        return (float) DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.RAEVYX_ID)
+                .abilityDamage("horn_gore", DEFAULT_GORE_DAMAGE);
+    }
+}

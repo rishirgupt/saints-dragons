@@ -1,0 +1,19 @@
+{
+  "type": "saintsdragons:draconic_crucible",
+  "pattern": [
+    "  T",
+    "CT ",
+    "SC "
+  ],
+  "key": {
+    "T": "saintsdragons:raevyx_wingtalon",
+    "C": "saintsdragons:dragonheart_chunk",
+    "S": "minecraft:stick"
+  },
+  "result": {
+    "id": "saintsdragons:blood_tempest_katana",
+    "count": 1
+  },
+  "required_heat_level": 3,
+  "processing_time": 1800
+}

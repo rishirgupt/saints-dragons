@@ -1,0 +1,42 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_cindervane_scale": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "saintsdragons:cindervane_scale"
+            ]
+          }
+        ]
+      }
+    },
+    "has_dragon_binder_core": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "saintsdragons:dragon_binder_core"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_cindervane_scale"
+    ],
+    [
+      "has_dragon_binder_core"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "saintsdragons:cindervane_binder"
+    ]
+  }
+}

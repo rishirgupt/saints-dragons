@@ -1,0 +1,387 @@
+package com.leon.saintsdragons.server.entity.effect.ignivorus;
+
+import com.leon.saintsdragons.common.item.tools.SwordAbilityTargeting;
+import net.minecraft.core.UUIDUtil;
+import com.leon.saintsdragons.common.registry.ModEntities;
+import com.leon.saintsdragons.common.registry.ModParticles;
+import com.leon.saintsdragons.common.registry.ModSounds;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.NotNull;
+import com.geckolib.animatable.GeoEntity;
+import com.geckolib.animatable.instance.AnimatableInstanceCache;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.animation.AnimationController;
+import com.geckolib.animation.state.AnimationTest;
+import com.geckolib.animation.RawAnimation;
+import com.geckolib.animation.object.PlayState;
+import com.geckolib.util.GeckoLibUtil;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+
+public class IgnivorusMagmaPillarEntity extends Entity implements GeoEntity {
+    private static final RawAnimation EMERGE_ANIMATION =
+            RawAnimation.begin().thenPlay("animation.ignivorus_magma_pillar.emerge");
+    private static final RawAnimation SUBSIDE_ANIMATION =
+            RawAnimation.begin().thenPlay("animation.ignivorus_magma_pillar.subside");
+    private static final int SUBSIDE_DURATION_TICKS = 9;
+    private static final EntityDimensions BASE_DIMENSIONS = EntityDimensions.scalable(5.5F, 5.5F);
+    private static final double DAMAGE_RADIUS_BASE = 2.25D;
+    private static final double DAMAGE_RADIUS_SCALE_MULTIPLIER = 0.65D;
+    private static final double DAMAGE_VERTICAL_BELOW = 0.75D;
+    private static final double DAMAGE_VERTICAL_HEIGHT_BASE = 5.5D;
+    private static final double DAMAGE_VERTICAL_HEIGHT_SCALE_MULTIPLIER = 2.4D;
+    private static final EntityDataAccessor<Integer> DATA_STAGE =
+            SynchedEntityData.defineId(IgnivorusMagmaPillarEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_SCALE =
+            SynchedEntityData.defineId(IgnivorusMagmaPillarEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_SUBSIDING =
+            SynchedEntityData.defineId(IgnivorusMagmaPillarEntity.class, EntityDataSerializers.BOOLEAN);
+    private final AnimatableInstanceCache animationCache = GeckoLibUtil.createInstanceCache(this);
+    private LivingEntity owner;
+    private UUID ownerUUID;
+    private float impactDamage = 16.0f;
+    private double knockbackStrength = 1.0D;
+    private int warmupTicks = 6;
+    private int lifetimeTicks = 36;
+    private int livedTicks;
+    private int subsideTicks;
+    private final Set<UUID> hitEntities = new HashSet<>();
+    private boolean rotationLocked = false;
+    private float lockedHeadYaw = 0.0f;
+    private boolean impactEffectsSpawned;
+
+    public IgnivorusMagmaPillarEntity(EntityType<? extends IgnivorusMagmaPillarEntity> type, Level level) {
+        super(type, level);
+        this.noPhysics = true;
+    }
+
+    public IgnivorusMagmaPillarEntity(Level level, Vec3 pos, LivingEntity owner, int stageIndex,
+                                      float yaw,
+                                      float impactDamage, double knockbackStrength,
+                                      int warmupTicks, int lifetimeTicks) {
+        this(ModEntities.IGNIVORUS_MAGMA_PILLAR.get(), level);
+        setPos(pos);
+        this.owner = owner;
+        this.ownerUUID = owner != null ? owner.getUUID() : null;
+        this.impactDamage = impactDamage;
+        this.knockbackStrength = knockbackStrength;
+        this.warmupTicks = warmupTicks;
+        this.lifetimeTicks = lifetimeTicks;
+        setStage(stageIndex);
+        setVisualScale(1.0f + stageIndex * 0.2f);
+        initializeRotation(yaw);
+        this.rotationLocked = true;
+    }
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        builder.define(DATA_STAGE, 0);
+        builder.define(DATA_SCALE, 1.0f);
+        builder.define(DATA_SUBSIDING, false);
+    }
+
+    public void setStage(int stage) {
+        this.entityData.set(DATA_STAGE, Math.max(0, stage));
+        refreshDimensions();
+    }
+
+    public int getStage() {
+        return this.entityData.get(DATA_STAGE);
+    }
+
+    public void setVisualScale(float scale) {
+        this.entityData.set(DATA_SCALE, Math.max(0.5f, scale));
+        refreshDimensions();
+    }
+
+    public float getVisualScale() {
+        return this.entityData.get(DATA_SCALE);
+    }
+
+    public boolean isSubsiding() {
+        return this.entityData.get(DATA_SUBSIDING);
+    }
+
+    private void beginSubside() {
+        if (isSubsiding()) {
+            return;
+        }
+        this.subsideTicks = 0;
+        this.entityData.set(DATA_SUBSIDING, true);
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        livedTicks++;
+        setDeltaMovement(Vec3.ZERO);
+
+        if (isSubsiding()) {
+            subsideTicks++;
+            if (!level().isClientSide() && subsideTicks >= SUBSIDE_DURATION_TICKS) {
+                discard();
+            }
+            return;
+        }
+
+        if (!level().isClientSide()) {
+            resolveOwner();
+            if (!impactEffectsSpawned) {
+                spawnImpactEffects((ServerLevel) level());
+                impactEffectsSpawned = true;
+            }
+            if (livedTicks >= warmupTicks) {
+                applyImpact();
+            }
+            if (livedTicks >= lifetimeTicks) {
+                beginSubside();
+            }
+        }
+    }
+
+    private void spawnImpactEffects(ServerLevel server) {
+        double x = getX();
+        double y = getY();
+        double z = getZ();
+        server.sendParticles(ModParticles.IGNIVORUS_MAGMA_PILLARS_IMPACT.get(),
+                x, y + 0.02D, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        server.sendParticles(ModParticles.IGNIVORUS_GROUND_IMPACT.get(),
+                x, y + 0.04D, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        server.sendParticles(ModParticles.IGNIVORUS_MAGMA_PILLAR_TOON_EXPLOSION.get(),
+                x, y + 2.0D + getVisualScale() * 0.35D, z, 1,
+                0.0D, 0.0D, 0.0D, 0.0D);
+        server.sendParticles(ModParticles.CINDERVANE_IMPACT_EMITTER.get(),
+                x, y + 0.75D, z, 64, 0.35D, 0.22D, 0.35D, 0.0D);
+    }
+
+    private void resolveOwner() {
+        if (owner == null && ownerUUID != null && level() instanceof ServerLevel serverLevel) {
+            Entity entity = serverLevel.getEntity(ownerUUID);
+            if (entity instanceof LivingEntity living) {
+                owner = living;
+            }
+        }
+    }
+
+    private void applyImpact() {
+        if (!(level() instanceof ServerLevel server)) {
+            return;
+        }
+
+        double radius = DAMAGE_RADIUS_BASE + (getVisualScale() * DAMAGE_RADIUS_SCALE_MULTIPLIER);
+        double minY = getY() - DAMAGE_VERTICAL_BELOW;
+        double height = DAMAGE_VERTICAL_HEIGHT_BASE + getVisualScale() * DAMAGE_VERTICAL_HEIGHT_SCALE_MULTIPLIER;
+        AABB area = new AABB(getX() - radius, minY, getZ() - radius,
+                getX() + radius, minY + height, getZ() + radius);
+
+        List<LivingEntity> hits = server.getEntitiesOfClass(LivingEntity.class, area, target -> {
+            if (!target.isAlive() || !target.attackable()) {
+                return false;
+            }
+            if (target == owner) {
+                return false;
+            }
+            // Skip if already hit
+            if (hitEntities.contains(target.getUUID())) {
+                return false;
+            }
+            if (owner instanceof Player player) {
+                return SwordAbilityTargeting.canDamage(player, target);
+            }
+            return owner == null || !isOwnerAlly(target);
+        });
+
+        DamageSource source;
+        if (owner instanceof Player player) {
+            source = damageSources().playerAttack(player);
+        } else if (owner != null) {
+            source = damageSources().mobAttack(owner);
+        } else {
+            source = damageSources().hotFloor();
+        }
+
+        boolean firstHit = hitEntities.isEmpty() && !hits.isEmpty();
+
+        for (LivingEntity target : hits) {
+            hitEntities.add(target.getUUID());
+
+            target.hurt(source, impactDamage);
+            target.igniteForSeconds(4);
+
+            Vec3 knockDir = target.position().subtract(position());
+            knockDir = new Vec3(knockDir.x, 0.0D, knockDir.z);
+            if (knockDir.lengthSqr() < 1.0E-4D) {
+                knockDir = new Vec3(0, 0, 1);
+            }
+            knockDir = knockDir.normalize().scale(knockbackStrength);
+            double verticalBoost = 0.35D + (getStage() * 0.05D);
+            target.push(knockDir.x, verticalBoost, knockDir.z);
+            target.needsSync = true;
+            target.hurtMarked = true;
+            if (target instanceof ServerPlayer serverPlayer) {
+                serverPlayer.connection.send(new ClientboundSetEntityMotionPacket(target));
+            }
+        }
+
+        if (firstHit) {
+            server.playSound(null, blockPosition(), ModSounds.IGNIVORUS_MAGMA_PILLAR.get(), SoundSource.HOSTILE,
+                    1.4F, 0.8F + server.getRandom().nextFloat() * 0.2F);
+        }
+    }
+
+    private boolean isOwnerAlly(LivingEntity target) {
+        if (owner instanceof DragonEntity dragon) {
+            return dragon.isAlly(target);
+        }
+        return owner != null && (owner.isAlliedTo(target) || target.isAlliedTo(owner));
+    }
+
+    @Override
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel hurtLevel, @NotNull DamageSource source, float amount) {
+        return false;
+    }
+
+    @Override
+    public boolean isPickable() {
+        return false;
+    }
+
+    @Override
+    public boolean isPushable() {
+        return false;
+    }
+
+    
+    protected void readAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        livedTicks = tag.getIntOr("Lived", 0);
+        lifetimeTicks = tag.getIntOr("Lifetime", 0);
+        warmupTicks = tag.getIntOr("Warmup", 0);
+        impactDamage = tag.getFloatOr("ImpactDamage", 0.0F);
+        knockbackStrength = tag.getDoubleOr("Knockback", 0.0D);
+        setStage(tag.getIntOr("Stage", 0));
+        setVisualScale(tag.getFloatOr("Scale", 0.0F));
+        if (tag.contains("Owner")) {
+            ownerUUID = tag.read("Owner", UUIDUtil.CODEC).orElse(null);
+        }
+
+        hitEntities.clear();
+        if (tag.contains("HitEntities")) {
+            long[] uuidArray = tag.getLongArray("HitEntities").orElse(new long[0]);
+            for (int i = 0; i < uuidArray.length; i += 2) {
+                hitEntities.add(new UUID(uuidArray[i], uuidArray[i + 1]));
+            }
+        }
+
+        if (tag.contains("LockedYaw")) {
+            initializeRotation(tag.getFloatOr("LockedYaw", 0.0F));
+        }
+        this.rotationLocked = tag.getBooleanOr("RotationLocked", false);
+        this.subsideTicks = Math.max(0, tag.getIntOr("SubsideTicks", 0));
+        if (tag.contains("Subsiding")) {
+            this.entityData.set(DATA_SUBSIDING, tag.getBooleanOr("Subsiding", false));
+        }
+    }
+
+    
+    protected void addAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        tag.putInt("Lived", livedTicks);
+        tag.putInt("Lifetime", lifetimeTicks);
+        tag.putInt("Warmup", warmupTicks);
+        tag.putFloat("ImpactDamage", impactDamage);
+        tag.putDouble("Knockback", knockbackStrength);
+        tag.putInt("Stage", getStage());
+        tag.putFloat("Scale", getVisualScale());
+        if (ownerUUID != null) {
+            tag.store("Owner", UUIDUtil.CODEC, ownerUUID);
+        }
+        tag.putBoolean("RotationLocked", rotationLocked);
+        tag.putFloat("LockedYaw", lockedHeadYaw);
+        tag.putBoolean("Subsiding", isSubsiding());
+        tag.putInt("SubsideTicks", subsideTicks);
+        long[] uuidArray = new long[hitEntities.size() * 2];
+        int i = 0;
+        for (UUID uuid : hitEntities) {
+            uuidArray[i++] = uuid.getMostSignificantBits();
+            uuidArray[i++] = uuid.getLeastSignificantBits();
+        }
+        tag.putLongArray("HitEntities", uuidArray);
+    }
+
+    @Override
+    public void recreateFromPacket(@NotNull ClientboundAddEntityPacket packet) {
+        super.recreateFromPacket(packet);
+        float yaw = packet.getYRot();
+        initializeRotation(yaw);
+        this.rotationLocked = true;
+    }
+
+    @Override
+    public @NotNull EntityDimensions getDimensions(@NotNull Pose pose) {
+        return BASE_DIMENSIONS.scale(getVisualScale());
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new com.leon.saintsdragons.util.animation.ReleasingAnimationController<IgnivorusMagmaPillarEntity>("controller", 0, this::animationPredicate));
+    }
+
+    private PlayState animationPredicate(AnimationTest<IgnivorusMagmaPillarEntity> state) {
+        if (isSubsiding()) {
+            state.controller().setAnimation(SUBSIDE_ANIMATION);
+        } else {
+            state.controller().setAnimation(EMERGE_ANIMATION);
+        }
+        return PlayState.CONTINUE;
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return animationCache;
+    }
+
+    private void initializeRotation(float yaw) {
+        super.setYRot(yaw);
+        super.setYBodyRot(yaw);
+        super.setYHeadRot(yaw);
+        this.lockedHeadYaw = yaw;
+        this.yRotO = yaw;
+        this.xRotO = 0.0f;
+    }
+
+    // 26.x save bridge: mod data is kept in one compound so the tag-based save code stays unchanged.
+    @Override
+    protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput output) {
+        CompoundTag modData = new CompoundTag();
+        this.addAdditionalSaveDataTag(modData);
+        output.store("SaintsDragonsData", CompoundTag.CODEC, modData);
+    }
+
+    @Override
+    protected void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput input) {
+        this.readAdditionalSaveDataTag(input.read("SaintsDragonsData", CompoundTag.CODEC).orElseGet(CompoundTag::new));
+    }
+}

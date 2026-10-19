@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " V ",
+    "VCV",
+    "SSS"
+  ],
+  "key": {
+    "V": "saintsdragons:volitans_scale",
+    "S": "saintsdragons:volitans_spine",
+    "C": "saintsdragons:dragon_binder_core"
+  },
+    "result": {
+      "id": "saintsdragons:volitans_binder",
+      "count": 1
+    }
+}

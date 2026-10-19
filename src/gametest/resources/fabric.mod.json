@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "saintsdragons-gametest",
+  "version": "1.0.0",
+  "name": "Saint's Dragons dev tests",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "com.leon.saintsdragons.gametest.DragonClientTest"
+    ]
+  },
+  "depends": {
+    "saintsdragons": "*"
+  }
+}

@@ -1,0 +1,734 @@
+{
+  "start_at": "quest_check_in",
+  "states": {
+    "quest_check_in": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.quest_check_in.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.quest_check_in.choice.0"
+          },
+          "next": "repeat_intro"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.quest_check_in.choice.1"
+          },
+          "next": "not_done_1",
+          "hidden_if_flag": "has_tamed_cindervane"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.quest_check_in.choice.2"
+          },
+          "next": "did_it_1",
+          "requires_flag": "has_tamed_cindervane"
+        }
+      ]
+    },
+    "repeat_intro": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.repeat_intro.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.repeat_intro.choice.0"
+          },
+          "next": "saintsdragons:ivy/quest_cindervane#cindervane_taming_1"
+        }
+      ]
+    },
+    "not_done_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_done_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_done_1.choice.0"
+          },
+          "next": "not_done_2"
+        }
+      ]
+    },
+    "not_done_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_done_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_done_2.choice.0"
+          },
+          "next": "not_done_3"
+        }
+      ]
+    },
+    "not_done_3": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_done_3.text"
+      }
+    },
+    "did_it_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.did_it_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.did_it_1.choice.0"
+          },
+          "next": "did_it_2"
+        }
+      ]
+    },
+    "did_it_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.did_it_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.did_it_2.choice.0"
+          },
+          "next": "did_it_prompt"
+        }
+      ]
+    },
+    "did_it_prompt": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.did_it_prompt.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.did_it_prompt.choice.0"
+          },
+          "next": "followed_advice_1"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.did_it_prompt.choice.1"
+          },
+          "next": "not_hard_1"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.did_it_prompt.choice.2"
+          },
+          "next": "burned_1"
+        }
+      ]
+    },
+    "followed_advice_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.followed_advice_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.followed_advice_1.choice.0"
+          },
+          "next": "followed_advice_2"
+        }
+      ]
+    },
+    "followed_advice_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.followed_advice_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.followed_advice_2.choice.0"
+          },
+          "next": "success_converge"
+        }
+      ]
+    },
+    "not_hard_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_hard_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_hard_1.choice.0"
+          },
+          "next": "not_hard_2"
+        }
+      ]
+    },
+    "not_hard_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_hard_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_hard_2.choice.0"
+          },
+          "next": "not_hard_3"
+        }
+      ]
+    },
+    "not_hard_3": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_hard_3.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.not_hard_3.choice.0"
+          },
+          "next": "success_converge"
+        }
+      ]
+    },
+    "burned_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.burned_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.burned_1.choice.0"
+          },
+          "next": "burned_2"
+        }
+      ]
+    },
+    "burned_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.burned_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.burned_2.choice.0"
+          },
+          "next": "success_converge"
+        }
+      ]
+    },
+    "success_converge": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.success_converge.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.success_converge.choice.0"
+          },
+          "next": "prove_router"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.success_converge.choice.1"
+          },
+          "next": "what_now_router"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.success_converge.choice.2"
+          },
+          "next": "surprised_router"
+        }
+      ]
+    },
+    "prove_router": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_router.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_router.choice.0"
+          },
+          "next": "prove_advanced_1",
+          "requires_flag": "has_advanced_dragon"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_router.choice.1"
+          },
+          "next": "prove_basic_1",
+          "hidden_if_flag": "has_advanced_dragon"
+        }
+      ]
+    },
+    "prove_advanced_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_advanced_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_advanced_1.choice.0"
+          },
+          "next": "prove_advanced_2"
+        }
+      ]
+    },
+    "prove_advanced_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_advanced_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_advanced_2.choice.0"
+          },
+          "next": "prove_converge"
+        }
+      ]
+    },
+    "prove_basic_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_basic_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_basic_1.choice.0"
+          },
+          "next": "prove_basic_2"
+        }
+      ]
+    },
+    "prove_basic_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_basic_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_basic_2.choice.0"
+          },
+          "next": "prove_converge"
+        }
+      ]
+    },
+    "prove_converge": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_converge.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.prove_converge.choice.0"
+          },
+          "next": "recruit_offer_1"
+        }
+      ]
+    },
+    "what_now_router": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.what_now_router.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.what_now_router.choice.0"
+          },
+          "next": "what_now_advanced",
+          "requires_flag": "has_advanced_dragon"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.what_now_router.choice.1"
+          },
+          "next": "what_now_basic",
+          "hidden_if_flag": "has_advanced_dragon"
+        }
+      ]
+    },
+    "what_now_advanced": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.what_now_advanced.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.what_now_advanced.choice.0"
+          },
+          "next": "recruit_offer_1"
+        }
+      ]
+    },
+    "what_now_basic": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.what_now_basic.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.what_now_basic.choice.0"
+          },
+          "next": "recruit_offer_1"
+        }
+      ]
+    },
+    "surprised_router": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.surprised_router.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.surprised_router.choice.0"
+          },
+          "next": "surprised_advanced",
+          "requires_flag": "has_advanced_dragon"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.surprised_router.choice.1"
+          },
+          "next": "surprised_basic",
+          "hidden_if_flag": "has_advanced_dragon"
+        }
+      ]
+    },
+    "surprised_advanced": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.surprised_advanced.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.surprised_advanced.choice.0"
+          },
+          "next": "recruit_offer_1"
+        }
+      ]
+    },
+    "surprised_basic": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.surprised_basic.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.surprised_basic.choice.0"
+          },
+          "next": "recruit_offer_1"
+        }
+      ]
+    },
+    "recruit_offer_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_1.choice.0"
+          },
+          "next": "recruit_offer_2"
+        }
+      ]
+    },
+    "recruit_offer_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_2.choice.0"
+          },
+          "next": "recruit_offer_3"
+        }
+      ]
+    },
+    "recruit_offer_3": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_3.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_3.choice.0"
+          },
+          "next": "recruit_offer_4"
+        }
+      ]
+    },
+    "recruit_offer_4": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_4.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_4.choice.0"
+          },
+          "next": "come_with_me_1"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_4.choice.1"
+          },
+          "next": "if_you_want_1"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_offer_4.choice.2"
+          },
+          "next": "use_help_1"
+        }
+      ]
+    },
+    "come_with_me_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.come_with_me_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.come_with_me_1.choice.0"
+          },
+          "next": "join_confirm"
+        }
+      ]
+    },
+    "if_you_want_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.if_you_want_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.if_you_want_1.choice.0"
+          },
+          "next": "if_you_want_2"
+        }
+      ]
+    },
+    "if_you_want_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.if_you_want_2.text",
+        "with": [
+          {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.if_you_want_2.text.emphasis.0",
+            "italic": true
+          }
+        ]
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.if_you_want_2.choice.0"
+          },
+          "next": "if_you_want_3"
+        }
+      ]
+    },
+    "if_you_want_3": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.if_you_want_3.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.if_you_want_3.choice.0"
+          },
+          "next": "join_confirm"
+        }
+      ]
+    },
+    "use_help_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.use_help_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.use_help_1.choice.0"
+          },
+          "next": "join_confirm"
+        }
+      ]
+    },
+    "join_confirm": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.join_confirm.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.join_confirm.choice.0"
+          },
+          "next": "promise_1"
+        }
+      ]
+    },
+    "promise_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.promise_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.promise_1.choice.0"
+          },
+          "next": "recruit_ivy"
+        }
+      ]
+    },
+    "recruit_ivy": {
+      "type": "recruit_ivy",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_ivy.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruit_ivy.choice.0"
+          },
+          "next": "recruited_end",
+          "set_flag": "cindervane_quest_completed"
+        }
+      ]
+    },
+    "recruited_end": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.quest_cindervane_complete.recruited_end.text",
+        "with": [
+          {
+            "text": "{name}"
+          }
+        ]
+      }
+    }
+  }
+}

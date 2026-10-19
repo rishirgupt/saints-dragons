@@ -1,0 +1,19 @@
+{
+  "type": "saintsdragons:draconic_crucible",
+  "pattern": [
+    "CSC",
+    "H H",
+    "S S"
+  ],
+  "key": {
+    "H": "saintsdragons:raevyx_wing_hide",
+    "S": "saintsdragons:raevyx_scale",
+    "C": "saintsdragons:dragonheart_chunk"
+  },
+  "result": {
+    "id": "saintsdragons:blood_tempest_leggings",
+    "count": 1
+  },
+  "required_heat_level": 3,
+  "processing_time": 1800
+}

@@ -1,0 +1,3445 @@
+package com.leon.saintsdragons.server.entity.dragons.ignivorus;
+
+import com.leon.saintsdragons.common.config.dragon.profile.IgnivorusStatProfile;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonVisionProfile;
+import com.leon.saintsdragons.server.ai.dragonbrain.tactical.DragonWaterCombatProfile;
+
+import com.leon.saintsdragons.server.entity.part.IgnivorusCollisionState;
+import com.leon.saintsdragons.server.entity.component.DragonBreathPose;
+import com.mojang.serialization.Dynamic;
+import com.leon.saintsdragons.common.SaintsDragonsCommon;
+import com.leon.saintsdragons.common.particle.ExpandingBreathSection;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonDestructionManager;
+
+import com.leon.saintsdragons.util.animation.AnimationHelper;
+import com.leon.saintsdragons.util.animation.EntityAnimationController;
+
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfig;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfigLoader;
+import com.leon.saintsdragons.common.network.DragonRiderAction;
+import com.leon.saintsdragons.common.network.MessageDragonMeleeMode;
+import com.leon.saintsdragons.common.network.NetworkHandler;
+import com.leon.saintsdragons.common.registry.ModBlocks;
+import com.leon.saintsdragons.common.registry.ModEntities;
+import com.leon.saintsdragons.common.registry.ModTags;
+import com.leon.saintsdragons.common.registry.ModSounds;
+import com.leon.saintsdragons.common.registry.ModAbilities;
+import com.leon.saintsdragons.server.ai.DragonAirCombatSettings;
+import com.leon.saintsdragons.server.ai.DragonAirCombatSettingsProvider;
+import com.leon.saintsdragons.server.ai.DragonTargetingHelper;
+import com.leon.saintsdragons.server.ai.dragonbrain.tactical.DragonCombatFlightProfile;
+import com.leon.saintsdragons.server.ai.dragonbrain.tactical.DragonCombatFlightState;
+import com.leon.saintsdragons.server.ai.dragonbrain.learning.DragonCombatLearner;
+import com.leon.saintsdragons.server.ai.dragonbrain.learning.DragonCombatLearning;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonBrain;
+import com.leon.saintsdragons.server.ai.dragonbrain.profiles.IgnivorusBrain;
+import com.leon.saintsdragons.server.entity.ability.DragonAimHelper;
+import com.leon.saintsdragons.server.entity.ability.DragonAbility;
+import com.leon.saintsdragons.server.entity.ability.DragonCombatAim;
+import com.leon.saintsdragons.server.entity.ability.DragonAbilityType;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import com.leon.saintsdragons.server.entity.base.DragonGender;
+import com.leon.saintsdragons.server.entity.base.DragonVariant;
+import com.leon.saintsdragons.server.entity.base.DragonVariantSet;
+import com.leon.saintsdragons.server.entity.base.RideableFlyingDragon;
+import com.leon.saintsdragons.server.entity.controller.ignivorus.IgnivorusRiderController;
+import com.leon.saintsdragons.server.flight.DragonFlightStateEvaluator;
+import com.leon.saintsdragons.server.flight.DragonFlightAnimationProfile;
+import com.leon.saintsdragons.util.animation.DragonFlightAnimationController;
+import com.leon.saintsdragons.server.flight.DragonRiderFlight;
+import com.leon.saintsdragons.server.entity.ability.abilities.ignivorus.IgnivorusFireballAbility;
+import com.leon.saintsdragons.server.entity.ability.abilities.ignivorus.IgnivorusFireBreathAbility;
+import com.leon.saintsdragons.server.entity.dragons.ignivorus.handlers.IgnivorusAnimationHandler;
+import com.leon.saintsdragons.server.entity.dragons.ignivorus.handlers.IgnivorusInteractionHandler;
+import com.leon.saintsdragons.server.entity.dragons.ignivorus.handlers.IgnivorusSoundProfile;
+import com.leon.saintsdragons.server.entity.dragons.ignivorus.handlers.IgnivorusTamingHandler;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonGriefingRules;
+import com.leon.saintsdragons.server.entity.component.DragonBreathComponent;
+import com.leon.saintsdragons.server.entity.component.IgnivorusBreathStream;
+import com.leon.saintsdragons.server.entity.component.DragonForwardMovementComponent;
+import com.leon.saintsdragons.server.entity.component.DragonRoostComponent;
+import com.leon.saintsdragons.server.entity.component.ScreenShakeComponent;
+import com.leon.saintsdragons.server.entity.interfaces.DragonSoundProfile;
+import com.leon.saintsdragons.server.entity.interfaces.DrinkingDragon;
+import com.leon.saintsdragons.server.entity.interfaces.PassiveTreeDestroyer;
+import com.leon.saintsdragons.server.entity.interfaces.ShakesScreen;
+import com.leon.saintsdragons.server.entity.interfaces.ScentAssessingDragon;
+import com.leon.saintsdragons.server.loot.DragonLootTables;
+import com.leon.saintsdragons.server.world.DragonSpawnRules;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import javax.annotation.Nonnull;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Mth;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.pathfinder.PathType;
+import com.geckolib.animatable.instance.AnimatableInstanceCache;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.animation.AnimationController;
+import com.geckolib.animation.object.PlayState;
+import com.geckolib.util.GeckoLibUtil;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
+
+public class Ignivorus extends RideableFlyingDragon implements ShakesScreen, DragonAirCombatSettingsProvider,
+        PassiveTreeDestroyer, DrinkingDragon, ScentAssessingDragon, DragonCombatLearner {
+    private static final IgnivorusBrain DRAGON_BRAIN = new IgnivorusBrain();
+    private static final ResourceKey<Structure> IGNIVORUS_ROOST_STRUCTURE = ResourceKey.create(
+            Registries.STRUCTURE,
+            SaintsDragonsCommon.rl("ignivorus_roost")
+    );
+
+    @Override
+    protected Identifier getDragonAttributesId() {
+        return DragonAttributeConfigLoader.IGNIVORUS_ID;
+    }
+    public static final int VARIANT_DEFAULT = 0;
+    public static final int VARIANT_CRIMSON = 1;
+    private static final DragonVariantSet VARIANTS = DragonVariantSet.of(
+            DragonVariant.of(VARIANT_DEFAULT, "default", 95),
+            DragonVariant.of(VARIANT_CRIMSON, "crimson", 5)
+    );
+    public static final int TAKEOFF_ANIMATION_TICKS = 27;
+    public static final int DRINKING_ANIMATION_TICKS = 140;
+    private static final int SCENT_ASSESSMENT_ANIMATION_TICKS = 120;
+
+    @Override
+    public int getScentAssessmentDurationTicks() {
+        return SCENT_ASSESSMENT_ANIMATION_TICKS;
+    }
+
+    public static final double BASE_FOLLOW_RANGE = IgnivorusStatProfile.Entity.BASE_FOLLOW_RANGE;
+    public static final DragonAirCombatSettings AI_AIR_COMBAT_SETTINGS =
+            new DragonAirCombatSettings(
+                    TAKEOFF_ANIMATION_TICKS,
+                    IgnivorusStatProfile.Landing.APPROACH_SPEED,
+                    0,
+                    BASE_FOLLOW_RANGE,
+                    2.5D,
+                    8.0D,
+                    5.0D
+            );
+    private static final int LANDED_RECOVERY_TICKS = 18;
+    private static final int PHASE2_ENTER_LOCK_TICKS = 13;
+    private static final int WILD_PHASE2_ENTER_LOCK_TICKS = 17;
+    private static final int WILD_PHASE2_IDLE_TICKS = 10;
+    private static final int PHASE2_EXIT_LOCK_TICKS = 13;
+    private static final int PHASE2_LANDED_RECOVERY_TICKS = 20;
+    private static final net.minecraft.resources.Identifier PHASE2_FOLLOW_RANGE_MODIFIER_UUID = net.minecraft.resources.Identifier.fromNamespaceAndPath("saintsdragons", "phase2_follow_range_modifier");
+    private static final AttributeModifier PHASE2_FOLLOW_RANGE_MODIFIER = new AttributeModifier(PHASE2_FOLLOW_RANGE_MODIFIER_UUID, 32.0D,
+            AttributeModifier.Operation.ADD_VALUE
+    );
+    public static final EntityDataAccessor<Boolean> DATA_RIDER_LANDING_BLEND =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    public static final EntityDataAccessor<Boolean> DATA_BULLDOZING =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    public static final EntityDataAccessor<Boolean> DATA_PHASE2 =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    public static final EntityDataAccessor<Boolean> DATA_LEAPING =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    public static final EntityDataAccessor<Integer> DATA_LEAP_ANIM_STATE =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_LEAP_MOVE_TICKS =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_LEAP_MOVE_X =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_LEAP_MOVE_Y =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_LEAP_MOVE_Z =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    public static final EntityDataAccessor<Integer> DATA_FEEDING_COOLDOWN =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.INT);
+    public static final EntityDataAccessor<Boolean> DATA_TAMING_STUNNED =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    public static final EntityDataAccessor<Float> DATA_FLIGHT_PITCH =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    public static final EntityDataAccessor<Float> DATA_ACCUMULATED_ROLL =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    public static final EntityDataAccessor<Boolean> DATA_PITCH_KEY_MODE =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    public static final EntityDataAccessor<Integer> DATA_FIREBALL_CHARGE =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_FIRE_BREATHING =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_FIRE_BREATH_PROGRESS =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_FIRE_BREATH_ENERGY =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_FIRE_BREATH_DEPLETED =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_FIRE_START_SET =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_FIRE_START_X =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_FIRE_START_Y =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_FIRE_START_Z =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_FIRE_END_SET =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_FIRE_END_X =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_FIRE_END_Y =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_FIRE_END_Z =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_SCREEN_SHAKE_AMOUNT =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_CINEMATIC_ZOOM_ACTIVE =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Long> DATA_SKYFALL_START =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.LONG);
+    private static final EntityDataAccessor<Integer> DATA_SKYFALL_OFFSET =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_SKYFALL_IDLE =
+            SynchedEntityData.defineId(Ignivorus.class, EntityDataSerializers.BOOLEAN);
+
+    private static final double MODEL_SCALE = 1.0D;
+    private static final float FIRE_BREATH_ENERGY_REGEN = IgnivorusStatProfile.Entity.FIRE_BREATH_ENERGY_REGEN;
+    private static final float FIRE_BREATH_DEPLETED_THRESHOLD = 0.01f;
+    private static final float FIRE_BREATH_REARM_THRESHOLD = 0.20f;
+    private static final float BARREL_ROLL_INPUT_SPEED = IgnivorusStatProfile.Entity.BARREL_ROLL_INPUT_SPEED;
+    private static final int RIDER_LANDING_BLEND_DURATION = IgnivorusStatProfile.Entity.RIDER_LANDING_BLEND_DURATION;
+    public static final double BREED_PARTNER_RANGE = IgnivorusStatProfile.Entity.BREED_PARTNER_RANGE;
+    public static final double BREED_DISTANCE_SQR = IgnivorusStatProfile.Entity.BREED_DISTANCE_SQR;
+    public static final double RIDER_WALK_SPEED = IgnivorusStatProfile.Entity.RIDER_WALK_SPEED;
+    public static final double RIDER_RUN_SPEED = IgnivorusStatProfile.Entity.RIDER_RUN_SPEED;
+    public static final double RIDER_BULLDOZE_SPEED = IgnivorusStatProfile.Entity.RIDER_BULLDOZE_SPEED;
+    public static final float RIDER_KEY_PITCH_DEG = 25.0f;
+    public static final double RIDER_PHASE2_WALK_SPEED = IgnivorusStatProfile.Entity.RIDER_PHASE2_WALK_SPEED;
+    public static final double RIDER_PHASE2_RUN_SPEED = IgnivorusStatProfile.Entity.RIDER_PHASE2_RUN_SPEED;
+    private static final float DEFAULT_MAX_UP_STEP = 1.5F;
+    private static final float BULLDOZE_MAX_UP_STEP = 0;
+    private static final double BULLDOZE_TUNNEL_REACH = IgnivorusStatProfile.Entity.BULLDOZE_TUNNEL_REACH;
+    private static final double BULLDOZE_HEAD_FORWARD_FALLBACK = 0.5D;
+    private static final double BULLDOZE_TUNNEL_HALF_WIDTH = 7.0D;
+    private static final int BULLDOZE_TUNNEL_HEIGHT = 7;
+    private static final int BULLDOZE_TUNNEL_MAX_BREAKS_PER_TICK = 60;
+    private static final double BULLDOZE_BODY_COLLISION_REACH = IgnivorusStatProfile.Entity.BULLDOZE_BODY_COLLISION_REACH;
+    private static final double BULLDOZE_DAMAGE_FORWARD_REACH = IgnivorusStatProfile.Entity.BULLDOZE_DAMAGE_FORWARD_REACH;
+    private static final double BULLDOZE_DAMAGE_HALF_WIDTH = IgnivorusStatProfile.Entity.BULLDOZE_DAMAGE_HALF_WIDTH;
+    private static final double BULLDOZE_DAMAGE_HALF_HEIGHT = IgnivorusStatProfile.Entity.BULLDOZE_DAMAGE_HALF_HEIGHT;
+    private static final int BULLDOZE_ENTER_TICKS = 25;
+    private static final float MAX_FIRE_YAW_DEG = IgnivorusStatProfile.FireBreathAbility.MAX_AIM_YAW_DEGREES;
+    private static final float MAX_FIRE_PITCH_DEG = IgnivorusStatProfile.FireBreathAbility.MAX_AIM_PITCH_DEGREES;
+    private static final double LEAP_ARC_FORWARD_DISTANCE = IgnivorusStatProfile.Entity.LEAP_ARC_FORWARD_DISTANCE;
+    private static final double LEAP_ARC_HEIGHT = IgnivorusStatProfile.Entity.LEAP_ARC_HEIGHT;
+    private static final int LEAP_ARC_ASCENT_TICKS = IgnivorusStatProfile.Entity.LEAP_ARC_ASCENT_TICKS;
+    private static final int LEAP_ARC_DESCENT_TICKS = IgnivorusStatProfile.Entity.LEAP_ARC_DESCENT_TICKS;
+    private static final int LEAP_ARC_DURATION_TICKS = LEAP_ARC_ASCENT_TICKS + LEAP_ARC_DESCENT_TICKS;
+    private static final float LEAP_SLAM_DAMAGE = IgnivorusStatProfile.Entity.LEAP_SLAM_DAMAGE;
+    private static final float DEFAULT_BULLDOZE_DAMAGE = IgnivorusStatProfile.Entity.DEFAULT_BULLDOZE_DAMAGE;
+    private static final double LEAP_SLAM_RADIUS = IgnivorusStatProfile.Entity.LEAP_SLAM_RADIUS;
+    private static final double LEAP_KNOCKBACK = IgnivorusStatProfile.Entity.LEAP_KNOCKBACK;
+    private static final double LEAP_LIFT = IgnivorusStatProfile.Entity.LEAP_LIFT;
+    private static final double LEAP_IMPACT_TRIGGER_HEIGHT = IgnivorusStatProfile.Entity.LEAP_IMPACT_TRIGGER_HEIGHT;
+    private static final int LEAP_GROUNDED_FAILSAFE_TICKS = IgnivorusStatProfile.Entity.LEAP_GROUNDED_FAILSAFE_TICKS;
+    private static final int LEAP_COOLDOWN_TICKS = IgnivorusStatProfile.Entity.LEAP_COOLDOWN_TICKS;
+    private static final int LEAP_WINDUP_TICKS = IgnivorusStatProfile.Entity.LEAP_WINDUP_TICKS;
+    private static final int LEAP_STATE_NONE = IgnivorusStatProfile.Entity.LEAP_STATE_NONE;
+    private static final int LEAP_STATE_TAKEOFF = IgnivorusStatProfile.Entity.LEAP_STATE_TAKEOFF;
+    private static final int LEAP_IMPACT_RECOVERY_DURATION = IgnivorusStatProfile.Entity.LEAP_IMPACT_RECOVERY_DURATION;
+    private static final int FLEX_CONTROL_LOCK_TICKS = 170;
+    private static final int FLEX_COOLDOWN_TICKS = IgnivorusStatProfile.Entity.FLEX_COOLDOWN_TICKS;
+    private static final float SHAKE_DECAY_PER_TICK = 0.025F;
+    private static final double BABY_MAX_HEALTH = IgnivorusStatProfile.Entity.BABY_MAX_HEALTH;
+    private static final double BABY_ARMOR = IgnivorusStatProfile.Entity.BABY_ARMOR;
+    private static final double GROUND_MOVEMENT_SPEED = IgnivorusStatProfile.Entity.GROUND_MOVEMENT_SPEED;
+    public static final double ROOST_SLEEP_RADIUS = IgnivorusStatProfile.Entity.ROOST_SLEEP_RADIUS;
+    public static final double ROOST_TERRITORY_RADIUS = IgnivorusStatProfile.Entity.ROOST_TERRITORY_RADIUS;
+    public static final double ROOST_TERRITORY_RETURN_RADIUS = IgnivorusStatProfile.Entity.ROOST_TERRITORY_RETURN_RADIUS;
+    public static final double ROOST_WANDER_RADIUS = IgnivorusStatProfile.Entity.ROOST_WANDER_RADIUS;
+    private static final int ROOST_SLEEP_SETTLE_TICKS = 60;
+    private static final float BABY_HITBOX_SCALE = 0.55F;
+    private static final Map<String, VocalEntry> VOCAL_ENTRIES =
+            new DragonEntity.VocalEntryBuilder()
+                    .add("ignivorus_roar", IgnivorusAnimationHandler.ACTION_CONTROLLER, "animation.ignivorus.roar",
+                            ModSounds.IGNIVORUS_ROAR, 1.8f, 0.85f, 0.15f,
+                            false, false, false)
+                    .add("ignivorus_flex", IgnivorusAnimationHandler.MOVEMENT_CONTROLLER, "animation.ignivorus.flex",
+                            ModSounds.IGNIVORUS_FLEX, 2.0f, 0.95f, 0.05f,
+                            false, false, true)
+                    .add("ignivorus_grumble1", AnimationHelper.VOCAL_CONTROLLER, "animation.ignivorus.grumble1",
+                            ModSounds.IGNIVORUS_GRUMBLE_1, 1.1f, 0.95f, 0.08f,
+                            true, false, true)
+                    .add("ignivorus_grumble2", AnimationHelper.VOCAL_CONTROLLER, "animation.ignivorus.grumble2",
+                            ModSounds.IGNIVORUS_GRUMBLE_2, 1.15f, 1.0f, 0.08f,
+                            true, false, true)
+                    .add("ignivorus_grumble3", AnimationHelper.VOCAL_CONTROLLER, "animation.ignivorus.grumble3",
+                            ModSounds.IGNIVORUS_GRUMBLE_3, 1.2f, 0.9f, 0.08f,
+                            true, false, true)
+                    .add("ignivorus_hurt", AnimationHelper.INTERACTION_CONTROLLER, "animation.ignivorus.hurt",
+                            ModSounds.IGNIVORUS_HURT, 1.6f, 0.95f, 0.1f,
+                            true, true, true)
+                    .add("ignivorus_die", AnimationHelper.INTERACTION_CONTROLLER, "animation.ignivorus.die",
+                            ModSounds.IGNIVORUS_DIE, 1.8f, 0.9f, 0.05f,
+                            false, true, true)
+                    .build();
+
+    private final AnimatableInstanceCache dragonCache = GeckoLibUtil.createInstanceCache(this);
+    private final IgnivorusAnimationHandler animationHandler = new IgnivorusAnimationHandler(this);
+    private final IgnivorusRiderController riderController;
+    private final AnimationController<Ignivorus> movementController;
+    private final AnimationController<Ignivorus> actionController;
+    private final AnimationController<Ignivorus> fastActionController;
+    private final AnimationController<Ignivorus> flightController;
+    private final AnimationController<Ignivorus> vocalController;
+    private final AnimationController<Ignivorus> interactionController;
+    private final IgnivorusInteractionHandler interactionHandler = new IgnivorusInteractionHandler(this);
+    private final IgnivorusTamingHandler tamingController = new IgnivorusTamingHandler(this);
+    private Vec3 fireAimDir;
+    private final DragonBreathPose breathPose = new DragonBreathPose(IgnivorusStatProfile.BreathPose.PROFILE);
+    private String aiFireBreathDecision = "idle";
+    private String aiFireballDecision = "idle";
+    private final DragonCombatLearning combatLearning = new DragonCombatLearning(this,
+            new DragonCombatLearning.Profile(DragonCombatLearning.Attack.BREATH, 2, 1200, 4, 6.0D, 20.0D, 12.0D));
+
+    @Override
+    public DragonCombatLearning getCombatLearning() { return combatLearning; }
+
+    @Override
+    public boolean canLearnCombat() { return !isTamingStunned(); }
+
+    public double getAiBreathSpacingBonus(LivingEntity target) {
+        return combatLearning.expectation(target, DragonCombatLearning.Attack.BREATH, isAerial()).spacingBonus() * 0.75D;
+    }
+
+    public String getAiFireballDecision() { return aiFireballDecision; }
+
+    public void setAiFireballDecision(String decision) { aiFireballDecision = decision; }
+    private final IgnivorusBreathStream fireBreathStream = new IgnivorusBreathStream(this);
+    private int fireTime = 0;
+    private Vec3 fireServerTarget = null;
+    private boolean bulldozing = false;
+    private int bulldozeCooldownTicks = 0;
+    private final Map<Integer, Integer> bulldozeHitCooldowns = new HashMap<>();
+    private boolean bulldozeWasVehicle = false;
+    private boolean phase2Active = false;
+    private static final DragonCombatFlightProfile COMBAT_FLIGHT_PHASE1 =
+            DragonCombatFlightProfile.ignivorus(ExpandingBreathSection.DEFAULT_RANGE, false);
+    private static final DragonCombatFlightProfile COMBAT_FLIGHT_PHASE2 =
+            DragonCombatFlightProfile.ignivorus(ExpandingBreathSection.DEFAULT_RANGE, true);
+    private static final DragonCombatAim.Profile GROUND_FIRE_AIM =
+            new DragonCombatAim.Profile(MAX_FIRE_YAW_DEG, MAX_FIRE_PITCH_DEG, 6, 1.0);
+    private static final DragonCombatAim.Profile AIR_FIRE_AIM =
+            new DragonCombatAim.Profile(MAX_FIRE_YAW_DEG, MAX_FIRE_PITCH_DEG, 3, 1.0,
+                    IgnivorusStatProfile.FireBreathAbility.AI_AIR_AIM_TURN_DEGREES,
+                    IgnivorusStatProfile.FireBreathAbility.AI_AIR_BODY_TURN_DEGREES);
+    private final DragonCombatFlightState combatFlightState = new DragonCombatFlightState(this,
+            () -> isPhase2Active() ? COMBAT_FLIGHT_PHASE2 : COMBAT_FLIGHT_PHASE1,
+            this::isAiRangedFlightReady, this::isAiCombatMovementCommitted);
+    @Nullable
+    private LivingEntity wildPhase2Target;
+    private int phase2CooldownTicks = 0;
+    private boolean useRightWingSwipe = true;
+    private boolean phase2WasVehicle = false;
+    private boolean wildLowHealthUltimateTriggered = false;
+    private int wildPhase2IdleTicks;
+    private boolean wildPhase2PendingLanding;
+    private boolean aiSpecialCombatActive = false;
+    private boolean leaping = false;
+    private boolean leapWasVehicle = false;
+    private int leapAnimState = LEAP_STATE_NONE;
+    private Vec3 leapVelocity = Vec3.ZERO;
+    private Vec3 leapArcDirection = Vec3.ZERO;
+    private int leapArcTick = 0;
+    private int leapCooldownTicks = 0;
+    private int leapWindupTicks = 0;
+    private int leapImpactRecoveryTicks = 0;
+    private boolean leapImpactTriggered = false;
+    private boolean wasAirborneBeforeLanding = false;
+    private int leapGroundedTicks = 0;
+    private final DragonForwardMovementComponent leapMovement = new DragonForwardMovementComponent(
+            this,
+            new DragonForwardMovementComponent.StateAccess() {
+                @Override
+                public void start(int ticks, Vec3 velocity, boolean dashing, boolean dodging, double horizontalDrag) {
+                    entityData.set(DATA_LEAP_MOVE_TICKS, Math.max(1, ticks));
+                    setVelocity(velocity);
+                }
+
+                @Override
+                public int ticks() {
+                    return entityData.get(DATA_LEAP_MOVE_TICKS);
+                }
+
+                @Override
+                public void setTicks(int ticks) {
+                    entityData.set(DATA_LEAP_MOVE_TICKS, Math.max(0, ticks));
+                }
+
+                @Override
+                public Vec3 velocity() {
+                    return new Vec3(
+                            entityData.get(DATA_LEAP_MOVE_X),
+                            entityData.get(DATA_LEAP_MOVE_Y),
+                            entityData.get(DATA_LEAP_MOVE_Z)
+                    );
+                }
+
+                @Override
+                public void setVelocity(Vec3 velocity) {
+                    entityData.set(DATA_LEAP_MOVE_X, (float) velocity.x);
+                    entityData.set(DATA_LEAP_MOVE_Y, (float) velocity.y);
+                    entityData.set(DATA_LEAP_MOVE_Z, (float) velocity.z);
+                }
+
+                @Override
+                public double horizontalDrag() {
+                    return 1.0D;
+                }
+
+                @Override
+                public void clear() {
+                    entityData.set(DATA_LEAP_MOVE_TICKS, 0);
+                    entityData.set(DATA_LEAP_MOVE_X, 0.0F);
+                    entityData.set(DATA_LEAP_MOVE_Y, 0.0F);
+                    entityData.set(DATA_LEAP_MOVE_Z, 0.0F);
+                }
+            }
+    );
+    private long lastAiLandedAnimTick = -40L;
+    private final ScreenShakeComponent screenShakeComponent;
+    private final DragonRoostComponent roostComponent = new DragonRoostComponent(
+            this,
+            IGNIVORUS_ROOST_STRUCTURE,
+            ROOST_SLEEP_RADIUS,
+            ROOST_TERRITORY_RADIUS,
+            ROOST_SLEEP_SETTLE_TICKS
+    );
+    private float cinematicZoomProgress = 0.0F;
+    private float prevCinematicZoomProgress = 0.0F;
+    private static final int MIN_AMBIENT_DELAY = 180;
+    private static final int MAX_AMBIENT_DELAY = 520;
+    private int teethChipDropCooldownTicks = 0;
+    public Ignivorus(EntityType<? extends Ignivorus> type, Level level) {
+        super(type, level);
+        this.screenShakeComponent = new ScreenShakeComponent(this, DATA_SCREEN_SHAKE_AMOUNT, SHAKE_DECAY_PER_TICK);
+        java.util.Objects.requireNonNull(this.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT)).setBaseValue(DEFAULT_MAX_UP_STEP);
+
+        this.setPathfindingMalus(PathType.FIRE_IN_NEIGHBOR, 0.0F);
+        this.setPathfindingMalus(PathType.FIRE, 0.0F);
+
+        this.riderController = new IgnivorusRiderController(this);
+        this.movementController = new EntityAnimationController<>(this, "movement", 2, animationHandler::movementPredicate);
+        this.actionController = new EntityAnimationController<>(this, IgnivorusAnimationHandler.ACTION_CONTROLLER, 4, state -> {
+            if (isTamingStunned()) {
+                return PlayState.STOP;
+            }
+            return animationHandler.actionPredicate(state);
+        });
+        this.fastActionController = new EntityAnimationController<>(this, IgnivorusAnimationHandler.FAST_ACTION_CONTROLLER, 1, animationHandler::fastActionPredicate);
+        this.flightController = new DragonFlightAnimationController<>(this, getFlightAnimationTransitionTicks(), animationHandler::flightPredicate);
+        this.vocalController = new EntityAnimationController<>(this, AnimationHelper.VOCAL_CONTROLLER, 2, AnimationHelper::vocalIdle);
+        this.interactionController = new EntityAnimationController<>(this, AnimationHelper.INTERACTION_CONTROLLER, 1, AnimationHelper::interactionIdle);
+        setupAnimationControllers();
+        resetAmbientSoundTimer(MIN_AMBIENT_DELAY, MAX_AMBIENT_DELAY);
+        if (!level.isClientSide()) {
+            applyConfiguredAttributes();
+        }
+    }
+
+    @Override
+    protected DragonRiderFlight.Config getRiderFlightConfig() {
+        return new DragonRiderFlight.Config(
+                true,
+                0,
+                0.25D,
+                0,
+                0.45D,
+                TAKEOFF_ANIMATION_TICKS
+        );
+    }
+
+    @Override
+    protected void onTakeoffStarted() {
+        this.timeFlying = 0;
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_RIDER_LANDING_BLEND, false);
+        builder.define(DATA_BULLDOZING, false);
+        builder.define(DATA_PHASE2, false);
+        builder.define(DATA_LEAPING, false);
+        builder.define(DATA_LEAP_ANIM_STATE, 0);
+        builder.define(DATA_LEAP_MOVE_TICKS, 0);
+        builder.define(DATA_LEAP_MOVE_X, 0.0F);
+        builder.define(DATA_LEAP_MOVE_Y, 0.0F);
+        builder.define(DATA_LEAP_MOVE_Z, 0.0F);
+        builder.define(DATA_FIRE_BREATHING, false);
+        builder.define(DATA_FIRE_BREATH_PROGRESS, 0);
+        builder.define(DATA_FIRE_BREATH_ENERGY, 1.0F);
+        builder.define(DATA_FIRE_BREATH_DEPLETED, false);
+        builder.define(DATA_FIRE_START_SET, false);
+        builder.define(DATA_FIRE_START_X, 0F);
+        builder.define(DATA_FIRE_START_Y, 0F);
+        builder.define(DATA_FIRE_START_Z, 0F);
+        builder.define(DATA_FIRE_END_SET, false);
+        builder.define(DATA_FIRE_END_X, 0F);
+        builder.define(DATA_FIRE_END_Y, 0F);
+        builder.define(DATA_FIRE_END_Z, 0F);
+        builder.define(DATA_SCREEN_SHAKE_AMOUNT, 0.0F);
+        builder.define(DATA_CINEMATIC_ZOOM_ACTIVE, false);
+        builder.define(DATA_SKYFALL_START, -1L);
+        builder.define(DATA_SKYFALL_OFFSET, 0);
+        builder.define(DATA_SKYFALL_IDLE, false);
+        builder.define(DATA_FEEDING_COOLDOWN, 0);
+        builder.define(DATA_TAMING_STUNNED, false);
+        builder.define(DATA_FLIGHT_PITCH, 0f);
+        builder.define(DATA_ACCUMULATED_ROLL, 0f);
+        builder.define(DATA_PITCH_KEY_MODE, false);
+        builder.define(DATA_FIREBALL_CHARGE, 0);
+    }
+
+    public void setSkyfallChargeActive(boolean active) {
+        setSkyfallChargeActive(active, 0);
+    }
+
+    public void setSkyfallChargeActive(boolean active, int timelineOffset) {
+        if (!level().isClientSide()) {
+            entityData.set(DATA_SKYFALL_OFFSET, active ? timelineOffset : 0);
+            entityData.set(DATA_SKYFALL_START, active ? level().getGameTime() : -1L);
+        }
+    }
+
+    public float getSkyfallElapsedTicks(float partialTick) {
+        long start = entityData.get(DATA_SKYFALL_START);
+        return start < 0L ? -1.0F : (float) (level().getGameTime() - start)
+                + entityData.get(DATA_SKYFALL_OFFSET) + partialTick;
+    }
+
+    private boolean isSkyfallMovementLocked() {
+        return !isDying() && entityData.get(DATA_SKYFALL_START) >= 0L;
+    }
+
+    private void holdSkyfallMovement() {
+        setDeltaMovement(Vec3.ZERO);
+        fallDistance = 0.0F;
+    }
+
+    public static AttributeSupplier.Builder createAttributes() {
+        DragonAttributeConfig config = DragonAttributeConfigLoader.getInstance().getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID);
+        double attackDamage = config.abilityDamage("bite", IgnivorusStatProfile.Entity.FALLBACK_BITE);
+        return createMobAttributes()
+            .add(Attributes.MAX_HEALTH, config.maxHealth())
+            .add(Attributes.MOVEMENT_SPEED, GROUND_MOVEMENT_SPEED)
+            .add(Attributes.FLYING_SPEED, config.flyingSpeed())
+            .add(Attributes.ATTACK_DAMAGE, attackDamage)
+            .add(Attributes.FOLLOW_RANGE, BASE_FOLLOW_RANGE)
+            .add(Attributes.ARMOR, config.armor())
+            .add(Attributes.KNOCKBACK_RESISTANCE, IgnivorusStatProfile.Entity.ATTRIBUTE_KNOCKBACK_RESISTANCE);
+    }
+
+
+    @Override
+    public boolean supportsRiderPitchLock() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsRiderWaterBreach() {
+        return true;
+    }
+
+    @Override
+    public boolean isRiderInputEnabled(DragonRiderAction action) {
+        return action != DragonRiderAction.DOUBLE_TAP_A && action != DragonRiderAction.DOUBLE_TAP_D
+                && super.isRiderInputEnabled(action);
+    }
+
+    @Override
+    public RiderDualAbilityBinding getPrimaryRiderDualAbility() {
+        return RiderDualAbilityBinding.milliseconds(ModAbilities.IGNIVORUS_ROAR.getName(),
+                new RiderAbilityBinding(ModAbilities.IGNIVORUS_FIREBALL.getName(), RiderAbilityBinding.Activation.HOLD), 180L);
+    }
+
+    @Override
+    protected boolean supportsRiderAction(DragonRiderAction action) {
+        return switch (action) {
+            case DOUBLE_TAP_A, DOUBLE_TAP_D, DOUBLE_TAP_W, DOUBLE_TAP_S,
+                 ABILITY_USE, ABILITY_STOP -> true;
+            default -> super.supportsRiderAction(action);
+        };
+    }
+
+    @Override
+    public @NotNull SpawnGroupData finalizeSpawn(@NotNull ServerLevelAccessor level,
+                                                 @NotNull DifficultyInstance difficulty,
+                                                 @NotNull EntitySpawnReason spawnType,
+                                                 @Nullable SpawnGroupData spawnData) {
+        SpawnGroupData data = super.finalizeSpawn(level, difficulty, spawnType, spawnData);
+        roostComponent.initializeHomeFromSpawn(level, spawnType);
+        applyConfiguredAttributes();
+        this.setHealth(this.getMaxHealth());
+
+        return data;
+    }
+
+    @Override
+    protected void beforeFlightTick() {
+        if (!level().isClientSide()) {
+            roostComponent.tick();
+        }
+    }
+
+    @Override
+    protected boolean shouldBankDuringFlight() {
+        return isFlying();
+    }
+
+    @Override
+    protected FlightNavigationPolicy getFlightNavigationPolicy() {
+        return FlightNavigationPolicy.KEEP_CURRENT;
+    }
+
+    @Override
+    protected void tickFlightLifecycle() {
+        if (level() instanceof ServerLevel serverLevel) {
+            DragonDestructionManager.applyPassiveTreeDestruction(serverLevel, this);
+        }
+
+        if (isDying() || this.dead) {
+            fireBreathStream.clear();
+            stopCustomStateForDeath();
+            return;
+        }
+        fireBreathStream.tick();
+        tickRiderControlLock();
+        tickBulldozeState();
+        tickPhase2State();
+        updatePhase2FollowRange();
+        tickLeapState();
+        tickScreenShake();
+        tickCinematicZoom();
+        tickStandardTakeoffAndGroundedAerialRecovery();
+        tickFlightContactCounters();
+        tickFlightDuration();
+
+        syncFlightAnimationState();
+
+        if (!level().isClientSide() && isLanding() && onGround()) {
+            handleAiLandingComplete();
+        }
+
+        if (!level().isClientSide() && !isFlying() && isHovering() && onGround()) {
+            setHovering(false);
+        }
+
+        tickFlightNavigationState();
+
+        if (isSkyfallMovementLocked()) {
+            if (!level().isClientSide() && !isAiFlightDone()) {
+                clearAiFlightTarget();
+            }
+            holdSkyfallMovement();
+        } else {
+            tickAsyncFlightNavigation();
+        }
+
+        tickFlightOrientation();
+        breathPose.tick(this, isBreathingFire() && getSkyfallElapsedTicks(1.0F) < 0.0F,
+                getFireBreathVisualDirection(1.0F));
+        collisionState.invalidate();
+
+        if (!level().isClientSide()) {
+            if (isBaby()) {
+                if (isAerial()) {
+                    clearAerialStateForInterrupt();
+                }
+                if (getTarget() != null) {
+                    setTarget(null);
+                }
+                if (getActiveAbility() != null) {
+                    combatManager.forceEndActiveAbility();
+                }
+                setAggressive(false);
+            }
+            tamingController.tickServer();
+            if (isTamingStunned()) {
+                tamingController.enforceGroundingTick();
+            }
+            tickFireBreathEnergy();
+            tickTerrainClearing();
+            handleAmbientSounds();
+            int cooldown = this.entityData.get(DATA_FEEDING_COOLDOWN);
+            if (cooldown > 0) {
+                this.entityData.set(DATA_FEEDING_COOLDOWN, cooldown - 1);
+            }
+            if (teethChipDropCooldownTicks > 0) {
+                teethChipDropCooldownTicks--;
+            }
+        }
+        if (!level().isClientSide()) {
+            tickAnimationStates();
+        }
+        updateSittingProgress();
+    }
+
+    private void stopCustomStateForDeath() {
+        if (!level().isClientSide()) {
+            clearRiderControlLock();
+            this.getNavigation().stop();
+            this.setTarget(null);
+        }
+
+        bulldozing = false;
+        this.entityData.set(DATA_BULLDOZING, false);
+
+        phase2Active = false;
+        this.entityData.set(DATA_PHASE2, false);
+        phase2WasVehicle = false;
+
+        leaping = false;
+        leapWasVehicle = false;
+        leapImpactTriggered = false;
+        wasAirborneBeforeLanding = false;
+        leapGroundedTicks = 0;
+        leapVelocity = Vec3.ZERO;
+        leapArcDirection = Vec3.ZERO;
+        leapArcTick = 0;
+        leapWindupTicks = 0;
+        leapMovement.clear();
+        leapAnimState = LEAP_STATE_NONE;
+        leapImpactRecoveryTicks = 0;
+        this.entityData.set(DATA_LEAPING, false);
+        this.entityData.set(DATA_LEAP_ANIM_STATE, LEAP_STATE_NONE);
+
+        clearAerialStateForInterrupt();
+        setNoGravity(false);
+        setDeltaMovement(Vec3.ZERO);
+    }
+
+    @Override
+    public void remove(@NotNull RemovalReason reason) {
+        super.remove(reason);
+    }
+
+    @Override
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel hurtLevel, @Nonnull DamageSource damageSource, float amount) {
+        if (isDying()) {
+            return false;
+        }
+        rememberIncomingProjectile(damageSource);
+        if (damageSource.is(DamageTypes.IN_FIRE) ||
+            damageSource.is(DamageTypes.ON_FIRE) ||
+            damageSource.is(DamageTypes.LAVA) ||
+            damageSource.is(DamageTypes.HOT_FLOOR)) {
+            if (this.isOnFire() || this.getRemainingFireTicks() > 0) {
+                this.clearFire();
+                this.setRemainingFireTicks(0);
+            }
+            return false;
+        }
+        if (isAbilityActive(ModAbilities.IGNIVORUS_ULTIMATE)
+                && !damageSource.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return false;
+        }
+        if (isSleeping() || isSleepingEntering() || isSleepingExiting()) {
+            wakeUpImmediately();
+            suppressSleep(200);
+        }
+        if (tamingController.tryEnterHoldStateFromDamage(damageSource, amount)) {
+            return true;
+        }
+        boolean hurt = super.hurtServer(hurtLevel, damageSource, amount);
+        if (hurt
+                && !level().isClientSide()
+                && amount > 0.0F
+                && damageSource.getEntity() != null
+                && teethChipDropCooldownTicks <= 0) {
+            if (DragonLootTables.dropEntityLoot(this, DragonLootTables.IGNIVORUS_HIT, damageSource)) {
+                teethChipDropCooldownTicks = 30;
+            }
+        }
+        return hurt;
+    }
+
+    @Override
+    protected double getCullingInflateX() {
+        return 8.0D;
+    }
+
+    @Override
+    protected double getCullingInflateY() {
+        return 4.0D;
+    }
+
+    @Override
+    protected double getCullingInflateZ() {
+        return 8.0D;
+    }
+
+    @Override
+    protected float getBabyHitboxScale() {
+        return BABY_HITBOX_SCALE;
+    }
+
+    @Override
+    public void ageBoundaryReached() {
+        super.ageBoundaryReached();
+        applyConfiguredAttributes();
+        refreshDimensions();
+    }
+
+    @Override
+    public @NotNull Vec3 getRiddenInput(@NotNull Player player, @NotNull Vec3 deltaIn) {
+        if (areRiderControlsLocked()) {
+            return Vec3.ZERO;
+        }
+        Vec3 input = riderController.getRiddenInput(player, deltaIn);
+        if (!level().isClientSide() && isFlying()) {
+            float fwd = (float) Mth.clamp(input.z, -1.0, 1.0);
+            float str = (float) Mth.clamp(input.x, -1.0, 1.0);
+            this.setLastRiderForward(Math.abs(fwd) > 0.02f ? fwd : 0f);
+            this.setLastRiderStrafe(Math.abs(str) > 0.02f ? str : 0f);
+        }
+        return super.getRiddenInput(player, input);
+    }
+
+
+    private void handleAmbientSounds() {
+        if (isBaby() || isDying() || isSleeping() || isSleepTransitioning() || areRiderControlsLocked()) {
+            return;
+        }
+        if (getTarget() != null || getActiveAbility() != null || isBreathingFire()) {
+            return;
+        }
+        if (isOrderedToSit() || this.isStayOrSitMuted()) {
+            return;
+        }
+        if (bulldozing || leaping || leapImpactRecoveryTicks > 0) {
+            return;
+        }
+
+        tickAmbientVocalSounds(MIN_AMBIENT_DELAY, MAX_AMBIENT_DELAY, this::selectAmbientGrumble);
+    }
+
+    private String selectAmbientGrumble() {
+        float roll = this.getRandom().nextFloat();
+        return roll < 0.34f ? "ignivorus_grumble1"
+                : (roll < 0.67f ? "ignivorus_grumble2" : "ignivorus_grumble3");
+    }
+
+    public boolean canFeed() {
+        return this.entityData.get(DATA_FEEDING_COOLDOWN) <= 0;
+    }
+
+    public void setFeedingCooldown(int ticks) {
+        this.entityData.set(DATA_FEEDING_COOLDOWN, Math.max(0, ticks));
+    }
+
+    @Override
+    protected DragonVariantSet getVariantSet() {
+        return VARIANTS;
+    }
+
+    public int getFireballChargeLevel() {
+        return this.entityData.get(DATA_FIREBALL_CHARGE);
+    }
+
+    public void setFireballChargeLevel(int level) {
+        this.entityData.set(DATA_FIREBALL_CHARGE, Math.max(0, Math.min(3, level)));
+    }
+
+    public boolean isChargingFireball() {
+        return getFireballChargeLevel() > 0;
+    }
+
+    private static final float TAMING_HEALTH_RATIO = IgnivorusStatProfile.Entity.TAMING_HEALTH_RATIO;
+    public boolean isTamingStunned() {
+        return this.entityData.get(DATA_TAMING_STUNNED);
+    }
+
+    public void enterTamingStun() {
+        tamingController.enterStun();
+    }
+
+    public void setTamingRecoveryTarget(float targetHealth) {
+        tamingController.setRecoveryTarget(targetHealth);
+    }
+
+    public void clearTamingRecovery() {
+        tamingController.clearRecovery();
+    }
+
+    public void incrementTamingFailures() {
+        tamingController.incrementFailures();
+    }
+
+    public void resetTamingFailures() {
+        tamingController.resetFailures();
+    }
+
+
+    public boolean isReadyForTamingFeed() {
+        return tamingController.isReadyForTamingFeed();
+    }
+
+    public boolean isBelowTamingThreshold() {
+        return this.getHealth() <= getTamingThreshold();
+    }
+
+    public float getTamingThreshold() {
+        double fallback = this.getMaxHealth() * TAMING_HEALTH_RATIO;
+        double configured = DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID)
+                .extraDouble("taming_stun_health", fallback);
+        double clamped = Math.max(0.0D, Math.min(configured, this.getMaxHealth()));
+        return (float) clamped;
+    }
+
+    @Override
+    public void lockRiderControls(int ticks) {
+        super.lockRiderControls(ticks);
+        this.setAccelerating(false);
+        this.setLastRiderForward(0.0F);
+        this.setLastRiderStrafe(0.0F);
+        this.setGroundMoveStateFromRider(0);
+        this.setGoingUp(false);
+        this.setGoingDown(false);
+        this.setDeltaMovement(Vec3.ZERO);
+        if (!this.level().isClientSide()) {
+            this.getNavigation().stop();
+            if (this.isVehicle() || this.getControllingPassenger() != null) {
+                this.setTarget(null);
+            }
+        }
+    }
+
+
+    private void tickCinematicZoom() {
+        prevCinematicZoomProgress = cinematicZoomProgress;
+        boolean active = this.entityData.get(DATA_CINEMATIC_ZOOM_ACTIVE);
+        float target = active ? 1.0F : 0.0F;
+        cinematicZoomProgress = Mth.lerp(0.12F, cinematicZoomProgress, target);
+        if (Math.abs(cinematicZoomProgress - target) < 0.01F) {
+            cinematicZoomProgress = target;
+        }
+    }
+
+    private void tickBulldozeState() {
+        updateBulldozeStepHeight();
+        if (!level().isClientSide()) {
+            boolean currentlyVehicle = this.isVehicle();
+            if (bulldozeCooldownTicks > 0) {
+                bulldozeCooldownTicks--;
+            }
+
+            bulldozeHitCooldowns.entrySet().removeIf(entry -> {
+                entry.setValue(entry.getValue() - 1);
+                return entry.getValue() <= 0;
+            });
+
+            if (bulldozing && currentlyVehicle && !this.isAccelerating()) {
+                setAccelerating(true);
+            }
+
+            if (bulldozing && bulldozeWasVehicle && !currentlyVehicle) {
+                bulldozing = false;
+                this.entityData.set(DATA_BULLDOZING, false);
+                setAccelerating(false);
+                bulldozeCooldownTicks = 40;
+                clearRiderControlLock();
+                bulldozeHitCooldowns.clear();
+            }
+
+            if (bulldozing && currentlyVehicle) {
+                Vec3 forward = getBulldozeTunnelDirection(getDeltaMovement());
+                if (forward.lengthSqr() < 1.0E-6D) {
+                    forward = getLookAngle().normalize();
+                }
+                Vec3 damageCenter = this.getBoundingBox().getCenter()
+                        .add(forward.scale(BULLDOZE_DAMAGE_FORWARD_REACH));
+
+                AABB dragonBox = this.getBoundingBox().inflate(
+                        BULLDOZE_DAMAGE_HALF_WIDTH,
+                        BULLDOZE_DAMAGE_HALF_HEIGHT,
+                        BULLDOZE_DAMAGE_HALF_WIDTH
+                );
+                AABB forwardBox = new AABB(damageCenter, damageCenter).inflate(
+                        BULLDOZE_DAMAGE_HALF_WIDTH,
+                        BULLDOZE_DAMAGE_HALF_HEIGHT,
+                        BULLDOZE_DAMAGE_HALF_WIDTH
+                );
+                AABB combinedBox = dragonBox.minmax(forwardBox);
+
+                List<LivingEntity> entities = this.level().getEntitiesOfClass(LivingEntity.class, combinedBox,
+                    entity -> entity != this && entity != this.getControllingPassenger() && !this.isAlly(entity)
+                );
+                for (LivingEntity target : entities) {
+                    int entityId = target.getId();
+                    if (bulldozeHitCooldowns.containsKey(entityId)) {
+                        continue;
+                    }
+
+                    target.hurt(this.damageSources().mobAttack(this), resolveBulldozeDamage());
+                    double knockbackStrength = 2.0D;
+                    double dx = this.getX() - target.getX();
+                    double dz = this.getZ() - target.getZ();
+                    double dist = Math.sqrt(dx * dx + dz * dz);
+                    if (dist > 1.0E-6D) {
+                        target.knockback(
+                            knockbackStrength,
+                            dx / dist,
+                            dz / dist,
+                                target.damageSources().generic(), 0.0F
+                        );
+                    } else {
+                        target.knockback(knockbackStrength, -forward.x, -forward.z, target.damageSources().generic(), 0.0F);
+                    }
+                    bulldozeHitCooldowns.put(entityId, 5);
+                }
+            }
+            bulldozeWasVehicle = currentlyVehicle;
+        }
+    }
+
+    private void updateBulldozeStepHeight() {
+        java.util.Objects.requireNonNull(this.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT)).setBaseValue(bulldozing && isVehicle() ? BULLDOZE_MAX_UP_STEP : DEFAULT_MAX_UP_STEP);
+    }
+
+    private void tickPhase2State() {
+        if (!level().isClientSide()) {
+            if (wildPhase2PendingLanding) {
+                LivingEntity target = getTarget();
+                boolean fightEnded = wildPhase2Target != null && wildPhase2Target.isDeadOrDying()
+                        || target != null && target.isDeadOrDying();
+                if (fightEnded) {
+                    wildLowHealthUltimateTriggered = false;
+                    wildPhase2Target = null;
+                    wildPhase2PendingLanding = false;
+                } else if (!isAlive() || isTame() || isTamingStunned() || isPhase2Active()) {
+                    wildPhase2PendingLanding = false;
+                } else if (isGroundedForAction() && !isAerial() && getActiveAbility() == null
+                        && !areRiderControlsLocked() && !isLeaping() && !isLeapImpactRecovering()) {
+                    queueWildPhase2Transition();
+                }
+            }
+            if (wildPhase2IdleTicks > 0) {
+                if (!isAlive() || isTamingStunned() || isTame() || isAerial()) {
+                    wildPhase2IdleTicks = 0;
+                    entityData.set(DATA_SKYFALL_IDLE, false);
+                } else {
+                    getNavigation().stop();
+                    setDeltaMovement(Vec3.ZERO);
+                    if (--wildPhase2IdleTicks == 0) {
+                        entityData.set(DATA_SKYFALL_IDLE, false);
+                        completeWildPhase2Transition();
+                    }
+                }
+            }
+            boolean currentlyVehicle = this.isVehicle();
+
+            if (phase2CooldownTicks > 0) {
+                phase2CooldownTicks--;
+            }
+            if (phase2Active && wildLowHealthUltimateTriggered && !isTame()) {
+                LivingEntity target = getTarget();
+                if ((wildPhase2Target != null && wildPhase2Target.isDeadOrDying())
+                        || (target != null && target.isDeadOrDying())) {
+                    exitPhase2(true);
+                    wildLowHealthUltimateTriggered = false;
+                    return;
+                }
+                if (target != null && !target.isRemoved()) {
+                    wildPhase2Target = target;
+                } else if (wildPhase2Target != null && wildPhase2Target.isRemoved()) {
+                    wildPhase2Target = null;
+                }
+            }
+            if (phase2Active && phase2WasVehicle && !currentlyVehicle) {
+                phase2Active = false;
+                this.entityData.set(DATA_PHASE2, false);
+                phase2CooldownTicks = 40;
+                clearRiderControlLock();
+            }
+
+            phase2WasVehicle = currentlyVehicle;
+        }
+    }
+
+    private void updatePhase2FollowRange() {
+        if (level().isClientSide()) {
+            return;
+        }
+
+        AttributeInstance followRange = getAttribute(Attributes.FOLLOW_RANGE);
+        if (followRange == null) {
+            return;
+        }
+
+        boolean wildTransitionUltimate = !isTame()
+                && !phase2Active
+                && isAbilityActive(ModAbilities.IGNIVORUS_ULTIMATE);
+        boolean shouldExtendRange = !isTame() && (phase2Active || wildTransitionUltimate
+                || wildPhase2PendingLanding || wildPhase2IdleTicks > 0);
+        boolean hasModifier = followRange.getModifier(PHASE2_FOLLOW_RANGE_MODIFIER_UUID) != null;
+
+        if (shouldExtendRange && !hasModifier) {
+            followRange.addTransientModifier(PHASE2_FOLLOW_RANGE_MODIFIER);
+        } else if (!shouldExtendRange && hasModifier) {
+            followRange.removeModifier(PHASE2_FOLLOW_RANGE_MODIFIER_UUID);
+        }
+    }
+
+    private void tickLeapState() {
+        if (!level().isClientSide()) {
+            boolean currentlyVehicle = this.isVehicle();
+
+            if (leapCooldownTicks > 0) {
+                leapCooldownTicks--;
+            }
+
+            if (leapImpactRecoveryTicks > 0) {
+                leapImpactRecoveryTicks--;
+                if (leapImpactRecoveryTicks == 0 && leapAnimState != LEAP_STATE_NONE) {
+                    leapAnimState = LEAP_STATE_NONE;
+                    this.entityData.set(DATA_LEAP_ANIM_STATE, LEAP_STATE_NONE);
+                }
+            }
+
+            if (leaping && leapWasVehicle && !currentlyVehicle) {
+                leaping = false;
+                this.entityData.set(DATA_LEAPING, false);
+                leapAnimState = LEAP_STATE_NONE;
+                this.entityData.set(DATA_LEAP_ANIM_STATE, LEAP_STATE_NONE);
+                leapVelocity = Vec3.ZERO;
+                leapArcDirection = Vec3.ZERO;
+                leapArcTick = 0;
+                setDeltaMovement(Vec3.ZERO);
+                wasAirborneBeforeLanding = false;
+                leapImpactTriggered = false;
+                leapGroundedTicks = 0;
+                leapWindupTicks = 0;
+                leapMovement.cancelActive();
+                leapImpactRecoveryTicks = 0;
+                leapWasVehicle = false;
+            }
+            if (leaping) {
+                if (leapWindupTicks > 0) {
+                    handleLeapWindup();
+                } else {
+                    handleLeapMovement();
+                }
+            }
+            if (leapMovement.isActive()) {
+                leapMovement.tickServerState();
+            }
+        }
+    }
+
+    private void handleLeapWindup() {
+        this.getNavigation().stop();
+        this.getMoveControl().setWantedPosition(getX(), getY(), getZ(), 0.0D);
+        setDeltaMovement(Vec3.ZERO);
+        needsSync = true;
+
+        leapWindupTicks--;
+        if (leapWindupTicks > 0) {
+            return;
+        }
+
+        setDeltaMovement(Vec3.ZERO);
+        needsSync = true;
+        leapGroundedTicks = 0;
+        leapMovement.startContinuous(leapVelocity, 3);
+    }
+
+    private void handleLeapMovement() {
+        if (!onGround()) {
+            wasAirborneBeforeLanding = true;
+            leapGroundedTicks = 0;
+        } else {
+            leapGroundedTicks++;
+        }
+
+        if (!leapImpactTriggered && wasAirborneBeforeLanding && leapVelocity.y < -0.05D) {
+            double groundDistance = getLeapGroundDistance();
+            if (groundDistance >= 0.0D && groundDistance <= LEAP_IMPACT_TRIGGER_HEIGHT) {
+                animationHandler.triggerLeapImpactAnimation();
+                leapImpactTriggered = true;
+            }
+        }
+
+        updateRiderSteeredLeapDirection();
+        leapArcTick++;
+        leapVelocity = calculateLeapArcStep(leapArcDirection, leapArcTick);
+        leapMovement.updateContinuous(leapVelocity, 3);
+        if (onGround() && wasAirborneBeforeLanding) {
+            applyLeapSlamDamage();
+            getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_IMPACT.get(), 1.0f, 1.0f, 43);
+            if (!leapImpactTriggered) {
+                animationHandler.triggerLeapImpactAnimation();
+                leapImpactTriggered = true;
+            }
+            leaping = false;
+            this.entityData.set(DATA_LEAPING, false);
+            leapVelocity = Vec3.ZERO;
+            leapArcDirection = Vec3.ZERO;
+            leapArcTick = 0;
+            leapWindupTicks = 0;
+            leapMovement.cancelActive();
+            wasAirborneBeforeLanding = false;
+            leapImpactTriggered = false;
+            if (!leapWasVehicle) {
+                leapCooldownTicks = LEAP_COOLDOWN_TICKS;
+            }
+            leapImpactRecoveryTicks = LEAP_IMPACT_RECOVERY_DURATION;
+            leapWasVehicle = false;
+            lockRiderControls(LEAP_IMPACT_RECOVERY_DURATION);
+            setDeltaMovement(Vec3.ZERO);
+            leapGroundedTicks = 0;
+            return;
+        }
+        if (onGround() && !wasAirborneBeforeLanding && leapGroundedTicks >= LEAP_GROUNDED_FAILSAFE_TICKS) {
+            leaping = false;
+            this.entityData.set(DATA_LEAPING, false);
+            leapAnimState = LEAP_STATE_NONE;
+            this.entityData.set(DATA_LEAP_ANIM_STATE, LEAP_STATE_NONE);
+            leapVelocity = Vec3.ZERO;
+            leapArcDirection = Vec3.ZERO;
+            leapArcTick = 0;
+            leapWindupTicks = 0;
+            leapMovement.cancelActive();
+            setDeltaMovement(Vec3.ZERO);
+            wasAirborneBeforeLanding = false;
+            leapImpactTriggered = false;
+            leapGroundedTicks = 0;
+            if (!leapWasVehicle) {
+                leapCooldownTicks = LEAP_COOLDOWN_TICKS;
+            }
+            leapWasVehicle = false;
+        }
+    }
+
+    private void applyLeapSlamDamage() {
+        Level level = level();
+        if (!(level instanceof ServerLevel server)) {
+            return;
+        }
+
+        Vec3 landPos = position();
+        spawnLeapImpactDirtParticles(server);
+        AABB damageArea = new AABB(
+            landPos.x - LEAP_SLAM_RADIUS,
+            landPos.y - 1.0,
+            landPos.z - LEAP_SLAM_RADIUS,
+            landPos.x + LEAP_SLAM_RADIUS,
+            landPos.y + getBbHeight() + 1.0,
+            landPos.z + LEAP_SLAM_RADIUS
+        );
+        List<LivingEntity> targets = server.getEntitiesOfClass(LivingEntity.class, damageArea,
+                entity -> entity != this && entity.isAlive() && entity.attackable() && !isAlly(entity));
+
+        if (targets.isEmpty()) {
+            return;
+        }
+
+        float damage = resolveLeapSlamDamage();
+        DamageSource source = server.damageSources().mobAttack(this);
+
+        for (LivingEntity target : targets) {
+            target.hurt(source, damage);
+            Vec3 push = target.position().subtract(landPos);
+            if (push.lengthSqr() < 1.0E-4) {
+                push = new Vec3(0, 0, 1);
+            }
+            push = push.normalize();
+            target.push(push.x * LEAP_KNOCKBACK, LEAP_LIFT, push.z * LEAP_KNOCKBACK);
+            target.needsSync = true;
+        }
+    }
+
+    private float resolveLeapSlamDamage() {
+        return (float) DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID)
+                .abilityDamage("leap_slam", LEAP_SLAM_DAMAGE);
+    }
+
+    private float resolveBulldozeDamage() {
+        return (float) DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID)
+                .abilityDamage("bulldoze", DEFAULT_BULLDOZE_DAMAGE);
+    }
+
+    private void spawnLeapImpactDirtParticles(ServerLevel level) {
+        RandomSource random = getRandom();
+        Vec3 dragonPos = position();
+        BlockParticleOption dirtParticles = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState());
+        spawnLeapParticleRing(level, dragonPos, dirtParticles, 5, 10, 40, random);
+        spawnLeapParticleRing(level, dragonPos, dirtParticles, 10, 15, 60, random);
+        spawnLeapParticleRing(level, dragonPos, dirtParticles, 15, 20, 80, random);
+    }
+
+    private void spawnLeapParticleRing(ServerLevel level, Vec3 center,
+                                       BlockParticleOption particleType,
+                                       int minRadius, int maxRadius, int count, RandomSource random) {
+        for (int i = 0; i < count; i++) {
+            double angle = random.nextDouble() * Math.PI * 2;
+            double radius = minRadius + random.nextDouble() * (maxRadius - minRadius);
+            double x = center.x + Math.cos(angle) * radius;
+            double z = center.z + Math.sin(angle) * radius;
+
+            BlockPos groundPos = findGroundLevel(new BlockPos((int)x, (int)center.y, (int)z));
+            if (groundPos == null) {
+                continue;
+            }
+
+            BlockState groundState = level.getBlockState(groundPos);
+            if (groundState.isAir() || groundState.liquid()) {
+                continue;
+            }
+
+            double particleY = groundPos.getY() + 1.02;
+            int burstCount = 6;
+            for (int j = 0; j < burstCount; j++) {
+                double velX = (random.nextDouble() - 0.5) * 0.9;
+                double velY = 0.25 + random.nextDouble() * 0.85;
+                double velZ = (random.nextDouble() - 0.5) * 0.9;
+                level.sendParticles(particleType, x, particleY, z, 0, velX, velY, velZ, 1.0);
+            }
+        }
+    }
+
+    private BlockPos findGroundLevel(BlockPos startPos) {
+        int dragonY = blockPosition().getY();
+        for (int y = dragonY; y > level().getMinY(); y--) {
+            BlockPos checkPos = new BlockPos(startPos.getX(), y, startPos.getZ());
+            BlockState state = level().getBlockState(checkPos);
+            if (!state.isAir() && !state.liquid() && state.isSolidRender()) {
+                return checkPos;
+            }
+        }
+        return null;
+    }
+
+    private double getLeapGroundDistance() {
+        int groundY = level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(getX()), Mth.floor(getZ()));
+        if (groundY <= level().getMinY()) {
+            return -1.0D;
+        }
+        return getY() - (groundY + 1.0D);
+    }
+
+    public boolean isLeaping() {
+        return level().isClientSide() ? this.entityData.get(DATA_LEAPING) : leaping;
+    }
+
+    public boolean isLeapImpactRecovering() {
+        return !level().isClientSide() && leapImpactRecoveryTicks > 0;
+    }
+
+    public int getLeapAnimState() {
+        return level().isClientSide() ? this.entityData.get(DATA_LEAP_ANIM_STATE) : leapAnimState;
+    }
+
+    public void setUltimateCameraZoomActive(boolean active) {
+        this.entityData.set(DATA_CINEMATIC_ZOOM_ACTIVE, active);
+    }
+
+
+    @Override
+    protected boolean isRiderInputLocked(Player player) {
+        return areRiderControlsLocked() || isLeaping();
+    }
+
+    @Override
+    protected void tickRidden(@NotNull Player player, @NotNull Vec3 travelVector) {
+        if (areRiderControlsLocked()) {
+            player.fallDistance = 0.0F;
+            fallDistance = 0.0F;
+            return;
+        }
+        super.tickRidden(player, travelVector);
+        riderController.tickRidden(player, travelVector);
+        if (isBreathingFire()) {
+                Vec3 start = getFireBreathStartAnchor(1.0f);
+                if (start == null) {
+                    start = getEyePosition();
+                }
+                refreshFireAimDirection(start, true);
+        } else {
+            resetFireAimDirection();
+        }
+    }
+
+    @Override
+    public void removePassenger(@NotNull Entity passenger) {
+        super.removePassenger(passenger);
+    }
+
+    @Override
+    public void travel(@NotNull Vec3 travelVec) {
+        if (isSkyfallMovementLocked()) {
+            // Zero input still runs physics; Skyfall must hold before normal travel can move it.
+            holdSkyfallMovement();
+            return;
+        }
+        if (isLeaping()) {
+            setDeltaMovement(Vec3.ZERO);
+            if (leapMovement.isActive()) {
+                leapMovement.applyDirectTravelMotion();
+            }
+            return;
+        }
+
+        if (areRiderControlsLocked()) {
+            super.travel(Vec3.ZERO);
+            return;
+        }
+
+        boolean inWater = this.isInWater() || this.isInWater() || this.isInLava();
+
+        if (inWater) {
+            clearRiderFlightStateInWaterIfNeeded();
+        }
+
+        if (this.isVehicle() && riderController.getRidingPlayer() != null) {
+            Player rider = riderController.getRidingPlayer();
+            if (shouldUseRiderFlightMovementInWater()) {
+                riderController.handleRiderMovement(rider, travelVec);
+            } else if (inWater) {
+                handleRiderWaterSwimming(travelVec);
+            } else if (isFlying()) {
+                riderController.handleRiderMovement(rider, travelVec);
+            } else {
+                this.setSpeed(riderController.getRiddenSpeed(rider));
+                super.travel(travelVec);
+            }
+            return;
+        }
+
+        if (inWater) {
+            handleRiderWaterSwimming(travelVec);
+            return;
+        }
+
+        super.travel(travelVec);
+    }
+
+    @Override
+    public float getRiddenSpeed(@NotNull Player rider) {
+        return riderController.getRiddenSpeed(rider);
+    }
+
+    @Override
+    protected void onRiderFlightStateClearedInWater() {
+        timeFlying = 0;
+    }
+
+    private boolean isPhaseTwoRidingAbilityBlocked(String abilityName) {
+        return isPhase2Active()
+                && !abilityName.equals(ModAbilities.IGNIVORUS_WING_SWIPE.getName())
+                && !abilityName.equals(ModAbilities.IGNIVORUS_STOMP.getName())
+                && !abilityName.equals(ModAbilities.IGNIVORUS_BITE.getName())
+                && !abilityName.equals(ModAbilities.IGNIVORUS_ROAR.getName())
+                && !abilityName.equals(ModAbilities.IGNIVORUS_FIRE_BREATH.getName())
+                && !abilityName.equals(ModAbilities.IGNIVORUS_FIREBALL.getName())
+                && !abilityName.equals(ModAbilities.IGNIVORUS_ULTIMATE.getName());
+    }
+
+    @Override
+    protected DragonAbilityType<?, ?> resolveRidingAbilityType(String abilityName) {
+        if (abilityName == null || abilityName.isEmpty()) {
+            return null;
+        }
+        if (isBaby() && isBabyAbilityBlocked(abilityName)) {
+            return null;
+        }
+        if (isPhaseTwoRidingAbilityBlocked(abilityName)) {
+            return null;
+        }
+        return super.resolveRidingAbilityType(abilityName);
+    }
+
+    @Override
+    protected boolean canUseResolvedRidingAbility(DragonAbilityType<?, ?> abilityType) {
+        if (isBulldozing() && isBulldozeBlockedMelee(abilityType)) {
+            return false;
+        }
+        return super.canUseResolvedRidingAbility(abilityType);
+    }
+
+    private boolean isBulldozeBlockedMelee(DragonAbilityType<?, ?> abilityType) {
+        return abilityType == ModAbilities.IGNIVORUS_BITE
+                || abilityType == ModAbilities.IGNIVORUS_BODY_SLAM;
+    }
+
+    @Override
+    protected boolean tryReleaseHeldRidingAbility(String abilityName) {
+        if (ModAbilities.IGNIVORUS_FIREBALL.getName().equals(abilityName)) {
+            var active = combatManager.getActiveAbility();
+            if (active != null && active.getAbilityType() == ModAbilities.IGNIVORUS_FIREBALL) {
+                ((IgnivorusFireballAbility) active).requestRelease();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    protected boolean handleCustomRiderAction(ServerPlayer player, DragonRiderAction action,
+                                              String abilityName, boolean locked) {
+        if (action == null) {
+            return false;
+        }
+        if (action == DragonRiderAction.DOUBLE_TAP_W) {
+            if (isBaby()) {
+                return true;
+            }
+            if (!locked) {
+                onRiderBulldoze(player);
+            }
+            return true;
+        }
+        if (action == DragonRiderAction.DOUBLE_TAP_S) {
+            if (isBaby()) {
+                return true;
+            }
+            if (!locked) {
+                onRiderPhase2Toggle(player);
+            }
+            return true;
+        }
+        if (bulldozing || leaping) {
+            return action != DragonRiderAction.ACCELERATE
+                    && action != DragonRiderAction.STOP_ACCELERATE;
+        }
+        if (locked) {
+            return false;
+        }
+        return false;
+    }
+
+    @Override
+    protected RiderFlexSpec getRiderFlexSpec() {
+        return new RiderFlexSpec(FLEX_CONTROL_LOCK_TICKS, FLEX_COOLDOWN_TICKS);
+    }
+
+    @Override
+    protected boolean canRiderFlex(ServerPlayer player, RiderFlexSpec spec) {
+        return super.canRiderFlex(player, spec)
+                && !isBaby()
+                && onGround()
+                && !isPhase2Active()
+                && !isFlying()
+                && !isTakeoff()
+                && !isLanding()
+                && !isInWater()
+                && !bulldozing
+                && !leaping;
+    }
+
+    @Override
+    protected void playRiderFlex(ServerPlayer player, RiderFlexSpec spec) {
+        getNavigation().stop();
+        setDeltaMovement(Vec3.ZERO);
+        getSoundHandler().playVocal("ignivorus_flex");
+    }
+
+    @Override
+    public boolean supportsSleep() {
+        return true;
+    }
+    @Override
+    protected boolean useSleepSitDownTimer() {
+        return true;
+    }
+    @Override
+    protected boolean requireSeatedBeforeFallAsleep() {
+        return true;
+    }
+    @Override
+    protected boolean sleepForceSitDownOnEnter() {
+        return true;
+    }
+    @Override
+    protected boolean useSleepSitUpAfterWake() {
+        return false;
+    }
+    @Override
+    public boolean isSleepSuppressed() {
+        return super.isSleepSuppressed() || getTarget() != null || isFlying() || isInWater() || isVehicle() || isTamingStunned();
+    }
+
+    @Override
+    public DragonEntity.DragonSleepPreferences getSleepPreferences() {
+        return DragonEntity.DragonSleepPreferences.NOCTURNAL();
+    }
+
+    @Override
+    public boolean canSleepNow() {
+        boolean ownerSleeping = false;
+        if (isTame()) {
+            var owner = getOwner();
+            ownerSleeping = owner instanceof Player player && player.isSleeping();
+        }
+        return (!DragonEntity.DragonSleepPreferences.isNaturalDay(level()) || ownerSleeping)
+                && roostComponent.canSleepAtRoost();
+    }
+
+    @Override
+    public boolean wantsToReturnToSleepSite() {
+        return roostComponent.wantsToReturnToSleepSite();
+    }
+
+    public boolean hasRoostTerritory() {
+        return roostComponent.hasTerritory();
+    }
+
+    public boolean isWithinRoostTerritory(Vec3 position) {
+        return roostComponent.isWithinTerritory(position);
+    }
+
+    public boolean isWithinRoostWanderArea(Vec3 position) {
+        return roostComponent.isWithinTerritory(position, ROOST_WANDER_RADIUS);
+    }
+
+    public boolean isOutsideRoostTerritory() {
+        return roostComponent.isOutsideTerritory();
+    }
+
+    public boolean shouldSuspendRoostWandering() {
+        return roostComponent.shouldSuspendWandering();
+    }
+
+    @Override
+    protected int getSleepSitDownDuration() {
+        return getSitDownAnimationTicks();
+    }
+    @Override
+    protected int getSleepSitUpDuration() {
+        return getSitUpAnimationTicks();
+    }
+    @Override
+    protected int getSleepFallAsleepDuration() {
+        return getFallAsleepAnimationTicks();
+    }
+    @Override
+    protected int getSleepWakeUpDuration() {
+        return getWakeUpAnimationTicks();
+    }
+    @Override
+    protected void onSleepLockCommand(int snapshot) {
+    }
+    @Override
+    protected void onSleepUnlockCommand(int desired) {
+        setOrderedToSit(desired == 1);
+        setGroundMoveStateFromAI(0);
+    }
+
+    @Override
+    protected void onSleepSitDownAnimation() {
+        animationHandler.triggerSitDownAnimation();
+        setOrderedToSit(true);
+    }
+
+    @Override
+    protected void onSleepFallAsleepAnimation() {
+        animationHandler.triggerFallAsleepAnimation();
+    }
+
+    @Override
+    protected void onSleepLoopAnimation() {
+        setOrderedToSit(true);
+        setGroundMoveStateFromAI(0);
+    }
+
+    @Override
+    protected void onSleepWakeUpAnimation() {
+        animationHandler.triggerWakeUpAnimation();
+    }
+
+    @Override
+    protected void onSleepExitStarted() {
+        setGroundMoveStateFromAI(0);
+        setOrderedToSit(true);
+    }
+
+    @Override
+    protected void onSleepWakeUpImmediate() {
+        setOrderedToSit(false);
+        setGroundMoveStateFromAI(0);
+    }
+
+    private boolean isBabyAbilityBlocked(String abilityName) {
+        return ModAbilities.IGNIVORUS_ULTIMATE.getName().equals(abilityName)
+                || ModAbilities.IGNIVORUS_ROAR.getName().equals(abilityName)
+                || ModAbilities.IGNIVORUS_FIREBALL.getName().equals(abilityName)
+                || ModAbilities.IGNIVORUS_BODY_SLAM.getName().equals(abilityName)
+                || ModAbilities.IGNIVORUS_BITE.getName().equals(abilityName)
+                || ModAbilities.IGNIVORUS_FIRE_BREATH.getName().equals(abilityName)
+                || ModAbilities.IGNIVORUS_WING_SWIPE.getName().equals(abilityName)
+                || ModAbilities.IGNIVORUS_STOMP.getName().equals(abilityName);
+    }
+
+    @Override
+    public void forceEndActiveAbility() {
+        this.combatManager.forceEndActiveAbility();
+        clearFireBreathPath();
+        setBreathingFire(false);
+    }
+
+    @Override
+    public void forceEndAbility(DragonAbilityType<?, ?> abilityType) {
+        combatManager.forceEndAbility(abilityType);
+        if (abilityType == ModAbilities.IGNIVORUS_FIRE_BREATH) {
+            clearFireBreathPath();
+            setBreathingFire(false);
+        }
+    }
+
+
+    public boolean isAiSpecialCombatActive() {
+        return !level().isClientSide() && aiSpecialCombatActive;
+    }
+
+    @Override
+    public RiderAbilityBinding getPrimaryRiderAbility() {
+        if (isBaby()) {
+            return null;
+        }
+        return new RiderAbilityBinding(ModAbilities.IGNIVORUS_ROAR.getName(), RiderAbilityBinding.Activation.PRESS);
+    }
+
+    @Override
+    public RiderAbilityBinding getSecondaryRiderAbility() {
+        if (isBaby()) {
+            return null;
+        }
+        return new RiderAbilityBinding(ModAbilities.IGNIVORUS_ULTIMATE.getName(), RiderAbilityBinding.Activation.PRESS);
+    }
+
+    @Override
+    public RiderAbilityBinding getTertiaryRiderAbility() {
+        if (isBaby()) {
+            return null;
+        }
+        return new RiderAbilityBinding(ModAbilities.IGNIVORUS_FIRE_BREATH.getName(), RiderAbilityBinding.Activation.HOLD);
+    }
+
+    @Override
+    public RiderAbilityBinding getAttackRiderAbility() {
+        if (isBaby() || isBulldozing()) {
+            return null;
+        }
+        if (isPhase2Active()) {
+            if (isFlying()) {
+                return new RiderAbilityBinding(ModAbilities.IGNIVORUS_BITE.getName(), RiderAbilityBinding.Activation.PRESS);
+            }
+            String abilityId = getMeleeMode() == 1
+                    ? ModAbilities.IGNIVORUS_STOMP.getName()
+                    : ModAbilities.IGNIVORUS_WING_SWIPE.getName();
+            return new RiderAbilityBinding(abilityId, RiderAbilityBinding.Activation.PRESS);
+        }
+        String abilityId = getMeleeMode() == 1
+                ? ModAbilities.IGNIVORUS_BODY_SLAM.getName()
+                : ModAbilities.IGNIVORUS_BITE.getName();
+        return new RiderAbilityBinding(abilityId, RiderAbilityBinding.Activation.PRESS);
+    }
+
+    @Override
+    public @NotNull Vec3 getDismountLocationForPassenger(@NotNull LivingEntity passenger) {
+        return riderController.getDismountLocationForPassenger(passenger);
+    }
+
+    @Override
+    public @NotNull InteractionResult mobInteract(@NotNull Player player, @NotNull InteractionHand hand) {
+        InteractionResult result = interactionHandler.handleInteraction(player, hand);
+        if (result == InteractionResult.PASS) {
+            return super.mobInteract(player, hand);
+        }
+        return result;
+    }
+
+    @Override
+    public boolean isFood(@NotNull ItemStack stack) {
+        return stack.is(ModTags.Items.IGNIVORUS_FOODS);
+    }
+
+    @Override
+    protected void onRiderToggleMelee(Player player) {
+        if (isAerial() && player instanceof ServerPlayer serverPlayer && !level().isClientSide()) {
+            serverPlayer.sendOverlayMessage(
+                    Component.translatable("saintsdragons.message.ignivorus_secondary_ground_only"));
+            syncMeleeMode(serverPlayer);
+            return;
+        }
+        super.onRiderToggleMelee(player);
+        if (!level().isClientSide()) {
+            syncMeleeMode(player);
+        }
+    }
+
+    @Override
+    protected void onRiderBulldoze(Player player) {
+        if (isBaby()) {
+            return;
+        }
+        if (isAerial()) {
+            return;
+        }
+        if (areRiderControlsLocked()) {
+            return;
+        }
+        if (isPhase2Active()) {
+            onRiderLeapSlam();
+            return;
+        }
+
+        if (bulldozeCooldownTicks > 0) {
+            return;
+        }
+        if (bulldozing) {
+            bulldozing = false;
+            this.entityData.set(DATA_BULLDOZING, false);
+            setAccelerating(false);
+            bulldozeCooldownTicks = 40;
+            lockRiderControls(20);
+            animationHandler.triggerBulldozeExitAnimation();
+            getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_BULLDOZER_EXIT.get(), 1.0f, 1.0f, 45);
+        } else {
+
+            bulldozing = true;
+            this.entityData.set(DATA_BULLDOZING, true);
+            setAccelerating(true);
+            lockRiderControls(BULLDOZE_ENTER_TICKS);
+            animationHandler.triggerBulldozeEnterAnimation();
+            getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_BULLDOZER_ENTER.get(), 1.0f, 1.0f, 80);
+        }
+    }
+
+    protected void onRiderLeapSlam() {
+        Entity rider = getControllingPassenger();
+        Vec3 look = rider instanceof LivingEntity living ? living.getLookAngle() : this.getLookAngle();
+        Vec3 horizontal = new Vec3(look.x, 0.0D, look.z);
+        if (horizontal.lengthSqr() < 1.0E-6D) {
+            float yawRad = (float) Math.toRadians(this.getYRot());
+            horizontal = new Vec3(-Math.sin(yawRad), 0.0D, Math.cos(yawRad));
+        }
+        startLeapSlam(horizontal);
+    }
+
+    private void updateRiderSteeredLeapDirection() {
+        if (!leapWasVehicle || !(getControllingPassenger() instanceof Player)) {
+            return;
+        }
+
+        float yawRadians = this.getYRot() * Mth.DEG_TO_RAD;
+        leapArcDirection = new Vec3(-Mth.sin(yawRadians), 0.0D, Mth.cos(yawRadians));
+    }
+
+    public boolean tryStartLeapSlamForAI(@Nullable LivingEntity target) {
+        if (!canStartLeapSlamForAI(target)) {
+            return false;
+        }
+
+        Vec3 toTarget = target.position().subtract(this.position());
+        Vec3 horizontal = new Vec3(toTarget.x, 0.0D, toTarget.z);
+        if (horizontal.lengthSqr() < 1.0E-6D) {
+            return false;
+        }
+
+        float yaw = (float) (Mth.atan2(horizontal.z, horizontal.x) * (180F / Math.PI)) - 90.0F;
+        this.setYRot(yaw);
+        this.yBodyRot = yaw;
+        this.yHeadRot = yaw;
+
+        return startLeapSlam(horizontal);
+    }
+
+    public boolean canStartLeapSlamForAI(@Nullable LivingEntity target) {
+        if (level().isClientSide() || target == null || leapCooldownTicks > 0) {
+            return false;
+        }
+        if (isBaby() || isTame() || !isPhase2Active() || isAerial() || isAiSpecialCombatActive()) {
+            return false;
+        }
+        if (!isGroundedForAction() || bulldozing || leaping || leapImpactRecoveryTicks > 0) {
+            return false;
+        }
+        if (areRiderControlsLocked() || getActiveAbility() != null || !isTargetValid(target)) {
+            return false;
+        }
+        Vec3 horizontal = target.position().subtract(this.position()).multiply(1.0D, 0.0D, 1.0D);
+        return horizontal.lengthSqr() >= 1.0E-6D;
+    }
+
+    private boolean startLeapSlam(Vec3 horizontalDirection) {
+        if (leaping) {
+            return false;
+        }
+        if (!this.isVehicle() && leapCooldownTicks > 0) {
+            return false;
+        }
+
+        Vec3 dir = new Vec3(horizontalDirection.x, 0.0D, horizontalDirection.z);
+        if (dir.lengthSqr() < 1.0E-6D) {
+            return false;
+        }
+        dir = dir.normalize();
+
+        Vec3 leapVec = calculateLeapArcStep(dir, 0);
+
+        leaping = true;
+        leapWasVehicle = this.isVehicle();
+        this.entityData.set(DATA_LEAPING, true);
+        leapAnimState = LEAP_STATE_TAKEOFF;
+        this.entityData.set(DATA_LEAP_ANIM_STATE, LEAP_STATE_TAKEOFF);
+        leapVelocity = leapVec;
+        leapArcDirection = dir;
+        leapArcTick = 0;
+        leapWindupTicks = LEAP_WINDUP_TICKS;
+        leapMovement.cancelActive();
+        wasAirborneBeforeLanding = false;
+        leapImpactTriggered = false;
+        this.setDeltaMovement(Vec3.ZERO);
+        this.getNavigation().stop();
+        this.getMoveControl().setWantedPosition(getX(), getY(), getZ(), 0.0D);
+        this.needsSync = true;
+        leapGroundedTicks = 0;
+        getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_LEAP.get(), 1.0f, 1.0f, 58);
+        return true;
+    }
+
+    private Vec3 calculateLeapArcStep(Vec3 direction, int step) {
+        double horizontalStep = LEAP_ARC_FORWARD_DISTANCE / LEAP_ARC_DURATION_TICKS;
+        double startHeight = calculateLeapArcHeight(step);
+        double endHeight = calculateLeapArcHeight(step + 1);
+        return new Vec3(
+                direction.x * horizontalStep,
+                endHeight - startHeight,
+                direction.z * horizontalStep
+        );
+    }
+
+    private double calculateLeapArcHeight(int tick) {
+        if (tick <= LEAP_ARC_ASCENT_TICKS) {
+            double progress = (double) tick / LEAP_ARC_ASCENT_TICKS;
+            double remaining = 1.0D - progress;
+            return LEAP_ARC_HEIGHT * (1.0D - remaining * remaining);
+        }
+
+        double progress = (double) (tick - LEAP_ARC_ASCENT_TICKS) / LEAP_ARC_DESCENT_TICKS;
+        return LEAP_ARC_HEIGHT * (1.0D - progress * progress);
+    }
+
+    protected void onRiderPhase2Toggle(Player player) {
+        if (isBaby()) {
+            return;
+        }
+
+        if (isAerial()) {
+            return;
+        }
+
+        if (bulldozing || leaping) {
+            return;
+        }
+
+        if (phase2CooldownTicks > 0) {
+            return;
+        }
+
+        if (areRiderControlsLocked()) {
+            return;
+        }
+        if (phase2Active) {
+            exitPhase2(true);
+        } else {
+            phase2Active = true;
+            this.entityData.set(DATA_PHASE2, true);
+            lockRiderControls(PHASE2_ENTER_LOCK_TICKS);
+            animationHandler.triggerPhase2EnterAnimation();
+            getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_PHASE2_ENTER.get(), 1.0f, 1.0f, 47);
+        }
+    }
+
+    public boolean isPhase2Active() {
+        return level().isClientSide() ? this.entityData.get(DATA_PHASE2) : phase2Active;
+    }
+
+    public boolean shouldTriggerWildUltimateAtCurrentHealth() {
+        if (isPhase2Active() || wildLowHealthUltimateTriggered || isTame()) {
+            return false;
+        }
+        DragonAttributeConfig config = DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID);
+        double healthFraction = Mth.clamp(
+                config.extraDouble("ultimate_trigger_health_fraction", IgnivorusStatProfile.Entity.FALLBACK_ULTIMATE_TRIGGER_HEALTH_FRACTION),
+                0.0D,
+                1.0D
+        );
+        return healthFraction > 0.0D && getHealth() <= getMaxHealth() * healthFraction;
+    }
+
+    public void markWildLowHealthUltimateTriggered() {
+        if (!level().isClientSide() && !isTame() && !isBaby()) {
+            wildLowHealthUltimateTriggered = true;
+            wildPhase2Target = getTarget();
+        }
+    }
+
+    public boolean isSkyfallIdlePause() {
+        return entityData.get(DATA_SKYFALL_IDLE);
+    }
+
+    public void queueWildPhase2Transition() {
+        if (level().isClientSide() || isTame() || isBaby() || phase2Active || !isAlive() || isTamingStunned()) return;
+        wildPhase2PendingLanding = false;
+        wildPhase2IdleTicks = WILD_PHASE2_IDLE_TICKS;
+        entityData.set(DATA_SKYFALL_IDLE, true);
+        lockRiderControls(WILD_PHASE2_IDLE_TICKS + 1);
+        getAIMovement().stopAndClearAllMovement();
+        setDeltaMovement(Vec3.ZERO);
+        stopHitboxAnimation(IgnivorusAnimationHandler.MOVEMENT_CONTROLLER, "skyfall");
+    }
+
+    public void completeWildPhase2Transition() {
+        if (level().isClientSide() || isTame() || isBaby() || phase2Active || !isAlive() || isTamingStunned()) {
+            return;
+        }
+        wildLowHealthUltimateTriggered = true;
+        wildPhase2PendingLanding = false;
+        if (getTarget() != null) wildPhase2Target = getTarget();
+        phase2Active = true;
+        this.entityData.set(DATA_PHASE2, true);
+        phase2CooldownTicks = 0;
+        phase2WasVehicle = false;
+        lockRiderControls(WILD_PHASE2_ENTER_LOCK_TICKS);
+        getAIMovement().stopAndClearAllMovement();
+        setDeltaMovement(Vec3.ZERO);
+        animationHandler.triggerPhase2EnterAnimation();
+        getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_PHASE2_ENTER.get(), 1.0F, 1.0F, 47);
+    }
+
+    public void clearPhase2ForTamingStun() {
+        wildPhase2PendingLanding = false;
+        wildPhase2IdleTicks = 0;
+        entityData.set(DATA_SKYFALL_IDLE, false);
+        wildPhase2Target = null;
+        boolean wasPhase2Active = phase2Active;
+        phase2Active = false;
+        this.entityData.set(DATA_PHASE2, false);
+        phase2WasVehicle = false;
+        phase2CooldownTicks = 0;
+        if (wasPhase2Active && !level().isClientSide()) {
+            animationHandler.triggerPhase2ExitAnimation();
+            getSoundHandler().playMovingEntitySound(
+                    ModSounds.IGNIVORUS_PHASE2_EXIT.get(),
+                    1.0f,
+                    1.0f,
+                    38
+            );
+        }
+    }
+
+    public void resetWildCombatAfterFailedTaming() {
+        if (level().isClientSide() || isTame()) {
+            return;
+        }
+        wildPhase2PendingLanding = false;
+
+        wildPhase2Target = null;
+        phase2Active = false;
+        this.entityData.set(DATA_PHASE2, false);
+        phase2WasVehicle = false;
+        phase2CooldownTicks = 0;
+        wildLowHealthUltimateTriggered = false;
+
+        combatManager.clearAllStates();
+        getAiCombatPacing().reset();
+    }
+
+    private void exitPhase2(boolean lockControls) {
+        wildPhase2PendingLanding = false;
+        wildPhase2Target = null;
+        phase2Active = false;
+        this.entityData.set(DATA_PHASE2, false);
+        phase2CooldownTicks = 40;
+        phase2WasVehicle = false;
+        if (lockControls) {
+            lockRiderControls(PHASE2_EXIT_LOCK_TICKS);
+        }
+        animationHandler.triggerPhase2ExitAnimation();
+        getSoundHandler().playMovingEntitySound(
+                ModSounds.IGNIVORUS_PHASE2_EXIT.get(),
+                1.0f,
+                1.0f,
+                38
+        );
+    }
+
+    public boolean shouldUseRightWingSwipe() {
+        return useRightWingSwipe;
+    }
+
+    public void toggleWingSwipeSide() {
+        useRightWingSwipe = !useRightWingSwipe;
+    }
+
+    @Override
+    protected boolean isRiderFallRecoveryBlocked() {
+        return leaping || getLeapAnimState() != 0;
+    }
+
+    @Override
+    protected void beforeStandardRiderTakeoff(Player player) {
+        enforcePrimaryMeleeForFlight(player);
+    }
+
+    @Override
+    public void positionRider(@NotNull Entity passenger, @NotNull Entity.MoveFunction moveFunction) {
+        riderController.positionRider(passenger, moveFunction);
+    }
+
+    @Override
+    public double getPassengersRidingOffset() {
+        return riderController.getPassengersRidingOffset();
+    }
+
+    @Override
+    public @Nullable LivingEntity getControllingPassenger() {
+        return riderController.getControllingPassenger();
+    }
+
+    @Override
+    protected void resetTimeFlyingAfterLanding() {
+        timeFlying = 0;
+    }
+
+    public void handleAiLandingComplete() {
+        if (isInWater()) {
+            suppressSleep(60);
+            completeTouchdownLanding(LandingSource.AI);
+            return;
+        }
+        if (!level().isClientSide()) {
+            long now = level().getGameTime();
+            if (now - lastAiLandedAnimTick >= 15L) {
+                String landedAnim = isPhase2Active() ? "phase2_landed" : "landed";
+                triggerHitboxAnimation(AnimationHelper.MOVEMENT_CONTROLLER, landedAnim);
+                if (isPhase2Active()) {
+                    getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_PHASE2_LANDED.get(), 1.0f, 1.0f, 40);
+                } else {
+                    getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_LANDED.get(), 1.0f, 1.0f, 42);
+                }
+                lockRiderControls(13);
+                suppressSleep(60);
+                lastAiLandedAnimTick = now;
+            }
+        }
+        completeTouchdownLanding(LandingSource.AI);
+        startStandardLandedRecovery(isPhase2Active() ? PHASE2_LANDED_RECOVERY_TICKS : LANDED_RECOVERY_TICKS);
+    }
+
+    @Override
+    protected Brain<?> makeBrain(Brain.Packed packedBrain) {
+        return DragonBrain.makeBrain(DRAGON_BRAIN, this, packedBrain);
+    }
+
+    @Override
+    protected void customServerAiStep(net.minecraft.server.level.ServerLevel aiStepLevel) {
+        DragonBrain.tick(DRAGON_BRAIN, this);
+        super.customServerAiStep(aiStepLevel);
+    }
+
+    @Override
+    public String getAiAirCombatBlockReason() {
+        if (isAiSpecialCombatActive()) return "special-combat";
+        if (areRiderControlsLocked()) return "controls-locked";
+        return isLeaping() || isLeapImpactRecovering() ? "leap" : null;
+    }
+
+    @Override
+    public DragonWaterCombatProfile getWaterCombatProfile() {
+        return IgnivorusStatProfile.WaterSurfaceCombat.PROFILE;
+    }
+
+    @Override
+    public DragonAirCombatSettings getAiAirCombatSettings() {
+        return AI_AIR_COMBAT_SETTINGS;
+    }
+
+    @Override
+    public DragonCombatFlightState getCombatFlightState() {
+        return combatFlightState;
+    }
+
+    public boolean isAiAirBreathReady() {
+        LivingEntity target = getTarget();
+        return target != null && isTargetValid(target) && !DragonTargetingHelper.isBiteOnlyPreyTarget(this, target)
+                && canUseFireBreath() && getFireBreathEnergy() >= 0.4F
+                && combatManager.canStart(ModAbilities.IGNIVORUS_FIRE_BREATH)
+                && getAiCombatPacing().canUse(ModAbilities.IGNIVORUS_FIRE_BREATH, true);
+    }
+
+    public boolean shouldFavorRangedCombat(LivingEntity target) {
+        return target != null && isTargetValid(target) && !combatFlightState.targetNeedsFlight()
+                && !DragonTargetingHelper.isMovementAnchorInWater(target)
+                && !DragonTargetingHelper.isBiteOnlyPreyTarget(this, target);
+    }
+
+    private boolean isAiCombatMovementCommitted() {
+        LivingEntity target = getTarget();
+        boolean skyfallReady = target != null && isTargetValid(target) && isGroundedForAction()
+                && !DragonTargetingHelper.isBiteOnlyPreyTarget(this, target)
+                && shouldTriggerWildUltimateAtCurrentHealth()
+                && combatManager.canStart(ModAbilities.IGNIVORUS_ULTIMATE)
+                && getAiCombatPacing().canUse(ModAbilities.IGNIVORUS_ULTIMATE, true);
+        return getActiveAbility() != null || getAiAirCombatBlockReason() != null || isTamingStunned()
+                || isSkyfallIdlePause()
+                || !isAerial() && (wildPhase2PendingLanding || skyfallReady);
+    }
+
+    private boolean isAiRangedFlightReady() {
+        return !wildPhase2PendingLanding && isAiAirBreathReady();
+    }
+
+    public boolean isWaitingForWildPhase2Entry() {
+        return wildPhase2PendingLanding && !isAerial();
+    }
+
+    public void queueWildPhase2AfterLanding() {
+        if (level().isClientSide() || isTame() || isBaby() || phase2Active || !isAlive() || isTamingStunned()) return;
+        wildPhase2PendingLanding = true;
+        combatFlightState.deferRangedFlightFor(200);
+    }
+
+    public String getAiPhaseDecision() {
+        if (isAbilityActive(ModAbilities.IGNIVORUS_ULTIMATE)) return "skyfall";
+        if (isSkyfallIdlePause()) return "phase2-idle-pause";
+        if (wildPhase2PendingLanding) return "phase2-after-landing";
+        return isPhase2Active() ? "phase2" : "phase1";
+    }
+
+    @Override
+    public double getAiTargetAirborneHeight(LivingEntity target) {
+        return Math.max(AI_AIR_COMBAT_SETTINGS.targetAirborneHeight(), target.getBbHeight() * 0.75D);
+    }
+
+    @Override
+    protected void completeGroundedAerialRecoveryLanding() {
+        handleAiLandingComplete();
+    }
+
+    @Override
+    public float getFlightSpeed() {
+        return (float) this.getAttributeValue(Attributes.FLYING_SPEED);
+    }
+
+    @Override
+    public double getPreferredFlightAltitude() {
+        return 20.0D;
+    }
+
+    public boolean canBeBound() {
+        return !isDying()
+                && !isBreathingFire()
+                && !areRiderControlsLocked()
+                && getActiveAbility() == null;
+    }
+
+    @Override
+    public boolean ignoresLeashPull() {
+        return true;
+    }
+
+    public void applyConfiguredAttributes() {
+        if (this.level().isClientSide()) {
+            return;
+        }
+        DragonAttributeConfig config = getConfiguredDragonAttributes();
+        double attackDamage = config.abilityDamage("bite", IgnivorusStatProfile.Entity.FALLBACK_BITE);
+
+        applyConfiguredFlyingHealthAndArmor(config, BABY_MAX_HEALTH, BABY_ARMOR);
+        setAttributeBase(Attributes.MOVEMENT_SPEED, GROUND_MOVEMENT_SPEED);
+        setAttributeBase(Attributes.ATTACK_DAMAGE, isBaby() ? 0.0D : attackDamage);
+        AttributeInstance followRange = getAttribute(Attributes.FOLLOW_RANGE);
+        // Saved dragons retain their previous default in their attribute NBT.
+        if (followRange != null && followRange.getBaseValue() == 64.0D) {
+            followRange.setBaseValue(BASE_FOLLOW_RANGE);
+        }
+        clampHealthToMax();
+    }
+
+    @Override
+    public boolean canTakeoff() {
+        return !isBaby()
+                && !isFlying()
+                && onGround()
+                && !isInWater();
+    }
+
+    @Override
+    protected boolean canApplyFlyingState(boolean flying) {
+        return isAiWaterBreachTakeoffActive()
+                || !(flying && !isVehicle() && (isInWater() || isInWater() || isInLava()));
+    }
+
+    @Override
+    protected int getRedirectedFlyingTakeoffTicks() {
+        return TAKEOFF_ANIMATION_TICKS;
+    }
+
+    @Override
+    protected void onFlyingStarted() {
+        enforcePrimaryMeleeForFlight(getControllingPassenger() instanceof Player p ? p : null);
+        switchToAirNavigation();
+        setRunning(false);
+    }
+
+    @Override
+    protected boolean shouldRunTakeoffStateStarted(boolean wasTakeoff, boolean takeoff) {
+        return takeoff;
+    }
+
+    @Override
+    protected void onTakeoffStateStarted() {
+        triggerHitboxAnimation(AnimationHelper.FLIGHT_CONTROLLER,
+                isPhase2Active() ? AnimationHelper.PHASE2_TAKEOFF : AnimationHelper.TAKEOFF);
+        getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_TAKEOFF.get(), 1.0f, 1.0f, 69);
+    }
+
+    @Override
+    protected void onLandingDataSet(boolean landing) {
+    }
+
+    @Override
+    public DragonFlightAnimationProfile getFlightAnimationProfile() {
+        return IgnivorusStatProfile.FlightAnimation.ANIMATION_PROFILE;
+    }
+
+    @Override
+    public boolean isFlightBlendActive() {
+        return super.isFlightBlendActive() && !isTamingStunned() && getSkyfallElapsedTicks(1.0F) < 0.0F;
+    }
+
+    public DragonFlightStateEvaluator.VisualState getVisualFlightState(float partialTick) {
+        return evaluateVisualFlightState(partialTick, getFlightPitchRadians(partialTick));
+    }
+
+    public boolean isBreathingFire() {
+        return this.entityData.get(DATA_FIRE_BREATHING);
+    }
+
+    public DragonBreathPose getBreathPose() {
+        return breathPose;
+    }
+
+    public void setBreathingFire(boolean breathing) {
+        boolean wasBreathing = this.entityData.get(DATA_FIRE_BREATHING);
+        this.entityData.set(DATA_FIRE_BREATHING, breathing);
+        if (!breathing) {
+            resetFireAimDirection();
+            setFireBreathProgress(0);
+            fireTime = 0;
+            fireServerTarget = null;
+        }
+        if (breathing && !wasBreathing) {
+            fireTime = 0;
+            fireServerTarget = createInitialFireTarget();
+        }
+    }
+
+    public int getFireBreathProgress() {
+        return this.entityData.get(DATA_FIRE_BREATH_PROGRESS);
+    }
+
+    public void setFireBreathProgress(int progress) {
+        this.entityData.set(DATA_FIRE_BREATH_PROGRESS, Mth.clamp(progress, 0, 40));
+    }
+
+    public float getFireBreathEnergy() {
+        return this.entityData.get(DATA_FIRE_BREATH_ENERGY);
+    }
+
+    public void setFireBreathEnergy(float energy) {
+        DragonBreathComponent.setEnergy(getFireBreathGauge(), energy, FIRE_BREATH_REARM_THRESHOLD);
+    }
+
+    public boolean hasFireBreathEnergy() {
+        return DragonBreathComponent.canUse(getFireBreathGauge(), FIRE_BREATH_DEPLETED_THRESHOLD);
+    }
+
+    public boolean isFireBreathDepleted() {
+        return this.entityData.get(DATA_FIRE_BREATH_DEPLETED);
+    }
+
+    public void setFireBreathDepleted(boolean depleted) {
+        this.entityData.set(DATA_FIRE_BREATH_DEPLETED, depleted);
+    }
+
+    public boolean canUseFireBreath() {
+        return DragonBreathComponent.canUse(getFireBreathGauge(), FIRE_BREATH_DEPLETED_THRESHOLD);
+    }
+
+    public String getAiFireBreathDecision() {
+        return aiFireBreathDecision;
+    }
+
+    public void setAiFireBreathDecision(String decision) {
+        aiFireBreathDecision = decision;
+    }
+
+    public boolean hasAiFireBreathShot(LivingEntity target, double range) {
+        return getAiFireBreathShot(target, range) == DragonCombatAim.Shot.ALIGNED;
+    }
+
+    public DragonCombatAim.Shot getAiFireBreathShot(LivingEntity target, double range) {
+        // Readiness probes must not replace an active fireball's ballistic aim with breath aim.
+        if (isAbilityActive(ModAbilities.IGNIVORUS_FIREBALL)) return DragonCombatAim.Shot.NO_TARGET;
+        Vec3 origin = getFireBreathStartAnchor(1.0F);
+        if (origin == null || target == null) return DragonCombatAim.Shot.NO_TARGET;
+        Vec3 direction = refreshFireAimDirection(origin, true);
+        origin = getFireBreathStartAnchor(1.0F);
+        if (origin == null) return DragonCombatAim.Shot.NO_TARGET;
+        return getCombatAim().assess(origin, direction, target, range, 0,
+                ExpandingBreathSection.Profile.FIRE);
+    }
+
+    public boolean hasAiFireballShot(LivingEntity target, double range) {
+        if (target == null) return false;
+        Vec3 origin = getFireBreathStartAnchor(1.0F);
+        if (origin == null) return false;
+        Vec3 offset = target.getBoundingBox().getCenter().subtract(origin);
+        if (offset.lengthSqr() < 1.0E-6D || offset.lengthSqr() > range * range) return false;
+        Vec3 direction = DragonAimHelper.clampDirectionToHead(offset.normalize(), yHeadRot, getXRot(),
+                DragonCombatAim.FIRE.yawLimit(), DragonCombatAim.FIRE.pitchLimit());
+        if (direction == null) return false;
+        Vec3 end = origin.add(direction.scale(Math.min(range, offset.length() + target.getBbWidth() + 1.0D)));
+        Vec3 impact = level().clip(new ClipContext(origin, end, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, this)).getLocation();
+        AABB targetBox = target.getBoundingBox().inflate(1.0D);
+        return targetBox.contains(origin) || targetBox.clip(origin, impact).isPresent();
+    }
+
+    public boolean drainFireBreathEnergy(float amount) {
+        boolean available = DragonBreathComponent.drain(getFireBreathGauge(), amount, 1.0E-5F, FIRE_BREATH_REARM_THRESHOLD);
+        if (!available) setFireBreathEnergy(0);
+        return available;
+    }
+
+    private void tickFireBreathEnergy() {
+        if (!isBreathingFire() && getFireBreathEnergy() < 1.0f) {
+            float regen = (float) DragonAttributeConfigLoader.getInstance()
+                    .getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID)
+                    .extraDouble("fire_breath_regen_per_tick", FIRE_BREATH_ENERGY_REGEN);
+            DragonBreathComponent.regen(getFireBreathGauge(), regen, FIRE_BREATH_REARM_THRESHOLD);
+        }
+    }
+
+    public DragonBreathComponent.Gauge getFireBreathGauge() {
+        return new DragonBreathComponent.Gauge() {
+            @Override
+            public float getEnergy() {
+                return Ignivorus.this.getFireBreathEnergy();
+            }
+
+            @Override
+            public void setEnergyRaw(float energy) {
+                Ignivorus.this.entityData.set(DATA_FIRE_BREATH_ENERGY, Mth.clamp(energy, 0.0F, 1.0F));
+            }
+
+            @Override
+            public boolean isDepleted() {
+                return Ignivorus.this.isFireBreathDepleted();
+            }
+
+            @Override
+            public void setDepleted(boolean depleted) {
+                Ignivorus.this.setFireBreathDepleted(depleted);
+            }
+        };
+    }
+
+    public void syncFireBreathPath(@Nullable Vec3 start, @Nullable Vec3 end) {
+        setFireBreathStart(start);
+        setFireBreathTarget(end);
+    }
+
+    public void emitFireBreathSection(Vec3 origin, Vec3 direction, boolean canBreakBlocks) {
+        emitFireBreathSection(origin, direction, canBreakBlocks, 0);
+    }
+
+    public void emitFireBreathSection(Vec3 origin, Vec3 direction, boolean canBreakBlocks, long learningTrial) {
+        fireBreathStream.emit(origin, direction, canBreakBlocks, learningTrial);
+    }
+
+    public void clearFireBreathPath() {
+        setFireBreathStart(null);
+        setFireBreathTarget(null);
+    }
+
+    @Nullable
+    public Vec3 getFireBreathStart() {
+        if (!this.entityData.get(DATA_FIRE_START_SET)) {
+            return null;
+        }
+        return new Vec3(
+            this.entityData.get(DATA_FIRE_START_X),
+            this.entityData.get(DATA_FIRE_START_Y),
+            this.entityData.get(DATA_FIRE_START_Z)
+        );
+    }
+
+    public static final byte FIREBALL_LEVEL_TWO_CHARGE_EVENT = 82;
+    public static final byte FIREBALL_LEVEL_THREE_CHARGE_EVENT = 85;
+    public static final byte FIREBALL_PRE_SHOT_STAR_EVENT = 86;
+    private int fireballPreShotStarTick = Integer.MIN_VALUE;
+    private int fireballChargeVfxLevel;
+    public static final byte FIREBALL_CHARGE_EVENT = 81;
+    private int fireballChargeVfxTick = Integer.MIN_VALUE;
+    public static final byte FIREBALL_LEVEL_TWO_MOUTH_EVENT = 83;
+    public static final byte FIREBALL_LEVEL_THREE_MOUTH_EVENT = 84;
+    private boolean levelThreeFireballMouth;
+    private boolean levelTwoFireballMouth;
+    public static final byte FIREBALL_MOUTH_EVENT = 80;
+    private int fireballMouthTick = Integer.MIN_VALUE;
+
+    @Override
+    public void handleEntityEvent(byte eventId) {
+        if (eventId == FIREBALL_PRE_SHOT_STAR_EVENT) {
+            fireballPreShotStarTick = tickCount;
+            return;
+        }
+        if (eventId == FIREBALL_CHARGE_EVENT || eventId == FIREBALL_LEVEL_TWO_CHARGE_EVENT
+                || eventId == FIREBALL_LEVEL_THREE_CHARGE_EVENT) {
+            fireballChargeVfxLevel = eventId == FIREBALL_CHARGE_EVENT ? 1
+                    : eventId == FIREBALL_LEVEL_TWO_CHARGE_EVENT ? 2 : 3;
+            fireballChargeVfxTick = tickCount;
+            return;
+        }
+        if (eventId == FIREBALL_MOUTH_EVENT || eventId == FIREBALL_LEVEL_TWO_MOUTH_EVENT
+                || eventId == FIREBALL_LEVEL_THREE_MOUTH_EVENT) {
+            levelThreeFireballMouth = eventId == FIREBALL_LEVEL_THREE_MOUTH_EVENT;
+            levelTwoFireballMouth = eventId == FIREBALL_LEVEL_TWO_MOUTH_EVENT;
+            fireballMouthTick = tickCount;
+            return;
+        }
+        super.handleEntityEvent(eventId);
+    }
+
+    public int getFireballChargeVfxLevel() { return fireballChargeVfxLevel; }
+
+    public float getFireballChargeVfxAge(float partialTick) {
+        return fireballChargeVfxTick == Integer.MIN_VALUE || getFireballChargeLevel() != fireballChargeVfxLevel
+                ? -1.0F : tickCount - fireballChargeVfxTick + partialTick;
+    }
+
+    public boolean isLevelTwoFireballMouth() { return levelTwoFireballMouth; }
+    public boolean isLevelThreeFireballMouth() { return levelThreeFireballMouth; }
+
+    public float getFireballPreShotStarAge(float partialTick) {
+        return fireballPreShotStarTick == Integer.MIN_VALUE ? -1.0F : tickCount - fireballPreShotStarTick + partialTick;
+    }
+
+    public float getFireballMouthAge(float partialTick) {
+        return fireballMouthTick == Integer.MIN_VALUE ? -1.0F : tickCount - fireballMouthTick + partialTick;
+    }
+
+    public Vec3 getFireBreathStartAnchor(float partialTicks) {
+        if (level().isClientSide()) {
+            Vec3 visualMouth = getClientLocatorPosition("fireBreathVisualOrigin");
+            if (visualMouth != null) return visualMouth;
+        }
+        Vec3 clientBone = getBonePositionForHitbox("fireBoneOrigin");
+        if (clientBone != null) {
+            return clientBone;
+        }
+        return computeFireBoneFallback(partialTicks);
+    }
+
+    public Vec3 getFireBreathVisualDirection(float partialTicks) {
+        Entity rider = getControllingPassenger();
+        if (level().isClientSide() && rider instanceof LivingEntity) {
+            Vec3 direction = DragonAimHelper.clampDirectionToHead(rider.getViewVector(partialTicks),
+                    Mth.rotLerp(partialTicks, yHeadRotO, yHeadRot),
+                    Mth.lerp(partialTicks, xRotO, getXRot()), MAX_FIRE_YAW_DEG, MAX_FIRE_PITCH_DEG);
+            if (direction != null) return direction;
+        }
+        Vec3 start = getFireBreathStart();
+        if (start != null && this.entityData.get(DATA_FIRE_END_SET)) {
+            Vec3 end = new Vec3(this.entityData.get(DATA_FIRE_END_X),
+                    this.entityData.get(DATA_FIRE_END_Y), this.entityData.get(DATA_FIRE_END_Z));
+            Vec3 direction = end.subtract(start);
+            if (direction.lengthSqr() > 1.0E-8) return direction.normalize();
+        }
+        return Vec3.directionFromRotation(Mth.lerp(partialTicks, xRotO, getXRot()),
+                Mth.rotLerp(partialTicks, yHeadRotO, yHeadRot));
+    }
+
+    private Vec3 computeFireBoneFallback(float partialTicks) {
+        double x = Mth.lerp(partialTicks, this.xo, this.getX());
+        double y = Mth.lerp(partialTicks, this.yo, this.getY());
+        double z = Mth.lerp(partialTicks, this.zo, this.getZ());
+        float yawDeg = Mth.lerp(partialTicks, this.yHeadRotO, this.yHeadRot);
+        float pitchDeg;
+        if (isVehicle() && isFlying()) {
+            Entity rider = getControllingPassenger();
+            if (rider != null) {
+                pitchDeg = rider.getXRot();
+                pitchDeg = Mth.clamp(pitchDeg, -20.0F, 20.0F);
+            } else {
+                pitchDeg = Mth.lerp(partialTicks, this.xRotO, this.getXRot());
+            }
+        } else {
+            pitchDeg = Mth.lerp(partialTicks, this.xRotO, this.getXRot());
+        }
+        double yaw = Math.toRadians(yawDeg);
+        double pitch = Math.toRadians(pitchDeg);
+        double localRight = (-0.06603D / 16.0D) * MODEL_SCALE;
+        double localUp = (59.45D / 16.0D) * MODEL_SCALE;
+        double localForward = (245.05D / 16.0D) * MODEL_SCALE;
+        double cp = Math.cos(pitch);
+        double sp = Math.sin(pitch);
+        double pitchedUp = localUp * cp - localForward * sp;
+        double pitchedForward = localUp * sp + localForward * cp;
+        double cy = Math.cos(yaw);
+        double sy = Math.sin(yaw);
+        double offX = localRight * cy - pitchedForward * sy;
+        double offZ = localRight * sy + pitchedForward * cy;
+        return new Vec3(x + offX, y + pitchedUp, z + offZ);
+    }
+
+    public Vec3 refreshFireAimDirection(Vec3 start, boolean smooth) {
+        if (!level().isClientSide() && getControllingPassenger() == null && isTargetValid(getTarget())) {
+            DragonAbility<?> active = getActiveAbility();
+            Vec3 aimOffset = active instanceof IgnivorusFireBreathAbility breath
+                    ? breath.getLearnedAimOffset() : Vec3.ZERO;
+            fireAimDir = getCombatAim().track(getTarget(), start,
+                    isAerial() ? AIR_FIRE_AIM : GROUND_FIRE_AIM, aimOffset);
+            return fireAimDir;
+        }
+        Vec3 desired = computeRawFireAimDirection(start);
+        if (desired == null) {
+            resetFireAimDirection();
+            return null;
+        }
+        Vec3 clamped = clampFireDirection(desired);
+        if (clamped == null) {
+            resetFireAimDirection();
+            return null;
+        }
+
+        fireAimDir = DragonAimHelper.blendDirection(fireAimDir, clamped, smooth, 0.35D);
+        return fireAimDir;
+    }
+
+    private Vec3 computeRawFireAimDirection(Vec3 start) {
+        Vec3 riderLook = DragonAimHelper.riderViewDirection(this);
+        if (riderLook != null) {
+            return riderLook;
+        }
+
+        if (!level().isClientSide()) {
+            tickFireTargeting(start);
+        }
+
+        if (fireServerTarget != null) {
+            Vec3 towardTarget = DragonAimHelper.directionTo(start, fireServerTarget);
+            if (towardTarget != null) {
+                return towardTarget;
+            }
+        }
+
+        return DragonAimHelper.fallbackHeadDirection(this);
+    }
+
+    public Vec3 clampFireDirection(Vec3 desiredDir) {
+        return DragonAimHelper.clampDirectionToHead(
+                desiredDir,
+                this.yHeadRot,
+                this.getXRot(),
+                MAX_FIRE_YAW_DEG,
+                MAX_FIRE_PITCH_DEG
+        );
+    }
+
+    private void resetFireAimDirection() {
+        fireAimDir = null;
+    }
+    private Vec3 createInitialFireTarget() {
+        LivingEntity target = getTarget();
+        Vec3 shootFrom = getFireBreathStartAnchor(1.0f);
+        if (shootFrom == null) {
+            shootFrom = position().add(0, getBbHeight() * 0.5, 0);
+        }
+
+        if (target != null && target.isAlive()) {
+            Vec3 randomOffset = new Vec3(
+                -50 + random.nextFloat() * 100F,
+                -20 + random.nextFloat() * 40F,
+                -50 + random.nextFloat() * 100F
+            );
+            return target.position().add(randomOffset);
+        } else {
+            Vec3 forward = new Vec3(0, random.nextBoolean() ? 50 : 10, 30)
+                .yRot((float) Math.toRadians(-this.yBodyRot));
+            return shootFrom.add(forward);
+        }
+    }
+
+    private void tickFireTargeting(Vec3 shootFrom) {
+        fireTime++;
+
+        LivingEntity target = getTarget();
+        Vec3 currentTarget = fireServerTarget != null ? fireServerTarget : shootFrom;
+
+        if (target != null && target.isAlive()) {
+            float maxFireTime = 60.0F;
+            float time = (float) fireTime / maxFireTime;
+            float accuracy = 1.0F - (Math.min(0.75F, time) / 0.75F);
+            Vec3 wobbleOffset = new Vec3(
+                Math.sin(tickCount * 0.2F) * 4.0,
+                Math.sin(tickCount * 0.15F) * 2.0,
+                Math.cos(tickCount * 0.2F) * -4.0
+            ).yRot((float) Math.toRadians(-this.yBodyRot)).scale(accuracy);
+            Vec3 targetPoint = target.getEyePosition().add(0, -0.2, 0).add(wobbleOffset);
+            fireServerTarget = targetPoint.subtract(currentTarget).scale(0.1F).add(currentTarget);
+        } else {
+            Vec3 sweepOffset = new Vec3(
+                Math.sin(tickCount * 0.1F) * 10,
+                0,
+                6
+            ).yRot((float) Math.toRadians(-this.yBodyRot));
+            Vec3 sweepTarget = shootFrom.add(sweepOffset);
+            fireServerTarget = sweepTarget.subtract(currentTarget).scale(0.1F).add(currentTarget);
+        }
+    }
+
+    private void setFireBreathStart(@Nullable Vec3 pos) {
+        if (pos == null) {
+            this.entityData.set(DATA_FIRE_START_SET, false);
+            return;
+        }
+        this.entityData.set(DATA_FIRE_START_SET, true);
+        this.entityData.set(DATA_FIRE_START_X, (float) pos.x);
+        this.entityData.set(DATA_FIRE_START_Y, (float) pos.y);
+        this.entityData.set(DATA_FIRE_START_Z, (float) pos.z);
+    }
+
+    private void setFireBreathTarget(@Nullable Vec3 pos) {
+        if (pos == null) {
+            this.entityData.set(DATA_FIRE_END_SET, false);
+            return;
+        }
+        this.entityData.set(DATA_FIRE_END_SET, true);
+        this.entityData.set(DATA_FIRE_END_X, (float) pos.x);
+        this.entityData.set(DATA_FIRE_END_Y, (float) pos.y);
+        this.entityData.set(DATA_FIRE_END_Z, (float) pos.z);
+    }
+
+    @Override
+    public DragonAbilityType<?, ?> getPrimaryAttackAbility() {
+        if (isBaby() || isBulldozing()) {
+            return null;
+        }
+        if (isPhase2Active()) {
+            if (isFlying()) {
+                return ModAbilities.IGNIVORUS_BITE;
+            }
+            return getMeleeMode() == 1 ? ModAbilities.IGNIVORUS_STOMP : ModAbilities.IGNIVORUS_WING_SWIPE;
+        }
+
+        return getMeleeMode() == 1 ? ModAbilities.IGNIVORUS_BODY_SLAM : ModAbilities.IGNIVORUS_BITE;
+    }
+
+    @Override
+    public int getDrinkingDurationTicks() {
+        return DRINKING_ANIMATION_TICKS;
+    }
+
+    public boolean isBulldozing() {
+        return this.entityData.get(DATA_BULLDOZING);
+    }
+
+    @Override
+    public double getDrinkingReach() {
+        return 7.5D;
+    }
+
+    @Override
+    public void startDrinkingAnimation() {
+        animationHandler.triggerDrinkingAnimation();
+    }
+
+    @Override
+    public void stopDrinkingAnimation() {
+        stopHitboxAnimation(
+                IgnivorusAnimationHandler.MOVEMENT_CONTROLLER,
+                IgnivorusAnimationHandler.DRINKING_TRIGGER
+        );
+    }
+
+    private void enforcePrimaryMeleeForFlight(@Nullable Player rider) {
+        if (level().isClientSide() || getMeleeMode() == 0) {
+            return;
+        }
+        setMeleeMode(0);
+        syncMeleeMode(rider);
+    }
+
+    private void syncMeleeMode(@Nullable Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            NetworkHandler.sendToPlayer(serverPlayer, new MessageDragonMeleeMode(getMeleeMode()));
+        }
+    }
+
+
+    @Override
+    protected DragonAbilityType<?, ?> getHurtAbilityType() {
+        return ModAbilities.IGNIVORUS_HURT;
+    }
+
+    @Override
+    protected DragonAbilityType<?, ?> getDeathAbilityType() {
+        return ModAbilities.IGNIVORUS_DIE;
+    }
+
+    @Override
+    public int getDeathAnimationDurationTicks() {
+        return 80;
+    }
+
+    @Override
+    public void onDeathAbilityStarted() {
+        setBreathingFire(false);
+        clearFireBreathPath();
+        super.onDeathAbilityStarted();
+    }
+
+    @Override
+    protected EntityDataAccessor<Float> getFlightPitchAccessor() {
+        return DATA_FLIGHT_PITCH;
+    }
+
+    @Override
+    protected EntityDataAccessor<Float> getAccumulatedRollAccessor() {
+        return DATA_ACCUMULATED_ROLL;
+    }
+
+    @Override
+    protected void tickPitchingLandingBlendTimer() {
+        tickRiderLandingBlendTimer();
+    }
+
+    @Override
+    protected void triggerPitchingLandingBlend() {
+        triggerRiderLandingBlend();
+    }
+
+    @Override
+    protected float getStandardAiLandingPitchDegrees() {
+        return 32.0F;
+    }
+
+    private void tickRiderLandingBlendTimer() {
+        tickStandardRiderLandingBlend(new RiderLandingBlendHooks() {
+            @Override
+            public void onWaterFlightCleared() {
+                clearAerialStateAndUseGroundNavigation();
+                timeFlying = 0;
+            }
+
+            @Override
+            public boolean shouldClearFlightStateInWater() {
+                return shouldClearRiderFlightStateInWater();
+            }
+
+            @Override
+            public boolean isLandingBlendSynced() {
+                return isRiderLandingBlendActive();
+            }
+
+            @Override
+            public void clearLandingBlendSync() {
+                entityData.set(DATA_RIDER_LANDING_BLEND, false);
+            }
+
+            @Override
+            public void onRiderLanded() {
+                String landedAnim = isPhase2Active() ? "phase2_landed" : "landed";
+                triggerHitboxAnimation(AnimationHelper.MOVEMENT_CONTROLLER, landedAnim);
+                if (isPhase2Active()) {
+                    getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_PHASE2_LANDED.get(), 1.0f, 1.0f, 40);
+                } else {
+                    getSoundHandler().playMovingEntitySound(ModSounds.IGNIVORUS_LANDED.get(), 1.0f, 1.0f, 42);
+                }
+                completeTouchdownLanding(LandingSource.RIDER);
+                lockRiderControls(13);
+            }
+        });
+    }
+
+    private void triggerRiderLandingBlend() {
+        triggerRiderLandingBlendTicks(RIDER_LANDING_BLEND_DURATION);
+        if (!level().isClientSide()) {
+            this.entityData.set(DATA_RIDER_LANDING_BLEND, true);
+        }
+    }
+
+    public boolean isRiderLandingBlendActive() {
+        return this.entityData.get(DATA_RIDER_LANDING_BLEND);
+    }
+
+    private void tickTerrainClearing() {
+        if (level().isClientSide() || this.isBaby() || !this.isAlive()) {
+            return;
+        }
+        if (!DragonGriefingRules.canDestroyBlocks(level())) {
+            return;
+        }
+
+        boolean isBeingRidden = this.isVehicle();
+        Vec3 velocity = this.getDeltaMovement();
+        if (isBeingRidden && bulldozing) {
+            clearBulldozeTunnel(getBulldozeTunnelDirection(velocity));
+            return;
+        }
+
+        double speed = velocity.horizontalDistanceSqr();
+        boolean collisionStuck = this.horizontalCollision || this.isInWall();
+        boolean chasingTarget = this.getTarget() != null && this.getTarget().isAlive();
+        if (!isBeingRidden && speed < 0.01 && !(collisionStuck && chasingTarget)) {
+            return;
+        }
+
+        int tickInterval = isBeingRidden ? 1 : 3;
+        if (this.tickCount % tickInterval != 0) {
+            return;
+        }
+
+        AABB rawBounds = this.getBoundingBox();
+        AABB bounds = rawBounds.inflate(0.1);
+        if (isBeingRidden) {
+            Vec3 planarVelocity = new Vec3(velocity.x, 0.0, velocity.z);
+            if (planarVelocity.lengthSqr() > 0.0004) {
+                double reach = isBeingRidden ? 1.1 : 0.6;
+                Vec3 forwardProbe = planarVelocity.normalize().scale(reach);
+                bounds = bounds.expandTowards(forwardProbe.x, 0.0, forwardProbe.z);
+            }
+        }
+        int minX = Mth.floor(bounds.minX);
+        int maxX = Mth.floor(bounds.maxX);
+        int minZ = Mth.floor(bounds.minZ);
+        int maxZ = Mth.floor(bounds.maxZ);
+        int baseY = Mth.floor(rawBounds.minY);
+        int minBreakY = baseY + 1;
+        int maxY = Mth.floor(bounds.maxY);
+
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        int brokenThisTick = 0;
+        int maxBreakPerTick = isBeingRidden ? 24 : 8;
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minBreakY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    if (brokenThisTick >= maxBreakPerTick) {
+                        return;
+                    }
+
+                    cursor.set(x, y, z);
+                    if (!level().hasChunkAt(cursor)) {
+                        continue;
+                    }
+
+                    BlockState state = level().getBlockState(cursor);
+                    if (state.isAir() || !state.getFluidState().isEmpty()) {
+                        continue;
+                    }
+                    float hardness = state.getDestroySpeed(level(), cursor);
+                    if (hardness < 0 || hardness > 5.0F || state.hasBlockEntity()) {
+                        continue;
+                    }
+
+                    level().destroyBlock(cursor, true, this);
+                    brokenThisTick++;
+                }
+            }
+        }
+    }
+
+    private Vec3 getBulldozeTunnelDirection(Vec3 velocity) {
+        Entity rider = getControllingPassenger();
+        Vec3 look = rider instanceof LivingEntity living ? living.getLookAngle() : getLookAngle();
+        Vec3 horizontal = new Vec3(look.x, 0.0D, look.z);
+        if (horizontal.lengthSqr() < 1.0E-6D) {
+            horizontal = new Vec3(velocity.x, 0.0D, velocity.z);
+        }
+        if (horizontal.lengthSqr() < 1.0E-6D) {
+            horizontal = Vec3.directionFromRotation(0.0F, getYRot());
+        }
+        return horizontal.lengthSqr() > 1.0E-6D ? horizontal.normalize() : Vec3.ZERO;
+    }
+
+    private void clearBulldozeTunnel(Vec3 forward) {
+        if (forward.lengthSqr() < 1.0E-6D) {
+            return;
+        }
+
+        Vec3 right = new Vec3(-forward.z, 0.0D, forward.x);
+        if (right.lengthSqr() < 1.0E-6D) {
+            return;
+        }
+        right = right.normalize();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        Set<BlockPos> visited = new HashSet<>();
+        int[] brokenThisTick = new int[] {0};
+
+        cutBulldozeVolume(
+                getBulldozeHeadOrigin(forward).add(forward.scale(0.35D)),
+                forward,
+                right,
+                BULLDOZE_TUNNEL_REACH,
+                BULLDOZE_TUNNEL_HALF_WIDTH,
+                BULLDOZE_TUNNEL_HEIGHT,
+                visited,
+                cursor,
+                brokenThisTick
+        );
+        clearBulldozeBodyCollisionVolume(forward, visited, cursor, brokenThisTick);
+    }
+
+    private void clearBulldozeBodyCollisionVolume(Vec3 forward, Set<BlockPos> visited, BlockPos.MutableBlockPos cursor, int[] brokenThisTick) {
+        if (brokenThisTick[0] >= BULLDOZE_TUNNEL_MAX_BREAKS_PER_TICK) {
+            return;
+        }
+
+        AABB bodyClearance = getBoundingBox()
+                .inflate(0.15D, 0.05D, 0.15D)
+                .expandTowards(forward.scale(BULLDOZE_BODY_COLLISION_REACH));
+        int floorSafeY = Mth.floor(getBoundingBox().minY) + 1;
+        int minX = Mth.floor(bodyClearance.minX);
+        int maxX = Mth.floor(bodyClearance.maxX);
+        int minY = Math.max(floorSafeY, Mth.floor(bodyClearance.minY));
+        int maxY = Mth.floor(bodyClearance.maxY);
+        int minZ = Mth.floor(bodyClearance.minZ);
+        int maxZ = Mth.floor(bodyClearance.maxZ);
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    if (brokenThisTick[0] >= BULLDOZE_TUNNEL_MAX_BREAKS_PER_TICK) {
+                        return;
+                    }
+
+                    cursor.set(x, y, z);
+                    BlockPos immutablePos = cursor.immutable();
+                    if (isProtectedBulldozeFloorBlock(immutablePos, forward)) {
+                        continue;
+                    }
+                    if (!visited.add(immutablePos) || !level().hasChunkAt(immutablePos)) {
+                        continue;
+                    }
+
+                    BlockState state = level().getBlockState(immutablePos);
+                    if (!canBulldozeDestroyBlock(state, immutablePos)) {
+                        continue;
+                    }
+
+                    level().destroyBlock(immutablePos, true, this);
+                    brokenThisTick[0]++;
+                }
+            }
+        }
+    }
+
+    private void cutBulldozeVolume(Vec3 origin, Vec3 forward, Vec3 right, double reach, double halfWidth, int height, Set<BlockPos> visited, BlockPos.MutableBlockPos cursor, int[] brokenThisTick) {
+        int floorSafeY = Mth.floor(getBoundingBox().minY) + 1;
+        int minBreakY = Math.max(floorSafeY, Mth.floor(origin.y - height * 0.45D));
+        int maxBreakY = minBreakY + height - 1;
+
+        for (double forwardOffset = 0.5D; forwardOffset <= reach; forwardOffset += 0.75D) {
+            Vec3 forwardPoint = origin.add(forward.scale(forwardOffset));
+            for (double sideOffset = -halfWidth; sideOffset <= halfWidth; sideOffset += 0.75D) {
+                Vec3 sample = forwardPoint.add(right.scale(sideOffset));
+                for (int y = minBreakY; y <= maxBreakY; y++) {
+                    if (brokenThisTick[0] >= BULLDOZE_TUNNEL_MAX_BREAKS_PER_TICK) {
+                        return;
+                    }
+
+                    cursor.set(Mth.floor(sample.x), y, Mth.floor(sample.z));
+                    BlockPos immutablePos = cursor.immutable();
+                    if (!visited.add(immutablePos) || !level().hasChunkAt(immutablePos)) {
+                        continue;
+                    }
+
+                    BlockState state = level().getBlockState(immutablePos);
+                    if (!canBulldozeDestroyBlock(state, immutablePos)) {
+                        continue;
+                    }
+
+                    level().destroyBlock(immutablePos, true, this);
+                    brokenThisTick[0]++;
+                }
+            }
+        }
+    }
+
+    private boolean canBulldozeDestroyBlock(BlockState state, BlockPos pos) {
+        if (state.isAir() || !state.getFluidState().isEmpty()) {
+            return false;
+        }
+        float hardness = state.getDestroySpeed(level(), pos);
+        return hardness >= 0.0F && hardness <= 5.0F && !state.hasBlockEntity();
+    }
+
+    private boolean isProtectedBulldozeFloorBlock(BlockPos pos, Vec3 forward) {
+        int floorY = Mth.floor(getBoundingBox().minY);
+        if (pos.getY() > floorY) {
+            return false;
+        }
+
+        Vec3 center = getBoundingBox().getCenter();
+        double currentFront = center.dot(forward) + Math.max(getBbWidth() * 0.5D, 0.75D);
+        double blockProjection = (pos.getX() + 0.5D) * forward.x + (pos.getZ() + 0.5D) * forward.z;
+        return blockProjection <= currentFront;
+    }
+
+    private Vec3 getBulldozeHeadOrigin(Vec3 forward) {
+        Vec3 head = getBonePositionForHitbox("headController");
+        if (head != null) {
+            return head;
+        }
+        return getBoundingBox().getCenter().add(forward.scale(getBbWidth() * BULLDOZE_HEAD_FORWARD_FALLBACK));
+    }
+
+    private void updateSittingProgress() {
+        tickSitTransition(
+                getSitDownAnimationTicks(),
+                getSitUpAnimationTicks(),
+                animationHandler::triggerSitDownAnimation,
+                animationHandler::triggerSitUpAnimation
+        );
+    }
+
+    @Override
+    public float maxSitTicks() {
+        return getSitDownAnimationTicks();
+    }
+
+    private int getSitDownAnimationTicks() {
+        return 38;
+    }
+
+    private int getSitUpAnimationTicks() {
+        return 38;
+    }
+
+    private int getFallAsleepAnimationTicks() {
+        return 38;
+    }
+
+    private int getWakeUpAnimationTicks() {
+        return 38;
+    }
+    @Override
+    protected float getBarrelRollInputSpeed() {
+        return BARREL_ROLL_INPUT_SPEED;
+    }
+
+    @Override
+    protected boolean canUseBarrelRoll() {
+        return isFlying()
+                && !isInWater()
+                && !isLeaping()
+                && !areRiderControlsLocked();
+    }
+
+    public boolean isRiderPitchKeyMode() {
+        return this.entityData.get(DATA_PITCH_KEY_MODE);
+    }
+    public void setRiderPitchKeyMode(boolean enabled) {
+        this.entityData.set(DATA_PITCH_KEY_MODE, enabled);
+    }
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        // Actions such as roar must retain control of jaw tracks also present in the mixed flight pose.
+        AnimationHelper.registerDragonControllers(this, controllers, vocalController,
+                movementController, flightController, vocalController, actionController, fastActionController, interactionController);
+    }
+
+    private void setupAnimationControllers() {
+        animationHandler.setupMovementController(movementController);
+        animationHandler.setupFastActionController(fastActionController);
+        animationHandler.setupFlightController(flightController);
+        animationHandler.setupInteractionController(interactionController);
+        animationHandler.setupActionController(actionController);
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return dragonCache;
+    }
+
+    @Override
+    public Map<String, VocalEntry> getVocalEntries() {
+        return VOCAL_ENTRIES;
+    }
+
+    @Override
+    public DragonVisionProfile getVisionProfile() {
+        return IgnivorusStatProfile.Vision.PROFILE;
+    }
+
+    @Override
+    public DragonSoundProfile getSoundProfile() {
+        return IgnivorusSoundProfile.INSTANCE;
+    }
+
+    private final IgnivorusCollisionState collisionState =
+            new IgnivorusCollisionState(this);
+
+    public IgnivorusCollisionState getCollisionState() {
+        return collisionState;
+    }
+
+    @Override
+    protected boolean updatesModelPoseOnServer() {
+        return true;
+    }
+
+    public void triggerHitboxAnimation(String controller, String animation) {
+        if (!level().isClientSide()) collisionState.trigger(controller, animation);
+        triggerAnim(controller, animation);
+    }
+
+    public void stopHitboxAnimation(String controller, String animation) {
+        if (!level().isClientSide()) collisionState.stop(controller, animation);
+        stopTriggeredAnim(controller, animation);
+    }
+
+    public Vec3 getBonePositionForHitbox(String boneName) {
+        if (boneName == null) return null;
+        if (this.level().isClientSide()) {
+            return this.clientLocatorCache.get(boneName);
+        } else {
+            return collisionState.locator(boneName);
+        }
+    }
+
+    @Override
+    public boolean canBreed() {
+        return this.isTame() && !this.isBaby() && this.getHealth() >= this.getMaxHealth() && this.isInLove();
+    }
+
+    @Override
+    protected Supplier<? extends Block> getEggBlock() {
+        return ModBlocks.IGNIVORUS_EGG;
+    }
+
+    @Override
+    public @Nullable AgeableMob getBreedOffspring(@NotNull ServerLevel level, @NotNull AgeableMob otherParent) {
+        return createBreedOffspring(level, otherParent, ModEntities.IGNIVORUS.get(), Ignivorus::applyConfiguredAttributes);
+    }
+
+    @Override
+    public void addAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        super.addAdditionalSaveDataTag(tag);
+        saveRideableData(tag);
+        tag.putInt("TimeFlying", timeFlying);
+        this.combatManager.saveToNBT(tag);
+        tag.putInt("FeedingCooldownTicks", Math.max(0, this.entityData.get(DATA_FEEDING_COOLDOWN)));
+        tag.putBoolean("Bulldozing", bulldozing);
+        tag.putInt("BulldozeCooldownTicks", Math.max(0, bulldozeCooldownTicks));
+        tag.putBoolean("Phase2Active", phase2Active);
+        tag.putInt("Phase2CooldownTicks", Math.max(0, phase2CooldownTicks));
+        tag.putBoolean("WildLowHealthUltimateTriggered", wildLowHealthUltimateTriggered);
+        tag.putBoolean("WildPhase2PendingLanding", wildPhase2PendingLanding || wildPhase2IdleTicks > 0);
+        tag.putInt("LeapCooldownTicks", Math.max(0, leapCooldownTicks));
+        tag.putFloat("FireBreathEnergy", getFireBreathEnergy());
+        tag.putBoolean("FireBreathDepleted", isFireBreathDepleted());
+        tamingController.save(tag);
+    }
+
+    @Override
+    public void readAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        super.readAdditionalSaveDataTag(tag);
+        if (!level().isClientSide()) {
+            roostComponent.restoreMemories();
+        }
+        loadRideableData(tag);
+        this.timeFlying = tag.getIntOr("TimeFlying", 0);
+        this.combatManager.loadFromNBT(tag);
+        if (tag.contains("FeedingCooldownTicks")) {
+            this.entityData.set(DATA_FEEDING_COOLDOWN, Math.max(0, tag.getIntOr("FeedingCooldownTicks", 0)));
+        }
+        if (tag.contains("Bulldozing")) {
+            bulldozing = tag.getBooleanOr("Bulldozing", false);
+            this.entityData.set(DATA_BULLDOZING, bulldozing);
+        }
+        if (tag.contains("BulldozeCooldownTicks")) {
+            bulldozeCooldownTicks = Math.max(0, tag.getIntOr("BulldozeCooldownTicks", 0));
+        }
+        if (tag.contains("Phase2Active")) {
+            phase2Active = tag.getBooleanOr("Phase2Active", false);
+            this.entityData.set(DATA_PHASE2, phase2Active);
+        }
+        if (tag.contains("WildLowHealthUltimateTriggered")) {
+            wildLowHealthUltimateTriggered = tag.getBooleanOr("WildLowHealthUltimateTriggered", false);
+        } else if (tag.contains("WildPhase2UltimateTriggered")) {
+            wildLowHealthUltimateTriggered = tag.getBooleanOr("WildPhase2UltimateTriggered", false);
+        } else {
+            wildLowHealthUltimateTriggered = phase2Active;
+        }
+        wildPhase2PendingLanding = !phase2Active && !isTame() && tag.getBooleanOr("WildPhase2PendingLanding", false);
+        if (tag.contains("Phase2CooldownTicks")) {
+            phase2CooldownTicks = Math.max(0, tag.getIntOr("Phase2CooldownTicks", 0));
+        }
+        boolean interruptedLeap = tag.getBooleanOr("Leaping", false)
+                || tag.getIntOr("LeapAnimState", 0) != LEAP_STATE_NONE;
+        leaping = false;
+        leapWasVehicle = false;
+        leapAnimState = LEAP_STATE_NONE;
+        leapVelocity = Vec3.ZERO;
+        leapArcDirection = Vec3.ZERO;
+        leapArcTick = 0;
+        leapWindupTicks = 0;
+        leapImpactRecoveryTicks = 0;
+        leapImpactTriggered = false;
+        wasAirborneBeforeLanding = false;
+        leapGroundedTicks = 0;
+        leapMovement.clear();
+        this.entityData.set(DATA_LEAPING, false);
+        this.entityData.set(DATA_LEAP_ANIM_STATE, LEAP_STATE_NONE);
+        if (interruptedLeap) {
+            clearRiderControlLock();
+            setDeltaMovement(Vec3.ZERO);
+        }
+        if (tag.contains("LeapCooldownTicks")) {
+            leapCooldownTicks = Math.max(0, tag.getIntOr("LeapCooldownTicks", 0));
+        }
+        if (tag.contains("FireBreathEnergy")) {
+            setFireBreathEnergy(tag.getFloatOr("FireBreathEnergy", 0.0F));
+        } else {
+            setFireBreathEnergy(1.0f);
+        }
+        if (tag.contains("FireBreathDepleted")) {
+            setFireBreathDepleted(tag.getBooleanOr("FireBreathDepleted", false));
+        } else {
+            setFireBreathDepleted(false);
+        }
+        bulldozeWasVehicle = false;
+        phase2WasVehicle = false;
+        tamingController.load(tag);
+        applyConfiguredAttributes();
+    }
+
+    @Override
+    protected void applyLoadedFlightState(boolean flying, boolean takeoff, boolean hovering, boolean landing) {
+        if (!isBaby()) {
+            setFlying(flying);
+            setTakeoff(takeoff);
+            setHovering(hovering);
+            setLanding(landing);
+        } else {
+            clearAerialStateForInterrupt();
+        }
+    }
+
+    @Override
+    public void setTarget(@Nullable LivingEntity target) {
+        if (this.isBaby()) {
+            super.setTarget(null);
+            return;
+        }
+        if (isTamingStunned() && target != null) {
+            return;
+        }
+        super.setTarget(target);
+    }
+
+    @Override
+    public boolean isWildAggressionEnabled() {
+        if (isTame() || isBaby()) {
+            return false;
+        }
+        DragonAttributeConfig config = DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID);
+        return config.extraBoolean("aggressive_wild", false);
+    }
+
+    public static boolean canSpawnHere(EntityType<Ignivorus> type,
+                                       LevelAccessor level,
+                                       EntitySpawnReason reason,
+                                       BlockPos pos,
+                                       RandomSource random) {
+        if (!Animal.checkAnimalSpawnRules(type, level, reason, pos, random)) {
+            return false;
+        }
+        return DragonSpawnRules.hasDryGroundSpawnSpace(level, pos)
+                && DragonSpawnRules.passesNearbyDragonDensityCheck(level, reason, pos, Ignivorus.class);
+    }
+    private void tickScreenShake() {
+        screenShakeComponent.tick();
+    }
+
+    @Override
+    protected ScreenShakeComponent getScreenShakeComponent() {
+        return screenShakeComponent;
+    }
+
+    @Override
+    public double getShakeDistance() {
+        return 30.0;
+    }
+
+    @Override
+    protected void dropAdditionalDeathLootAfterBase(@NotNull DamageSource source) {
+        if (!level().isClientSide() && getGender() == DragonGender.FEMALE) {
+            DragonLootTables.dropEntityLoot(this, DragonLootTables.IGNIVORUS_FEMALE_DEATH, source);
+        }
+
+    }
+    @Override
+    public int getMaxHeadXRot() {
+        return 180;
+    }
+}

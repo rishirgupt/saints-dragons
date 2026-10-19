@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "saintsdragons:dragonheart_chunk"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "saintsdragons:dragonheart_chunk"
+      }
+    ]
+  }
+}

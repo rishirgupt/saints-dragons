@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ISI",
+    "ACA",
+    "ISI"
+  ],
+  "key": {
+    "A": "minecraft:amethyst_shard",
+    "I": "minecraft:iron_ingot",
+    "S": "saintsdragons:stegonaut_scale",
+    "C": "saintsdragons:dragon_binder_core"
+  },
+  "result": {
+    "id": "saintsdragons:stegonaut_binder",
+    "count": 1
+  }
+}

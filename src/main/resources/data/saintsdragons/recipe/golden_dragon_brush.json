@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GGG",
+    "GBG",
+    "GGG"
+  ],
+  "key": {
+    "B": "saintsdragons:dragon_brush",
+    "G": "minecraft:gold_nugget"
+  },
+  "result": {
+    "id": "saintsdragons:golden_dragon_brush",
+    "count": 1
+  }
+}

@@ -1,0 +1,396 @@
+package com.leon.saintsdragons.server.entity.ability;
+
+import com.leon.saintsdragons.common.particle.ExpandingBreathSection;
+import com.leon.saintsdragons.server.ai.navigation.async.DragonFlightRequest;
+import com.leon.saintsdragons.server.ai.dragonbrain.learning.DragonCombatLearner;
+import com.leon.saintsdragons.server.entity.base.RideableFlyingDragon;
+import com.leon.saintsdragons.server.flight.DragonFlightVisuals;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Locale;
+
+public final class DragonCombatAim {
+    private static final int FLIGHT_PASS_UPDATE_TICKS = 6;
+    private static final double FLIGHT_PASS_COURSE_TURN_DEGREES = 30.0D;
+    public static final Profile BEAM = new Profile(40, 50, 9, 0.0);
+    public static final Profile FIRE = new Profile(70, 55, 6, 1.0);
+    public static final Profile BREATH = new Profile(70, 55, 8, 1.0);
+
+    private final RideableFlyingDragon dragon;
+    private @Nullable LivingEntity target;
+    private @Nullable Profile profile;
+    private @Nullable Vec3 direction;
+    private Vec3 desired = DragonAimHelper.DEFAULT_FORWARD;
+    private int updatedTick = Integer.MIN_VALUE;
+    private int facingTick = Integer.MIN_VALUE;
+    private int assessedTick = Integer.MIN_VALUE;
+    private int alignedTicks;
+    private Shot shot = Shot.NO_TARGET;
+    private double yawError;
+    private double pitchError;
+    private boolean sprintingApproach;
+    private @Nullable Vec3 flightPassTarget;
+    private long nextFlightPassUpdate;
+
+    public DragonCombatAim(RideableFlyingDragon dragon) {
+        this.dragon = dragon;
+    }
+
+    public @Nullable Vec3 track(LivingEntity target, Vec3 origin, Profile profile) {
+        return track(target, origin, profile, Vec3.ZERO);
+    }
+
+    public @Nullable Vec3 track(LivingEntity target, Vec3 origin, Profile profile, Vec3 aimOffset) {
+        if (!canControl() || target == null || !dragon.isTargetValid(target)) {
+            clear();
+            return null;
+        }
+        if (this.target == target && this.profile == profile && isActive() && updatedTick == dragon.tickCount) {
+            return direction;
+        }
+        Vec3 aimPoint;
+        var learning = DragonCombatLearner.get(dragon);
+        if (learning != null) {
+            aimPoint = learning.predictCenter(target, profile.leadTicks(), 2.0D);
+        } else {
+            Vec3 lead = target.getDeltaMovement().scale(profile.leadTicks());
+            if (lead.lengthSqr() > 4.0D) lead = lead.normalize().scale(2.0D);
+            aimPoint = target.getEyePosition().add(0, -0.25D, 0).add(lead);
+        }
+        return trackPoint(target, origin, profile, aimPoint == null ? null : aimPoint.add(aimOffset));
+    }
+
+    // Projectile abilities supply their own travel-time and gravity-compensated aim point.
+    public @Nullable Vec3 trackPoint(LivingEntity target, Vec3 origin, Profile profile,
+                                    @Nullable Vec3 aimPoint) {
+        if (!canControl() || target == null || !dragon.isTargetValid(target)) {
+            clear();
+            return null;
+        }
+        var decisions = dragon.getCombatDecisionSupport();
+        if (decisions != null && !decisions.claimAim(profile)) return null;
+        if (decisions != null) decisions.rememberShotOrigin(origin);
+        boolean changed = this.target != target || this.profile != profile || !isActive();
+        if (changed) {
+            direction = DragonAimHelper.fallbackHeadDirection(dragon);
+            desired = direction;
+            yawError = pitchError = 0;
+            alignedTicks = 0;
+            assessedTick = Integer.MIN_VALUE;
+            flightPassTarget = null;
+            nextFlightPassUpdate = 0;
+        }
+        this.target = target;
+        this.profile = profile;
+        if (!changed && updatedTick == dragon.tickCount) return direction;
+        updatedTick = dragon.tickCount;
+        var learning = DragonCombatLearner.get(dragon);
+        // Hold the last aim during lost sight; reaction grace must not become wall tracking.
+        if (aimPoint == null || learning != null && !learning.hasVisibleObservation(target)) return direction;
+        Vec3 wanted = DragonAimHelper.directionTo(origin, aimPoint);
+        if (wanted == null) return direction;
+        desired = wanted;
+        yawError = Mth.wrapDegrees(yaw(desired) - dragon.yBodyRot);
+        float bodyPitch = dragon.isAerial()
+                ? -DragonFlightVisuals.computeAiPitchTarget(dragon.getDeltaMovement()) * Mth.RAD_TO_DEG : 0.0F;
+        pitchError = pitch(desired) - bodyPitch;
+        // Aerial breath aim leads the body. Turning the flight course must not
+        // pull the shot back into the torso's current facing cone.
+        boolean independentFlightAim = hasIndependentFlightAim();
+        Vec3 reachable = independentFlightAim ? desired
+                : DragonAimHelper.clampDirectionToHead(desired, dragon.yBodyRot,
+                        bodyPitch, profile.yawLimit(), profile.pitchLimit());
+        direction = DragonAimHelper.turnDirection(direction, reachable,
+                independentFlightAim ? profile.airAimTurnDegrees() : profile.turnDegrees());
+        applyFacing();
+        return direction;
+    }
+
+    public boolean isActive() {
+        return canControl() && target != null && target == dragon.getTarget() && target.isAlive()
+                && direction != null && updatedTick != Integer.MIN_VALUE
+                && dragon.tickCount >= updatedTick && dragon.tickCount - updatedTick <= 2;
+    }
+
+    private boolean canControl() {
+        return !dragon.level().isClientSide() && !dragon.isVehicle() && !dragon.isPassenger()
+                && dragon.isAlive() && !dragon.isDying() && !dragon.isSleeping()
+                && !dragon.isSleepTransitioning() && !dragon.isStayOrSitMuted()
+                && !dragon.isTakeoff() && !dragon.isLanding();
+    }
+
+    public void applyFacing() {
+        if (!isActive()) return;
+        if ((!dragon.isAerial() || dragon.getDeltaMovement().horizontalDistanceSqr() < 0.01D)
+                && facingTick != dragon.tickCount) {
+            float bodyYaw = Mth.approachDegrees(dragon.getYRot(),
+                    yaw(hasIndependentFlightAim() ? direction : desired), flightTurnDegrees(6.0F));
+            dragon.setYRot(bodyYaw);
+            dragon.yBodyRot = bodyYaw;
+        }
+        facingTick = dragon.tickCount;
+        // The flight model pitches from velocity; entity pitch carries the head aim to observers.
+        // Volitans also uses replicated head yaw for its breath pose, so it must
+        // carry the shot heading rather than a second body-relative clamp.
+        dragon.setYHeadRot(hasIndependentFlightAim() ? yaw(direction)
+                : dragon.yBodyRot + Mth.clamp(Mth.wrapDegrees(yaw(direction) - dragon.yBodyRot),
+                        -profile.yawLimit(), profile.yawLimit()));
+        dragon.setXRot(pitch(direction));
+    }
+
+    public float flightYaw(float movementYaw) {
+        if (!isActive()) return movementYaw;
+        if (hasIndependentFlightAim()) return yaw(direction);
+        // At low speed the body can face the shot while making a small lateral correction.
+        float allowance = (float) Mth.clamp((1.0D - dragon.getDeltaMovement().horizontalDistance()) * 240.0D, 0, 180);
+        return movementYaw + Mth.clamp(Mth.wrapDegrees(DragonAimHelper.yawOrFallback(desired, movementYaw)
+                - movementYaw), -allowance, allowance);
+    }
+
+    public float flightTurnDegrees(float fallback) {
+        return isActive() && hasIndependentFlightAim() ? profile.airBodyTurnDegrees() : fallback;
+    }
+
+    private boolean hasIndependentFlightAim() {
+        return dragon.isAerial() && profile != null && profile.airAimTurnDegrees() > 0.0F;
+    }
+
+    public Shot assess(Vec3 origin, Vec3 firingDirection, LivingEntity target, double range,
+                       double hitRadius, @Nullable ExpandingBreathSection.Profile spread) {
+        if (target == null || !target.isAlive() || firingDirection == null) return recordShot(Shot.NO_TARGET);
+        var learning = DragonCombatLearner.get(dragon);
+        if (learning != null && !learning.hasVisibleObservation(target)) return recordShot(Shot.BLOCKED);
+        Vec3 forward = DragonAimHelper.normalizeOrNull(firingDirection);
+        if (forward == null) return recordShot(Shot.NO_TARGET);
+        AABB box = target.getBoundingBox();
+        Vec3 center = box.getCenter();
+        Vec3 nearest = closestPoint(box, origin);
+        if (origin.distanceToSqr(nearest) > range * range) return recordShot(Shot.OUT_OF_RANGE);
+        Vec3 contact = null;
+        if (spread == null) {
+            AABB hitBox = box.inflate(hitRadius);
+            contact = hitBox.contains(origin) ? origin
+                    : hitBox.clip(origin, origin.add(forward.scale(range))).orElse(null);
+        } else {
+            Vec3 right = forward.cross(Math.abs(forward.y) > 0.99D ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
+            Vec3 up = right.cross(forward).normalize();
+            Vec3 offset = center.subtract(origin);
+            double along = offset.dot(forward);
+            double depth = projectedHalfSize(box, forward);
+            double half = spread.halfWidthAt(Mth.clamp(along, 0, range));
+            if (along + depth >= 0 && along - depth <= range
+                    && Math.abs(offset.dot(right)) <= half + projectedHalfSize(box, right)
+                    && Math.abs(offset.dot(up)) <= half + projectedHalfSize(box, up)) {
+                contact = closestPoint(box, origin.add(forward.scale(Mth.clamp(along, 0, range))));
+            }
+        }
+        // Check the covered part of the target, not only the center ray of a broad breath.
+        if (!clearLine(origin, contact != null ? contact : center)) return recordShot(Shot.BLOCKED);
+        if (contact != null) return recordShot(Shot.ALIGNED);
+        boolean outsideArc = profile != null && !hasIndependentFlightAim()
+                && (Math.abs(yawError) > profile.yawLimit() || Math.abs(pitchError) > profile.pitchLimit());
+        return recordShot(outsideArc ? Shot.OUT_OF_ARC : Shot.ALIGNING);
+    }
+
+    private boolean clearLine(Vec3 start, Vec3 end) {
+        if (start.distanceToSqr(end) < 1.0E-8D) return true;
+        var hit = dragon.level().clip(new ClipContext(start, end, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, dragon));
+        return hit.getType() == HitResult.Type.MISS || start.distanceToSqr(hit.getLocation()) + 1.0E-6D >= start.distanceToSqr(end);
+    }
+
+    private Shot recordShot(Shot value) {
+        if (assessedTick != dragon.tickCount) {
+            alignedTicks = value == Shot.ALIGNED
+                    ? (assessedTick == dragon.tickCount - 1 ? alignedTicks + 1 : 1) : 0;
+            assessedTick = dragon.tickCount;
+        } else if (value != Shot.ALIGNED) {
+            alignedTicks = 0;
+        }
+        shot = value;
+        var decisions = dragon.getCombatDecisionSupport();
+        if (decisions != null) decisions.observeShot(profile, value, Math.abs(yawError) + Math.abs(pitchError));
+        return value;
+    }
+
+    public boolean ready(int ticks) {
+        return isActive() && shot == Shot.ALIGNED && alignedTicks >= ticks;
+    }
+
+    public Shot assessDirection(@Nullable Vec3 wanted, double toleranceDegrees) {
+        if (!isActive() || wanted == null) return recordShot(Shot.NO_TARGET);
+        var learning = DragonCombatLearner.get(dragon);
+        if (learning != null && !learning.hasVisibleObservation(target)) return recordShot(Shot.BLOCKED);
+        Vec3 normalized = DragonAimHelper.normalizeOrNull(wanted);
+        if (normalized == null) return recordShot(Shot.NO_TARGET);
+        float bodyPitch = dragon.isAerial()
+                ? -DragonFlightVisuals.computeAiPitchTarget(dragon.getDeltaMovement()) * Mth.RAD_TO_DEG : 0.0F;
+        if (!hasIndependentFlightAim()
+                && (Math.abs(Mth.wrapDegrees(yaw(normalized) - dragon.yBodyRot)) > profile.yawLimit()
+                || Math.abs(pitch(normalized) - bodyPitch) > profile.pitchLimit())) {
+            return recordShot(Shot.OUT_OF_ARC);
+        }
+        return recordShot(direction.dot(normalized) >= Math.cos(Math.toRadians(toleranceDegrees))
+                ? Shot.ALIGNED : Shot.ALIGNING);
+    }
+
+    public Vec3 steerFlightPass(Vec3 targetFeet, double sideOffset) {
+        long now = dragon.level().getGameTime();
+        if (flightPassTarget != null && now < nextFlightPassUpdate) return flightPassTarget;
+        Vec3 motion = dragon.getDeltaMovement();
+        Vec3 heading = motion.horizontalDistanceSqr() > 0.01D
+                ? motion.multiply(1, 0, 1).normalize() : Vec3.directionFromRotation(0, dragon.yBodyRot);
+        double lookAhead = Mth.clamp(motion.horizontalDistance() * 16.0D, 16.0D, 32.0D);
+        var learning = DragonCombatLearner.get(dragon);
+        if (!isActive() || learning != null && !learning.hasVisibleObservation(target)) {
+            // Lost sight keeps the last course, rather than steering toward a hidden opponent.
+            return flightPassTarget != null ? flightPassTarget : dragon.position().add(heading.scale(lookAhead));
+        }
+        Vec3 offset = targetFeet.subtract(dragon.position());
+        // Follow the smoothed shot heading. Altitude and lateral spacing still
+        // come from the combat approach, keeping ground-target passes aloft.
+        Vec3 toward = direction.horizontalDistanceSqr() > 1.0E-6D
+                ? direction.multiply(1, 0, 1).normalize() : heading;
+        Vec3 lateral = new Vec3(-toward.z, 0, toward.x).scale(sideOffset);
+        Vec3 wanted = toward.scale(Math.max(lookAhead, offset.horizontalDistance())).add(lateral);
+        double courseTurn = hasIndependentFlightAim()
+                ? profile.airBodyTurnDegrees() * FLIGHT_PASS_UPDATE_TICKS : FLIGHT_PASS_COURSE_TURN_DEGREES;
+        Vec3 course = DragonAimHelper.turnDirection(heading, wanted, courseTurn);
+        double progress = Math.min(1.0D, lookAhead / Math.max(1.0D, offset.horizontalDistance()));
+        double heightChange = Mth.clamp(offset.y * progress, -lookAhead * 0.5D, lookAhead * 0.5D);
+        flightPassTarget = dragon.position().add(course.scale(lookAhead)).add(0, heightChange, 0);
+        nextFlightPassUpdate = now + FLIGHT_PASS_UPDATE_TICKS;
+        return flightPassTarget;
+    }
+
+    public double flightPassSpeed(Vec3 targetFeet, Vec3 targetVelocity,
+                                  double maximumModifier, double firingDistance) {
+        Vec3 offset = targetFeet.subtract(dragon.position()).multiply(1, 0, 1);
+        Vec3 toward = offset.lengthSqr() > 1.0E-6D ? offset.normalize()
+                : Vec3.directionFromRotation(0, dragon.yBodyRot);
+        double targetSpeed = targetVelocity.dot(toward);
+        double closingSpeed = Math.max(0, dragon.getDeltaMovement().dot(toward) - targetSpeed);
+        double brakingDistance = closingSpeed * FLIGHT_PASS_UPDATE_TICKS
+                + closingSpeed * closingSpeed / (2.0D * 0.12D);
+        double gap = offset.length() - firingDistance - brakingDistance;
+        double flightSpeed = Math.max(0.01D, dragon.getFlightSpeed());
+        double speed = Math.min(flightSpeed * maximumModifier, Math.max(0.2D, targetSpeed + gap * 0.1D));
+        return speed / flightSpeed;
+    }
+
+    public boolean flightPassOverextended(LivingEntity opponent) {
+        if (!dragon.isAerial() || opponent == null) return false;
+        var learning = DragonCombatLearner.get(dragon);
+        if (learning == null || !learning.hasVisibleObservation(opponent)) return false;
+        Vec3 predicted = learning.predictCenter(opponent, 4, 6);
+        if (predicted == null) return false;
+        Vec3 offset = opponent.getBoundingBox().getCenter().subtract(dragon.getBoundingBox().getCenter());
+        Vec3 horizontal = offset.multiply(1, 0, 1);
+        Vec3 bodyForward = Vec3.directionFromRotation(0, dragon.yBodyRot);
+        if (horizontal.lengthSqr() > 1.0D && horizontal.normalize().dot(bodyForward) < Math.cos(Math.toRadians(110))) {
+            return true;
+        }
+        Vec3 motion = dragon.getDeltaMovement().multiply(1, 0, 1);
+        if (motion.lengthSqr() < 0.01D) return false;
+        Vec3 course = motion.normalize();
+        double ahead = horizontal.dot(course);
+        if (ahead < -2.0D) return true;
+        Vec3 futureOffset = predicted.subtract(dragon.getBoundingBox().getCenter().add(motion.scale(4)));
+        double futureAhead = futureOffset.dot(course);
+        double clearance = (dragon.getBbWidth() + opponent.getBbWidth()) * 0.5D + 3.0D;
+        double lateral = Math.abs(futureOffset.x * course.z - futureOffset.z * course.x);
+        return ahead > 0 && futureAhead < ahead - 0.2D && futureAhead < clearance && lateral < clearance;
+    }
+
+    public DragonFlightRequest firingApproach(LivingEntity target, double maximumSpeed,
+                                              double spacing, double sideOffset) {
+        Vec3 center = target.position().add(0, target.getBbHeight() + 2.0D, 0);
+        Vec3 toTarget = center.subtract(dragon.position());
+        Vec3 targetMotion = target.getDeltaMovement().multiply(1, 0, 1);
+        Vec3 course = targetMotion.lengthSqr() > 0.09D && targetMotion.dot(toTarget) > 0
+                ? targetMotion.normalize() : toTarget.multiply(1, 0, 1).normalize();
+        if (course.lengthSqr() < 1.0E-6D) course = Vec3.directionFromRotation(0, dragon.getYRot());
+        Vec3 lateral = new Vec3(-course.z, 0, course.x);
+        Vec3 destination = center.add(targetMotion.scale(3.0D))
+                .subtract(course.scale(spacing)).add(lateral.scale(sideOffset));
+        // Keep enough thrust to follow a fleeing target, then brake before reaching firing distance.
+        double gap = toTarget.dot(course) - spacing;
+        sprintingApproach = targetMotion.dot(course) > 0.6D
+                && gap > (sprintingApproach ? 6.0D : 12.0D);
+        if (sprintingApproach) return DragonFlightRequest.chase(destination, maximumSpeed);
+        return DragonFlightRequest.track(destination, maximumSpeed, 2.0D);
+    }
+
+    public void clear() {
+        target = null;
+        profile = null;
+        direction = null;
+        updatedTick = facingTick = assessedTick = Integer.MIN_VALUE;
+        alignedTicks = 0;
+        shot = Shot.NO_TARGET;
+        sprintingApproach = false;
+        flightPassTarget = null;
+        nextFlightPassUpdate = 0;
+    }
+
+    public String debugSummary() {
+        return !isActive() ? "idle" : shot.name().toLowerCase(Locale.ROOT)
+                + ",yaw=" + Mth.floor(Math.abs(yawError)) + ",pitch=" + Mth.floor(Math.abs(pitchError))
+                + ",stable=" + alignedTicks;
+    }
+
+    private static double projectedHalfSize(AABB box, Vec3 axis) {
+        return (Math.abs(axis.x) * box.getXsize() + Math.abs(axis.y) * box.getYsize()
+                + Math.abs(axis.z) * box.getZsize()) * 0.5D;
+    }
+
+    private static Vec3 closestPoint(AABB box, Vec3 point) {
+        return new Vec3(Mth.clamp(point.x, box.minX, box.maxX), Mth.clamp(point.y, box.minY, box.maxY),
+                Mth.clamp(point.z, box.minZ, box.maxZ));
+    }
+
+    private float yaw(Vec3 direction) { return DragonAimHelper.yawOrFallback(direction, dragon.yBodyRot); }
+    private static float pitch(Vec3 direction) { return (float) -Math.toDegrees(Math.atan2(direction.y, direction.horizontalDistance())); }
+
+    public record Profile(float yawLimit, float pitchLimit, float turnDegrees, double leadTicks,
+                          float airAimTurnDegrees, float airBodyTurnDegrees) {
+        public Profile(float yawLimit, float pitchLimit, float turnDegrees, double leadTicks) {
+            this(yawLimit, pitchLimit, turnDegrees, leadTicks, 0.0F, 0.0F);
+        }
+    }
+
+    public static final class ShotGrace {
+        private int lastTick = Integer.MIN_VALUE;
+        private int lostTicks;
+        private int alignmentTicks;
+        private int blockedTicks;
+
+        public boolean allows(Shot shot, int tick, int alignmentGrace, int obstructionGrace) {
+            if (tick != lastTick) {
+                lostTicks = shot == Shot.ALIGNED ? 0 : lostTicks + 1;
+                alignmentTicks = shot.needsAlignment() ? alignmentTicks + 1 : 0;
+                blockedTicks = shot == Shot.ALIGNED || shot.needsAlignment() ? 0 : blockedTicks + 1;
+                lastTick = tick;
+            }
+            return alignmentTicks < alignmentGrace && blockedTicks < obstructionGrace
+                    && lostTicks < alignmentGrace + obstructionGrace;
+        }
+
+        public void reset() {
+            lastTick = Integer.MIN_VALUE;
+            lostTicks = alignmentTicks = blockedTicks = 0;
+        }
+    }
+    public enum Shot {
+        ALIGNED, ALIGNING, OUT_OF_ARC, BLOCKED, OUT_OF_RANGE, NO_TARGET;
+
+        public boolean needsAlignment() { return this == ALIGNING || this == OUT_OF_ARC; }
+        public String reason() { return name().toLowerCase(Locale.ROOT); }
+    }
+}

@@ -1,0 +1,22 @@
+{
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:display_context",
+    "cases": [
+      {
+        "when": "gui",
+        "model": {
+          "type": "minecraft:model",
+          "model": "saintsdragons:item/mossback"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:special",
+      "base": "saintsdragons:item/mossback_held",
+      "model": {
+        "type": "geckolib:geckolib"
+      }
+    }
+  }
+}

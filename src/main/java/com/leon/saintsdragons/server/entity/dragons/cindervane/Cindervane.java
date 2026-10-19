@@ -1,0 +1,2044 @@
+package com.leon.saintsdragons.server.entity.dragons.cindervane;
+
+import com.leon.saintsdragons.common.config.dragon.profile.CindervaneStatProfile;
+import net.minecraft.core.UUIDUtil;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonVisionProfile;
+import com.leon.saintsdragons.server.ai.dragonbrain.tactical.DragonWaterCombatProfile;
+
+import com.mojang.serialization.Dynamic;
+import com.leon.saintsdragons.util.animation.AnimationHelper;
+import com.leon.saintsdragons.util.animation.EntityAnimationController;
+import com.leon.saintsdragons.util.animation.DragonFlightAnimationController;
+
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfig;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfigLoader;
+import com.leon.saintsdragons.common.registry.ModBlocks;
+import com.leon.saintsdragons.common.registry.ModEntities;
+import com.leon.saintsdragons.common.registry.ModTags;
+import com.leon.saintsdragons.common.registry.ModSounds;
+import com.leon.saintsdragons.common.registry.ModParticles;
+import com.leon.saintsdragons.common.particle.SonicRingData;
+import com.leon.saintsdragons.common.registry.ModAbilities;
+import com.leon.saintsdragons.server.ai.DragonAirCombatSettings;
+import com.leon.saintsdragons.server.ai.DragonAirCombatSettingsProvider;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonBrain;
+import com.leon.saintsdragons.server.ai.dragonbrain.behaviour.cindervane.CindervanePackFlightCoordinator;
+import com.leon.saintsdragons.server.ai.dragonbrain.profiles.CindervaneBrain;
+import com.leon.saintsdragons.server.entity.ability.DragonAbilityType;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import com.leon.saintsdragons.server.entity.base.DragonGender;
+import com.leon.saintsdragons.server.entity.base.DragonVariant;
+import com.leon.saintsdragons.server.entity.base.DragonVariantSet;
+import com.leon.saintsdragons.server.entity.base.RideableFlyingDragon;
+import com.leon.saintsdragons.server.entity.controller.cindervane.CindervaneRiderController;
+import com.leon.saintsdragons.server.entity.npc.IvyTheDragonMerchant;
+import com.leon.saintsdragons.server.flight.DragonFlightStateEvaluator;
+import com.leon.saintsdragons.server.flight.DragonFlightAnimationProfile;
+import com.leon.saintsdragons.server.flight.DragonRiderFlight;
+import com.leon.saintsdragons.server.entity.dragons.cindervane.handlers.CindervaneAnimationHandler;
+import com.leon.saintsdragons.server.entity.dragons.cindervane.handlers.CindervaneInteractionHandler;
+import com.leon.saintsdragons.server.entity.dragons.cindervane.handlers.CindervaneSoundProfile;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonElementalImmunity;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonGriefingRules;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonUtilities;
+import com.leon.saintsdragons.server.entity.component.ScreenShakeComponent;
+import com.leon.saintsdragons.server.entity.interfaces.DragonSaddleCarrier;
+import com.leon.saintsdragons.server.entity.interfaces.DragonSoundProfile;
+import com.leon.saintsdragons.server.entity.interfaces.DrinkingDragon;
+import com.leon.saintsdragons.server.entity.interfaces.PackMember;
+import com.leon.saintsdragons.server.loot.DragonLootTables;
+import com.leon.saintsdragons.server.entity.interfaces.ShakesScreen;
+import com.leon.saintsdragons.server.menu.DragonInventoryMenu;
+import com.leon.saintsdragons.common.network.DragonRiderAction;
+import com.leon.saintsdragons.common.network.MessageDragonMeleeMode;
+import com.leon.saintsdragons.common.network.NetworkHandler;
+import com.leon.saintsdragons.server.world.DragonSpawnRules;
+import java.util.Map;
+import java.util.HashMap;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.ExplosionDamageCalculator;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.core.particles.ParticleTypes;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.sounds.SoundEvents;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import com.geckolib.animatable.instance.AnimatableInstanceCache;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.animation.AnimationController;
+import com.geckolib.util.GeckoLibUtil;
+import javax.annotation.Nonnull;
+
+public class Cindervane extends RideableFlyingDragon implements ShakesScreen, PackMember<Cindervane>,
+        DragonSaddleCarrier, DragonAirCombatSettingsProvider, DrinkingDragon {
+    private static final CindervaneBrain DRAGON_BRAIN = new CindervaneBrain();
+    public static final byte FIRE_BODY_START_EVENT = 79;
+    private int fireBodyStartTick = -1;
+
+    public float getFireBodyStartAge(float partialTick) {
+        return fireBodyStartTick < 0 ? -1.0F : tickCount - fireBodyStartTick + partialTick;
+    }
+
+    public static final byte FIREBALL_MOUTH_EVENT = 78;
+    private int fireballMouthTick = -1;
+
+    public float getFireballMouthAge(float partialTick) {
+        return fireballMouthTick < 0 ? -1.0F : tickCount - fireballMouthTick + partialTick;
+    }
+
+    @Override
+    public void handleEntityEvent(byte eventId) {
+        if (eventId == FIRE_BODY_START_EVENT) {
+            fireBodyStartTick = tickCount;
+        } else if (eventId == FIREBALL_MOUTH_EVENT) {
+            fireballMouthTick = tickCount;
+        } else {
+            super.handleEntityEvent(eventId);
+        }
+    }
+
+    @Override
+    protected Identifier getDragonAttributesId() {
+        return DragonAttributeConfigLoader.CINDERVANE_ID;
+    }
+
+    public static final int VARIANT_DEFAULT = 0;
+    public static final int VARIANT_ALBINO = 1;
+    public static final int VARIANT_PIEBALD = 2;
+    private static final double BABY_MAX_HEALTH = CindervaneStatProfile.Entity.BABY_MAX_HEALTH;
+    private static final double BABY_ARMOR = CindervaneStatProfile.Entity.BABY_ARMOR;
+    private static final double GROUND_MOVEMENT_SPEED = CindervaneStatProfile.Entity.GROUND_MOVEMENT_SPEED;
+    private static final DragonVariantSet VARIANTS = DragonVariantSet.of(
+            DragonVariant.of(VARIANT_DEFAULT, "default", 85),
+            DragonVariant.of(VARIANT_ALBINO, "albino", 15),
+            DragonVariant.of(VARIANT_PIEBALD, "piebald", 0)
+    );
+
+    private static final EntityDataAccessor<Boolean> DATA_FIRE_BREATHING =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_SCREEN_SHAKE_AMOUNT =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_RIDER_LANDING_BLEND =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_FLIGHT_PITCH =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_ACCUMULATED_ROLL =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_PITCH_KEY_MODE =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_SLASH_GRAB_PASSENGER_ID =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_HAS_CHEST =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_SADDLED =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.BOOLEAN);
+    private static final int LANDED_RECOVERY_TICKS = 34;
+    public static final int TAKEOFF_ANIMATION_TICKS = 23;
+    public static final int DRINKING_ANIMATION_TICKS = 80;
+    public static final DragonAirCombatSettings AI_AIR_COMBAT_SETTINGS =
+            new DragonAirCombatSettings(
+                    TAKEOFF_ANIMATION_TICKS,
+                    CindervaneStatProfile.Landing.APPROACH_SPEED,
+                    30,
+                    16.0D,
+                    2.0D,
+                    8.0D,
+                    5.0D
+            );
+    private static final double FIRE_BODY_CRASH_MIN_DROP = 7.0D;
+    private static final float FIRE_BODY_EXPLOSION_RADIUS = CindervaneStatProfile.Entity.FIRE_BODY_EXPLOSION_RADIUS;
+    private static final double FIRE_BODY_IMPRINT_RADIUS = CindervaneStatProfile.Entity.FIRE_BODY_IMPRINT_RADIUS;
+    private static final int RIDER_LANDING_BLEND_DURATION = CindervaneStatProfile.Entity.RIDER_LANDING_BLEND_DURATION;
+    private static final double FIRE_BODY_IMPRINT_DEPTH_FACTOR = 0.6D;
+    private static final float FIRE_BODY_EXPLOSION_DAMAGE = CindervaneStatProfile.Entity.FIRE_BODY_EXPLOSION_DAMAGE;
+    private static final float FIRE_BODY_SELF_DAMAGE_ON_CRASH = CindervaneStatProfile.Entity.FIRE_BODY_SELF_DAMAGE_ON_CRASH;
+    public static final double BREED_PARTNER_RANGE = CindervaneStatProfile.Entity.BREED_PARTNER_RANGE;
+    public static final double BREED_DISTANCE_SQR = CindervaneStatProfile.Entity.BREED_DISTANCE_SQR;
+    private static final int MAX_PACK_SIZE = 4;
+    private static final double PACK_SEARCH_RADIUS = CindervaneStatProfile.Entity.PACK_SEARCH_RADIUS;
+    private static final int MIN_AMBIENT_DELAY = 180;
+    private static final int MAX_AMBIENT_DELAY = 420;
+    private static final int FLEX_CONTROL_LOCK_TICKS = 69;
+    private static final int FLEX_COOLDOWN_TICKS = CindervaneStatProfile.Entity.FLEX_COOLDOWN_TICKS;
+    private static final int CINDERVANE_CHEST_SLOTS = 15;
+    public static final double RIDER_WALK_SPEED = CindervaneStatProfile.Entity.RIDER_WALK_SPEED;
+    public static final double RIDER_RUN_SPEED = CindervaneStatProfile.Entity.RIDER_RUN_SPEED;
+    public static final float RIDER_KEY_PITCH_DEG = 25.0f;
+    private static final Map<String, VocalEntry> VOCAL_ENTRIES =
+            new VocalEntryBuilder()
+                    .add("grumble1", AnimationHelper.VOCAL_CONTROLLER, "animation.cindervane.grumble1", ModSounds.CINDERVANE_GRUMBLE_1, 1.1f, 0.98f, 0.06f, false, false, false)
+                    .add("grumble2", AnimationHelper.VOCAL_CONTROLLER, "animation.cindervane.grumble2", ModSounds.CINDERVANE_GRUMBLE_2, 1.2f, 0.96f, 0.08f, false, false, false)
+                    .add("grumble3", AnimationHelper.VOCAL_CONTROLLER, "animation.cindervane.grumble3", ModSounds.CINDERVANE_GRUMBLE_3, 1.0f, 1.0f, 0.05f, false, false, false)
+                    .add("cindervane_flex", CindervaneAnimationHandler.MOVEMENT_CONTROLLER, "animation.cindervane.flex", ModSounds.CINDERVANE_FLEX, 1.4f, 0.95f, 0.05f, false, false, false)
+                    .add("cindervane_hurt", AnimationHelper.INTERACTION_CONTROLLER, "animation.cindervane.hurt", ModSounds.CINDERVANE_HURT, 1.2f, 0.95f, 0.1f, false, false, false)
+                    .add("cindervane_die", AnimationHelper.INTERACTION_CONTROLLER, "animation.cindervane.die", ModSounds.CINDERVANE_DIE, 1.5f, 1.0f, 0.0f, false, false, false)
+                    .build();
+
+    private final AnimatableInstanceCache dragonCache = GeckoLibUtil.createInstanceCache(this);
+    private final CindervaneAnimationHandler animationHandler = new CindervaneAnimationHandler(this);
+    private final CindervaneInteractionHandler interactionHandler = new CindervaneInteractionHandler(this);
+    private final CindervaneRiderController riderController;
+    private final AnimationController<Cindervane> movementController;
+    private final AnimationController<Cindervane> actionController;
+    private final AnimationController<Cindervane> fastActionController;
+    private final AnimationController<Cindervane> flightController;
+    private final AnimationController<Cindervane> vocalController;
+    private final AnimationController<Cindervane> interactionController;
+    private final SimpleContainer cindervaneChestInventory = new SimpleContainer(CINDERVANE_CHEST_SLOTS);
+    private int targetCooldown;
+    private int fireBodySuppressionTicks;
+    private Vec3 lastFireBodyDiveRingPosition;
+    private int fireBodyDiveRingCooldown;
+    private boolean fireBodyCrashArmed;
+    private double fireBodyCrashMaxHeight;
+    private boolean autoGrabPassengerMountAllowed;
+    @Nullable
+    private UUID slashGrabPassengerUuid;
+    @Nullable
+    private UUID packLeaderUuid;
+    private final CindervanePackFlightCoordinator packFlightCoordinator = new CindervanePackFlightCoordinator();
+    private static final float[] TAIL_COUNTER_BANK_DEGREES = {2.0F, 3.0F, 4.0F, 3.0F};
+    private static final float TAIL_BANK_FOLLOW_BLEND = 0.45F;
+    private final float[] tailBankFollow = new float[TAIL_COUNTER_BANK_DEGREES.length];
+    private final float[] previousTailBankFollow = new float[TAIL_COUNTER_BANK_DEGREES.length];
+    private final ScreenShakeComponent screenShakeComponent;
+    @Override
+    public boolean supportsRiderPitchLock() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsRiderWaterBreach() {
+        return true;
+    }
+
+    @Override
+    protected boolean supportsRiderAction(DragonRiderAction action) {
+        return switch (action) {
+            case ABILITY_USE, ABILITY_STOP, OPEN_INVENTORY -> true;
+            default -> super.supportsRiderAction(action);
+        };
+    }
+
+    @Override
+    protected RiderFlexSpec getRiderFlexSpec() {
+        return new RiderFlexSpec(FLEX_CONTROL_LOCK_TICKS, FLEX_COOLDOWN_TICKS);
+    }
+
+    @Override
+    protected boolean canRiderFlex(ServerPlayer player, RiderFlexSpec spec) {
+        return super.canRiderFlex(player, spec)
+                && !isBaby()
+                && !isDying()
+                && isGroundedForAction()
+                && !isInWater()
+                && !isFlying()
+                && !isTakeoff()
+                && !isHovering()
+                && !isLanding()
+                && !isOrderedToSit()
+                && !isInSitTransition()
+                && !isSleeping()
+                && !isSleepTransitioning()
+                && getActiveAbility() == null;
+    }
+
+    @Override
+    protected void playRiderFlex(ServerPlayer player, RiderFlexSpec spec) {
+        getNavigation().stop();
+        setDeltaMovement(Vec3.ZERO);
+        getSoundHandler().playVocal("cindervane_flex");
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return dragonCache;
+    }
+
+
+    @Override
+    public float maxSitTicks() {
+        return getSitDownAnimationTicks();
+    }
+
+    private int getSitDownAnimationTicks() {
+        return 33;
+    }
+
+    private int getSitUpAnimationTicks() {
+        return 17;
+    }
+
+    private int getFallAsleepAnimationTicks() {
+        return 33;
+    }
+
+    private int getWakeUpAnimationTicks() {
+        return 33;
+    }
+
+    @Override
+    protected int getSleepSitDownDuration() {
+        return getSitDownAnimationTicks();
+    }
+
+    @Override
+    protected int getSleepFallAsleepDuration() {
+        return getFallAsleepAnimationTicks();
+    }
+
+    @Override
+    protected int getSleepWakeUpDuration() {
+        return getWakeUpAnimationTicks();
+    }
+
+    @Override
+    protected int getSleepSitUpDuration() {
+        return getSitUpAnimationTicks();
+    }
+
+    public boolean canFeed() {
+        int cooldownTicks = this.entityData.get(DATA_FEEDING_COOLDOWN);
+        return cooldownTicks <= 0;
+    }
+
+    public void setFeedingCooldown(int ticks) {
+        this.entityData.set(DATA_FEEDING_COOLDOWN, ticks);
+    }
+
+    @Override
+    protected DragonVariantSet getVariantSet() {
+        return VARIANTS;
+    }
+
+    public boolean isAlbinoVariant() {
+        return getTextureVariant() == VARIANT_ALBINO;
+    }
+
+    public boolean isPiebaldVariant() {
+        return getTextureVariant() == VARIANT_PIEBALD;
+    }
+
+    private final Map<String, Vec3> serverBonePositionCache = new ConcurrentHashMap<>();
+
+    public Cindervane(EntityType<? extends Cindervane> type, Level level) {
+        super(type, level);
+        this.screenShakeComponent = new ScreenShakeComponent(this, DATA_SCREEN_SHAKE_AMOUNT, 0.12F);
+        java.util.Objects.requireNonNull(this.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT)).setBaseValue(1.1F);
+        this.riderController = new CindervaneRiderController(this);
+        this.movementController = new EntityAnimationController<>(this, "movement", 2, animationHandler::movementPredicate);
+        this.actionController = new EntityAnimationController<>(this, CindervaneAnimationHandler.ACTION_CONTROLLER, 5, animationHandler::actionPredicate);
+        this.fastActionController = new EntityAnimationController<>(this, CindervaneAnimationHandler.FAST_ACTION_CONTROLLER, 1, animationHandler::fastActionPredicate);
+        this.flightController = new DragonFlightAnimationController<>(this, getFlightAnimationTransitionTicks(), animationHandler::flightPredicate);
+        this.vocalController = new EntityAnimationController<>(this, AnimationHelper.VOCAL_CONTROLLER, 2, AnimationHelper::vocalIdle);
+        this.interactionController = new EntityAnimationController<>(this, AnimationHelper.INTERACTION_CONTROLLER, 1, AnimationHelper::interactionIdle);
+        setupAnimationControllers();
+        this.setPathfindingMalus(PathType.LEAVES, -1.0F);
+        this.setPathfindingMalus(PathType.FIRE_IN_NEIGHBOR, 0.0F);
+        this.setPathfindingMalus(PathType.FIRE, 0.0F);
+        seedAmbientSoundTimer(MIN_AMBIENT_DELAY, MAX_AMBIENT_DELAY, 80);
+
+        if (!level.isClientSide()) {
+            applyConfiguredAttributes();
+        }
+    }
+
+    @Override
+    protected DragonRiderFlight.Config getRiderFlightConfig() {
+        return new DragonRiderFlight.Config(
+                true,
+                0,
+                0.55D,
+                TAKEOFF_ANIMATION_TICKS,
+                0.45D,
+                TAKEOFF_ANIMATION_TICKS
+        );
+    }
+
+    @Override
+    protected void onTakeoffStarted() {
+        this.timeFlying = 0;
+    }
+
+    @Override
+    public @NotNull SpawnGroupData finalizeSpawn(@NotNull ServerLevelAccessor level, @NotNull DifficultyInstance difficulty, @NotNull EntitySpawnReason spawnType,
+                                                 @Nullable SpawnGroupData spawnData) {
+        SpawnGroupData data = super.finalizeSpawn(level, difficulty, spawnType, spawnData);
+
+        if (spawnType == EntitySpawnReason.CHUNK_GENERATION || spawnType == EntitySpawnReason.NATURAL) {
+            if (!(data instanceof CindervaneFamilyData)) {
+                if (this.random.nextFloat() < 0.05F) {
+                    data = new CindervaneFamilyData(false);
+                    this.setGender(DragonGender.FEMALE);
+                    scheduleFamilyBabies(1);
+                }
+            }
+        }
+        if (!this.isTame()) {
+            this.setOwnerUUID(null);
+            this.setCommand(2);
+            this.setOrderedToSit(false);
+        }
+        applyConfiguredAttributes();
+        this.setHealth(this.getMaxHealth());
+        return data;
+    }
+
+    public void applyConfiguredAttributes() {
+        DragonAttributeConfig config = getConfiguredDragonAttributes();
+        applyConfiguredFlyingHealthAndArmor(config, BABY_MAX_HEALTH, BABY_ARMOR);
+        setAttributeBase(Attributes.MOVEMENT_SPEED, GROUND_MOVEMENT_SPEED);
+        clampHealthToMax();
+    }
+
+    public static AttributeSupplier.Builder createAttributes() {
+        DragonAttributeConfig config = DragonAttributeConfigLoader.getInstance().getConfig(DragonAttributeConfigLoader.CINDERVANE_ID);
+        return TamableAnimal.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, config.maxHealth())
+                .add(Attributes.MOVEMENT_SPEED, GROUND_MOVEMENT_SPEED)
+                .add(Attributes.FOLLOW_RANGE, CindervaneStatProfile.Entity.ATTRIBUTE_FOLLOW_RANGE)
+                .add(Attributes.FLYING_SPEED, config.flyingSpeed())
+                .add(Attributes.ARMOR, config.armor());
+    }
+
+    @Override
+    public void ageBoundaryReached() {
+        super.ageBoundaryReached();
+        applyConfiguredAttributes();
+        this.refreshDimensions();
+    }
+
+    public static boolean canSpawnHere(EntityType<? extends Cindervane> type,
+                                       LevelAccessor level,
+                                       EntitySpawnReason spawnType,
+                                       BlockPos pos,
+                                       RandomSource random) {
+        return !level.getBiome(pos).is(Biomes.SNOWY_SLOPES)
+                && DragonSpawnRules.hasEstablishedCreaturePool(level, spawnType, pos)
+                && DragonSpawnRules.hasDryGroundSpawnSpace(level, pos)
+                && DragonSpawnRules.passesNearbyDragonDensityCheck(level, spawnType, pos, Cindervane.class);
+    }
+
+    private static final EntityDataAccessor<Integer> DATA_FEEDING_COOLDOWN =
+            SynchedEntityData.defineId(Cindervane.class, EntityDataSerializers.INT);
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_FIRE_BREATHING, false);
+        builder.define(DATA_SCREEN_SHAKE_AMOUNT, 0f);
+        builder.define(DATA_RIDER_LANDING_BLEND, false);
+        builder.define(DATA_FLIGHT_PITCH, 0f);
+        builder.define(DATA_ACCUMULATED_ROLL, 0f);
+        builder.define(DATA_PITCH_KEY_MODE, false);
+        builder.define(DATA_FEEDING_COOLDOWN, 0);
+        builder.define(DATA_HAS_CHEST, false);
+        builder.define(DATA_SADDLED, false);
+    }
+
+    @Override
+    protected void defineRideableDragonData(SynchedEntityData.Builder builder) {
+        builder.define(DATA_SLASH_GRAB_PASSENGER_ID, -1);
+    }
+
+    @Override
+    protected void applyLoadedFlightState(boolean flying, boolean takeoff, boolean hovering, boolean landing) {
+        setFlying(flying);
+        setTakeoff(takeoff);
+        setHovering(hovering);
+        setLanding(landing);
+    }
+
+    private void tickGroundedFlightState() {
+        if (!level().isClientSide()) {
+            if (!isOrderedToSit() && getSitProgress() != 0f) {
+                clearSitProgress();
+            }
+            if (isLanding() && onGround() && !isInWater()) {
+                handleAiLandingComplete();
+            }
+            tickFlightContactCounters();
+            tickFlightGroundContact();
+            tickAnimationStates();
+        }
+        tickFlightNavigationState();
+    }
+
+    @Override
+    protected void afterFlightBanking() {
+        tickTailCounterBank();
+    }
+
+    @Override
+    protected FlightNavigationPolicy getFlightNavigationPolicy() {
+        return FlightNavigationPolicy.GROUND_FALLBACK;
+    }
+
+    @Override
+    protected void tickFlightLifecycle() {
+        tickRiderControlLock();
+        tickFlightOrientation();
+        tickScreenShake();
+        tickGroundedFlightState();
+        if (level().isClientSide()) {
+            return;
+        }
+        tickFireBodyDiveRing();
+        if (fireBodySuppressionTicks > 0) {
+            fireBodySuppressionTicks--;
+        }
+        tickStandardTakeoffAndGroundedAerialRecovery();
+        tickSittingState();
+        tickRiderTakeoff();
+        updateSittingProgress();
+        spawnPendingFamilyBabies(ModEntities.CINDERVANE.get(), Cindervane::applyConfiguredAttributes);
+        if (isBreathingFire() || fireBodyCrashArmed) {
+            handleFireBodyCrash();
+        }
+
+        if (isVehicle() && getSitProgress() != 0f) {
+            clearSitProgress();
+        }
+
+        if (targetCooldown > 0) {
+            targetCooldown--;
+        }
+        syncFlightAnimationState();
+        tickAsyncFlightNavigation();
+        tickFlightDuration();
+        tickFeedingCooldown();
+        handleAmbientSounds();
+
+        if (isSleeping() || isSleepingEntering() || isSleepTransitioning()) {
+            if (this.getTarget() != null || this.isAggressive()) {
+                startSleepExit();
+                suppressSleep(200);
+            } else if (this.isInWater() || this.isInLava()) {
+                wakeUpImmediately();
+                suppressSleep(200);
+            }
+        }
+        tickClientSideUpdates();
+    }
+
+    private void tickSittingState() {
+        if (!this.level().isClientSide() && this.isVehicle()
+                && (this.isOrderedToSit() || this.getCommand() == 1 || this.getSitProgress() != 0f || this.isInSittingPose())) {
+            resetForRiderTransition();
+        }
+    }
+
+    @Override
+    protected void onMountedStateStarted() {
+        super.onMountedStateStarted();
+        clearStatesWhenMounted();
+    }
+
+    @Override
+    protected void onMountedStateStopped() {
+        this.setBreathingFire(false);
+        combatManager.forceEndActiveAbility();
+        this.entityData.set(DATA_FLIGHT_MODE, -1);
+        super.onMountedStateStopped();
+        this.syncAnimState(0, -1);
+    }
+
+    private static class CindervaneFamilyData extends AgeableMob.AgeableMobGroupData {
+        public CindervaneFamilyData(boolean shouldSpawnBaby) {
+            super(shouldSpawnBaby);
+        }
+    }
+
+    private void updateSittingProgress() {
+        tickSitTransition(
+                getSitDownAnimationTicks(),
+                getSitUpAnimationTicks(),
+                animationHandler::triggerSitDownAnimation,
+                animationHandler::triggerSitUpAnimation
+        );
+    }
+
+    private void tickClientSideUpdates() {
+    }
+
+    private void handleAmbientSounds() {
+        if (isBaby() || isDying() || isSleeping() || isSleepTransitioning() || isInSitTransition() || getSleepAmbientCooldownTicks() > 0 || areRiderControlsLocked()) {
+            return;
+        }
+
+        if (getActiveAbility() != null || isBreathingFire() || this.getTarget() != null) {
+            return;
+        }
+
+        if (isVehicle() || isTakeoff() || isLanding()) {
+            return;
+        }
+
+        tickAmbientVocalSounds(MIN_AMBIENT_DELAY, MAX_AMBIENT_DELAY, this::selectAmbientGrumble);
+    }
+
+    private String selectAmbientGrumble() {
+        RandomSource random = getRandom();
+        float roll = random.nextFloat();
+
+        if (roll < 0.45f) {
+            return "grumble1";
+        }
+        if (roll < 0.8f) {
+            return "grumble2";
+        }
+        return "grumble3";
+    }
+
+    public void playEatMovingSound() {
+        if (level().isClientSide()) {
+            return;
+        }
+        float pitch = isBaby() ? 1.6f : 1.0f;
+        getSoundHandler().playMovingEntitySound(ModSounds.CINDERVANE_EAT.get(), 1.0f, pitch, 33);
+    }
+
+    private void clearStatesWhenMounted() {
+        if (level().isClientSide() || !this.isVehicle()) {
+            return;
+        }
+
+        setRunning(false);
+        setGoingUp(false);
+        setGoingDown(false);
+        setHovering(false);
+        setLanding(false);
+        setTakeoff(false);
+        setAccelerating(false);
+        setRiderTakeoffTicks(0);
+
+        if (!isFlying()) {
+            airTicks = 0;
+        }
+
+        if (this.getNavigation().getPath() != null) {
+            this.getNavigation().stop();
+        }
+
+        if (!isFlying() && isUsingAirNavigation()) {
+            switchToGroundNavigation();
+        }
+
+        this.entityData.set(DATA_GROUND_MOVE_STATE, 0);
+        this.entityData.set(DATA_FLIGHT_MODE, -1);
+        this.entityData.set(DATA_RIDER_FORWARD, 0f);
+        this.entityData.set(DATA_RIDER_STRAFE, 0f);
+        this.syncAnimState(0, -1);
+
+        this.setTarget(null);
+        this.setOrderedToSit(false);
+        this.setNoGravity(isFlying() || isHovering());
+    }
+
+    private void tickTailCounterBank() {
+        System.arraycopy(tailBankFollow, 0, previousTailBankFollow, 0, tailBankFollow.length);
+        float bank = Mth.clamp(flightVisualState.bankAngle / 90.0F, -1.0F, 1.0F);
+        for (int i = 0; i < tailBankFollow.length; i++) {
+            float target = i == 0 ? bank : previousTailBankFollow[i - 1];
+            tailBankFollow[i] = Mth.lerp(TAIL_BANK_FOLLOW_BLEND, tailBankFollow[i], target);
+        }
+    }
+
+    public float getTailCounterBankRadians(int segment, float partialTick) {
+        return Mth.lerp(partialTick, previousTailBankFollow[segment], tailBankFollow[segment])
+                * TAIL_COUNTER_BANK_DEGREES[segment] * Mth.DEG_TO_RAD;
+    }
+
+    private void tickRiderLandingBlendTimer() {
+        tickStandardRiderLandingBlend(new RiderLandingBlendHooks() {
+            @Override
+            public void onWaterFlightCleared() {
+                clearAerialStateAndUseGroundNavigation();
+                timeFlying = 0;
+            }
+
+            @Override
+            public boolean shouldClearFlightStateInWater() {
+                return shouldClearRiderFlightStateInWater();
+            }
+
+            @Override
+            public boolean isLandingBlendSynced() {
+                return isRiderLandingBlendActive();
+            }
+
+            @Override
+            public void clearLandingBlendSync() {
+                entityData.set(DATA_RIDER_LANDING_BLEND, false);
+            }
+
+            @Override
+            public void onRiderLanded() {
+                triggerAnim(AnimationHelper.MOVEMENT_CONTROLLER, AnimationHelper.LANDED);
+                getSoundHandler().playMovingEntitySound(ModSounds.CINDERVANE_LANDED.get(), 1.0f, 1.0f, 59);
+                completeTouchdownLanding(LandingSource.RIDER);
+                lockRiderControls(34);
+            }
+        });
+    }
+
+    private void triggerRiderLandingBlend() {
+        triggerRiderLandingBlendTicks(RIDER_LANDING_BLEND_DURATION);
+        if (!level().isClientSide()) {
+            this.entityData.set(DATA_RIDER_LANDING_BLEND, true);
+        }
+    }
+
+    public boolean isRiderLandingBlendActive() {
+        return this.entityData.get(DATA_RIDER_LANDING_BLEND);
+    }
+
+    @Override
+    protected EntityDataAccessor<Float> getFlightPitchAccessor() {
+        return DATA_FLIGHT_PITCH;
+    }
+
+    @Override
+    protected EntityDataAccessor<Float> getAccumulatedRollAccessor() {
+        return DATA_ACCUMULATED_ROLL;
+    }
+
+    @Override
+    protected void tickPitchingLandingBlendTimer() {
+        tickRiderLandingBlendTimer();
+    }
+
+    @Override
+    protected void triggerPitchingLandingBlend() {
+        triggerRiderLandingBlend();
+    }
+
+    @Override
+    protected boolean shouldResetStandardPitchInHover() {
+        return true;
+    }
+
+    private void tickScreenShake() {
+        screenShakeComponent.tick();
+    }
+
+    public boolean isRiderPitchKeyMode() {
+        return this.entityData.get(DATA_PITCH_KEY_MODE);
+    }
+
+    public void setRiderPitchKeyMode(boolean enabled) {
+        this.entityData.set(DATA_PITCH_KEY_MODE, enabled);
+    }
+
+    @Override
+    public boolean isGoingUp() {
+        return this.entityData.get(DATA_GOING_UP);
+    }
+
+    @Override
+    protected void afterInitializeAnimationState() {
+        groundTicks = 0;
+        airTicks = 0;
+    }
+
+    @Override
+    protected Brain<?> makeBrain(Brain.Packed packedBrain) {
+        return DragonBrain.makeBrain(DRAGON_BRAIN, this, packedBrain);
+    }
+
+    @Override
+    protected void customServerAiStep(net.minecraft.server.level.ServerLevel aiStepLevel) {
+        DragonBrain.tick(DRAGON_BRAIN, this);
+        super.customServerAiStep(aiStepLevel);
+    }
+
+    @Override
+    public DragonFlightAnimationProfile getFlightAnimationProfile() {
+        return CindervaneStatProfile.FlightAnimation.ANIMATION_PROFILE;
+    }
+
+    public DragonFlightStateEvaluator.VisualState getVisualFlightState(float partialTick) {
+        return evaluateVisualFlightState(partialTick, getFlightPitchRadians(partialTick));
+    }
+
+    @Override
+    protected void onRiderToggleMelee(Player player) {
+        if (isAerial() && player instanceof ServerPlayer serverPlayer && !level().isClientSide()) {
+            serverPlayer.sendOverlayMessage(
+                    Component.translatable("saintsdragons.message.cindervane_slashing_ground_only"));
+            syncMeleeMode(serverPlayer);
+            return;
+        }
+        super.onRiderToggleMelee(player);
+        if (!level().isClientSide()) {
+            syncMeleeMode(player);
+        }
+    }
+
+    @Override
+    public RiderAbilityBinding getTertiaryRiderAbility() {
+        return new RiderAbilityBinding(ModAbilities.CINDERVANE_FIRE_BODY.getName(), RiderAbilityBinding.Activation.HOLD);
+    }
+
+    @Override
+    public RiderAbilityBinding getPrimaryRiderAbility() {
+        return new RiderAbilityBinding(ModAbilities.CINDERVANE_DOUBLE_BITE.getName(), RiderAbilityBinding.Activation.PRESS);
+    }
+
+    @Override
+    public RiderAbilityBinding getSecondaryRiderAbility() {
+        return new RiderAbilityBinding(ModAbilities.CINDERVANE_MAGMA_VOLLEY.getName(), RiderAbilityBinding.Activation.PRESS);
+    }
+
+    @Override
+    public RiderAbilityBinding getAttackRiderAbility() {
+        String abilityId = getMeleeMode() == 0
+                ? ModAbilities.CINDERVANE_BITE.getName()
+                : ModAbilities.CINDERVANE_SLASH_GRAB.getName();
+        return new RiderAbilityBinding(abilityId, RiderAbilityBinding.Activation.PRESS);
+    }
+
+    protected int getMaxPassengers() {
+        return 2;
+    }
+
+    @Override
+    protected boolean canAddPassenger(@NotNull Entity passenger) {
+        if (passenger instanceof Player) {
+            return hasSaddle() && this.getPassengers().size() < getMaxPassengers();
+        }
+        if (passenger instanceof IvyTheDragonMerchant ivy
+                && ivy.isTame()
+                && Objects.equals(ivy.getOwnerUUID(), getOwnerUUID())) {
+            return hasSaddle() && this.getPassengers().size() < getMaxPassengers();
+        }
+        if (autoGrabPassengerMountAllowed && passenger instanceof LivingEntity) {
+            return this.getPassengers().size() < getMaxPassengers();
+        }
+        return false;
+    }
+
+    public void setSlashGrabPassenger(@Nullable Entity passenger) {
+        UUID newUuid = passenger == null ? null : passenger.getUUID();
+        int newId = passenger == null ? -1 : passenger.getId();
+        if (Objects.equals(this.slashGrabPassengerUuid, newUuid)
+                && this.entityData.get(DATA_SLASH_GRAB_PASSENGER_ID) == newId) {
+            return;
+        }
+        this.slashGrabPassengerUuid = newUuid;
+        this.entityData.set(DATA_SLASH_GRAB_PASSENGER_ID, newId);
+    }
+
+    public boolean isSlashGrabPassenger(Entity passenger) {
+        if (passenger == null) {
+            return false;
+        }
+        int syncedId = this.entityData.get(DATA_SLASH_GRAB_PASSENGER_ID);
+        if (syncedId >= 0 && passenger.getId() == syncedId) {
+            return true;
+        }
+        return slashGrabPassengerUuid != null && slashGrabPassengerUuid.equals(passenger.getUUID());
+    }
+
+    public double getPassengersRidingOffset() {
+        return riderController.getPassengersRidingOffset();
+    }
+
+    @Override
+    protected void positionRider(@Nonnull Entity passenger, @Nonnull Entity.MoveFunction moveFunction) {
+        riderController.positionRider(passenger, moveFunction);
+    }
+
+    @Override
+    public @NotNull Vec3 getDismountLocationForPassenger(@Nonnull LivingEntity passenger) {
+        return riderController.getDismountLocationForPassenger(passenger);
+    }
+
+    @Override
+    public @Nullable LivingEntity getControllingPassenger() {
+        return riderController.getControllingPassenger();
+    }
+
+    @Override
+    public void removePassenger(@NotNull Entity passenger) {
+        if (isSlashGrabPassenger(passenger)) {
+            setSlashGrabPassenger(null);
+        }
+        super.removePassenger(passenger);
+    }
+
+    @Override
+    public void setTarget(@Nullable LivingEntity target) {
+        if (this.isBaby()) {
+            super.setTarget(null);
+            return;
+        }
+        super.setTarget(target);
+    }
+
+    @Override
+    public boolean isWildAggressionEnabled() {
+        if (isTame() || isBaby()) {
+            return false;
+        }
+        DragonAttributeConfig config = DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.CINDERVANE_ID);
+        return config.extraBoolean("aggressive_wild", false);
+    }
+
+    @Override
+    protected float getRiddenSpeed(@Nonnull Player rider) {
+        return riderController.getRiddenSpeed(rider);
+    }
+
+    @Override
+    protected boolean isRiderInputLocked(Player player) {
+        return areRiderControlsLocked();
+    }
+
+    @Override
+    protected void tickRidden(@Nonnull Player player, @Nonnull Vec3 travelVector) {
+        super.tickRidden(player, travelVector);
+
+        if (!areRiderControlsLocked()) {
+            riderController.tickRidden(player, travelVector);
+        } else {
+            if (combatManager.getActiveAbility() == null && !combatManager.hasActiveOverlay()) {
+                player.fallDistance = 0.0F;
+                this.fallDistance = 0.0F;
+                this.setTarget(null);
+                copyRiderYaw(player);
+                this.setAccelerating(false);
+                if (!this.isFlying()) {
+                    this.setGoingUp(false);
+                    this.setGoingDown(false);
+                }
+            }
+        }
+    }
+
+    @Override
+    public @NotNull Vec3 getRiddenInput(@Nonnull Player player, @Nonnull Vec3 deltaIn) {
+        Vec3 input = riderController.getRiddenInput(player, deltaIn);
+        if (!level().isClientSide() && !isFlying()) {
+            float fwd = (float) Mth.clamp(input.z, -1.0, 1.0);
+            float str = (float) Mth.clamp(input.x, -1.0, 1.0);
+            this.entityData.set(DATA_RIDER_FORWARD, Math.abs(fwd) > 0.02f ? fwd : 0f);
+            this.entityData.set(DATA_RIDER_STRAFE, Math.abs(str) > 0.02f ? str : 0f);
+        }
+
+        return input;
+    }
+
+    @Override
+    public void setOrderedToSit(boolean sitting) {
+        super.setOrderedToSit(sitting);
+
+        if (sitting) {
+            if (isFlying()) {
+                this.setLanding(true);
+            }
+            this.setRunning(false);
+            this.getNavigation().stop();
+            if (!level().isClientSide()) {
+                setSitProgress(getSitProgress());
+            }
+        }
+    }
+
+    @Override
+    public void travel(@NotNull Vec3 motion) {
+        if (areRiderControlsLocked()) {
+            super.travel(Vec3.ZERO);
+            return;
+        }
+
+        boolean inWater = this.isInWater() || this.isInWater() || this.isInLava();
+
+        if (inWater && !level().isClientSide()) {
+            clearRiderFlightStateInWaterIfNeeded();
+        }
+
+        if (this.isVehicle() && this.getControllingPassenger() instanceof Player player) {
+            if (this.getNavigation().getPath() != null) {
+                this.getNavigation().stop();
+            }
+
+            if (shouldUseRiderFlightMovementInWater()) {
+                this.riderController.handleRiderMovement(player, motion);
+            } else if (inWater) {
+                handleRiderWaterSwimming(motion);
+            } else if (isFlying()) {
+                this.riderController.handleRiderMovement(player, motion);
+            } else {
+                this.setSpeed(riderController.getRiddenSpeed(player));
+                super.travel(motion);
+            }
+            return;
+        }
+        super.travel(motion);
+    }
+
+    private void tickFireBodyDiveRing() {
+        Vec3 currentPosition = position();
+        Vec3 movement = lastFireBodyDiveRingPosition == null
+                ? Vec3.ZERO : currentPosition.subtract(lastFireBodyDiveRingPosition);
+        lastFireBodyDiveRingPosition = currentPosition;
+        if (!isAlive() || !isBreathingFire() || isFireBodySuppressed() || isInWater()
+                || onGround() || !isFlying() || !isRiderDiving()
+                || !(getControllingPassenger() instanceof Player) || movement.y >= 0.0D
+                || movement.lengthSqr() < 1.0E-4D) {
+            fireBodyDiveRingCooldown = 0;
+            return;
+        }
+        if (fireBodyDiveRingCooldown > 0) {
+            fireBodyDiveRingCooldown--;
+            return;
+        }
+        if (!(level() instanceof ServerLevel server)) return;
+        Vec3 direction = movement.normalize();
+        Vec3 origin = currentPosition.add(0.0D, getBbHeight() * 0.52D, 0.0D)
+                .add(direction.scale(Math.max(1.6D, getBbWidth() * 0.6D)));
+        float yaw = (float) Math.atan2(direction.x, direction.z);
+        float pitch = (float) Math.asin(-direction.y);
+        float scale = 5.0F + getRandom().nextFloat() * 1.1F;
+        server.sendParticles(new SonicRingData(yaw, pitch, scale, 16),
+                origin.x, origin.y, origin.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        fireBodyDiveRingCooldown = 3;
+    }
+
+    private void handleFireBodyCrash() {
+        boolean fireActive = this.isBreathingFire();
+        boolean airborne = !this.onGround();
+        LivingEntity rider = this.getControllingPassenger();
+        if (fireActive && rider != null) {
+            rider.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 10, 0, true, false, false));
+        }
+        if (fireActive && airborne) {
+            if (!fireBodyCrashArmed) {
+                fireBodyCrashMaxHeight = this.getY();
+            } else if (this.getY() > fireBodyCrashMaxHeight) {
+                fireBodyCrashMaxHeight = this.getY();
+            }
+            fireBodyCrashArmed = true;
+        }
+        if (fireActive && isFireBodyForwardCrashImpact()) {
+            triggerFireBodyCrash(findFireBodyForwardCrashImpact());
+            fireBodyCrashArmed = false;
+            fireBodyCrashMaxHeight = 0.0D;
+            return;
+        }
+        if (fireBodyCrashArmed && !airborne && fireActive) {
+            double dropDistance = fireBodyCrashMaxHeight - this.getY();
+            if (dropDistance >= FIRE_BODY_CRASH_MIN_DROP) {
+                triggerFireBodyCrash();
+            }
+            fireBodyCrashArmed = false;
+            fireBodyCrashMaxHeight = 0.0D;
+        }
+        if (!fireActive && !airborne) {
+            fireBodyCrashArmed = false;
+            fireBodyCrashMaxHeight = 0.0D;
+        }
+    }
+
+    private boolean isFireBodyForwardCrashImpact() {
+        if (this.onGround() || !this.isAerial()) {
+            return false;
+        }
+        return this.horizontalCollision || isFireBodyForwardCrashBlockedAhead();
+    }
+
+    private boolean isFireBodyForwardCrashBlockedAhead() {
+        if (!(level() instanceof ServerLevel server)) {
+            return false;
+        }
+        Vec3 direction = getFireBodyForwardCrashDirection();
+        if (direction == null) {
+            return false;
+        }
+
+        Vec3 origin = this.position().add(0.0D, this.getBbHeight() * 0.55D, 0.0D);
+        double reach = getFireBodyForwardCrashProbeDistance();
+        BlockHitResult hit = server.clip(new ClipContext(
+                origin,
+                origin.add(direction.scale(reach)),
+                ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE,
+                this
+        ));
+        if (hit.getType() == HitResult.Type.BLOCK) {
+            return true;
+        }
+
+        AABB probe = this.getBoundingBox()
+                .move(direction.scale(reach))
+                .inflate(0.08D, 0.08D, 0.08D);
+        return !server.noCollision(this, probe);
+    }
+
+    private Vec3 findFireBodyForwardCrashImpact() {
+        if (!(level() instanceof ServerLevel server)) {
+            return this.position();
+        }
+        Vec3 direction = getFireBodyForwardCrashDirection();
+        if (direction == null) {
+            return this.position();
+        }
+
+        Vec3 origin = this.position().add(0.0D, this.getBbHeight() * 0.55D, 0.0D);
+        double reach = getFireBodyForwardCrashProbeDistance();
+        BlockHitResult hit = server.clip(new ClipContext(
+                origin,
+                origin.add(direction.scale(reach)),
+                ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE,
+                this
+        ));
+        if (hit.getType() == HitResult.Type.BLOCK) {
+            return hit.getLocation();
+        }
+        return this.position().add(direction.scale(this.getBbWidth() * 0.5D + 0.75D));
+    }
+
+    @Nullable
+    private Vec3 getFireBodyForwardCrashDirection() {
+        Vec3 movement = this.getDeltaMovement();
+        Vec3 direction = new Vec3(movement.x, 0.0D, movement.z);
+        if (direction.lengthSqr() < 1.0E-4D) {
+            Vec3 look = this.getLookAngle();
+            direction = new Vec3(look.x, 0.0D, look.z);
+        }
+        if (direction.lengthSqr() < 1.0E-4D) {
+            return null;
+        }
+        return direction.normalize();
+    }
+
+    private double getFireBodyForwardCrashProbeDistance() {
+        Vec3 movement = this.getDeltaMovement();
+        double horizontalSpeed = Math.sqrt(movement.x * movement.x + movement.z * movement.z);
+        return Mth.clamp(this.getBbWidth() * 0.75D + horizontalSpeed * 2.0D + 0.75D, 1.5D, 4.0D);
+    }
+
+    private void triggerFireBodyCrash() {
+        triggerFireBodyCrash(this.position());
+    }
+
+    private void triggerFireBodyCrash(Vec3 impact) {
+        if (!(level() instanceof ServerLevel server)) {
+            return;
+        }
+        boolean allowGriefing = DragonGriefingRules.canDestroyBlocks(server);
+        boolean allowBlockIgnition = DragonGriefingRules.canSetBlocksOnFire(server);
+        double x = impact.x;
+        double y = impact.y;
+        double z = impact.z;
+        List<Entity> immune = new ArrayList<>(this.getPassengers());
+        for (Entity passenger : immune) {
+            if (passenger instanceof LivingEntity livingPassenger) {
+                livingPassenger.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 20, 4, true, false, false));
+            }
+        }
+
+        ExplosionDamageCalculator calculator = new ExplosionDamageCalculator() {
+            @Override
+            public @NotNull Optional<Float> getBlockExplosionResistance(@NotNull Explosion explosion, @NotNull BlockGetter level, @NotNull BlockPos pos, @NotNull BlockState state, @NotNull FluidState fluid) {
+                if (isFireBodyImmuneBlock(state)) {
+                    return Optional.of(Float.MAX_VALUE);
+                }
+                return Optional.of(0.0F);
+            }
+
+            @Override
+            public boolean shouldBlockExplode(@NotNull Explosion explosion, @NotNull BlockGetter level, @NotNull BlockPos pos, @NotNull BlockState state, float exposure) {
+                return !isFireBodyImmuneBlock(state);
+            }
+        };
+
+        Explosion.BlockInteraction blockInteraction = allowGriefing
+                ? Explosion.BlockInteraction.DESTROY
+                : Explosion.BlockInteraction.KEEP;
+        net.minecraft.world.level.ServerExplosion explosion = new net.minecraft.world.level.ServerExplosion(server, this, server.damageSources().explosion(this, this), calculator,
+                new Vec3(x, y + 0.2D, z), FIRE_BODY_EXPLOSION_RADIUS, allowBlockIgnition, blockInteraction);
+
+        List<LivingEntity> allies = grantAlliesExplosionImmunity(server, x, y, z);
+        double protectionRadius = FIRE_BODY_EXPLOSION_RADIUS + 4.0D;
+        AABB protectionArea = new AABB(
+                x - protectionRadius, y - protectionRadius, z - protectionRadius,
+                x + protectionRadius, y + protectionRadius, z + protectionRadius
+        );
+        List<LivingEntity> protectedEntities = server.getEntitiesOfClass(
+                LivingEntity.class,
+                protectionArea,
+                entity -> entity.isAlive() && entity != this
+        );
+        Map<Integer, Boolean> previousInvulnerability = new HashMap<>();
+        for (LivingEntity entity : protectedEntities) {
+            previousInvulnerability.put(entity.getId(), entity.isInvulnerable());
+        }
+        for (LivingEntity entity : protectedEntities) {
+            entity.setInvulnerable(true);
+        }
+        explosion.explode();
+        ServerPlayer responsiblePlayer = DragonUtilities.resolveResponsiblePlayer(this);
+        if (responsiblePlayer != null) {
+            DragonUtilities.awardAdvancement(responsiblePlayer, "tactical_nuke", "tactical_nuke");
+        }
+        for (LivingEntity entity : protectedEntities) {
+            Boolean wasInvulnerable = previousInvulnerability.get(entity.getId());
+            entity.setInvulnerable(wasInvulnerable != null && wasInvulnerable);
+        }
+        applyFireBodyBlastDamage(server, x, y, z, immune);
+        applyFireBodyCrashSelfDamage(server);
+
+        if (allowGriefing) {
+            carveFireBodyImprint(server, BlockPos.containing(x, y, z));
+        }
+        spawnFireBodyCrashEffects(server, impact);
+
+        if (allowBlockIgnition) {
+            BlockPos.MutableBlockPos flamePos = new BlockPos.MutableBlockPos();
+            int baseY = Mth.floor(y);
+            for (int dx = -3; dx <= 3; dx++) {
+                for (int dz = -3; dz <= 3; dz++) {
+                    if (this.getRandom().nextFloat() > 0.45F) {
+                        continue;
+                    }
+                    flamePos.set(x + dx, baseY, z + dz);
+                    if (!server.isLoaded(flamePos)) {
+                        continue;
+                    }
+                    if (!server.getBlockState(flamePos).isAir()) {
+                        continue;
+                    }
+                    BlockState belowState = server.getBlockState(flamePos.below());
+                    if (!belowState.isAir() && Blocks.FIRE.defaultBlockState().canSurvive(server, flamePos)) {
+                        server.setBlock(flamePos, Blocks.FIRE.defaultBlockState(), 11);
+                    }
+                }
+            }
+        }
+        this.forceEndActiveAbility();
+    }
+
+    private void spawnFireBodyCrashEffects(ServerLevel server, Vec3 impact) {
+        server.playSound(null, impact.x, impact.y, impact.z,
+                ModSounds.CINDERVANE_FIRE_BODY_EXPLOSION.get(), SoundSource.NEUTRAL,
+                2.0F, 1.0F);
+        var ground = server.clip(new ClipContext(
+                impact.add(0, 1, 0), impact.add(0, -16, 0),
+                ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, this));
+        for (ServerPlayer player : server.players()) {
+            if (player.distanceToSqr(impact) > 256.0D * 256.0D) continue;
+            server.sendParticles(player, ModParticles.CINDERVANE_CRASH_SPLATTER.get(), true, true,
+                    impact.x, impact.y + 3.1D, impact.z, 1, 0, 0, 0, 0);
+            server.sendParticles(player, ModParticles.CINDERVANE_CRASH_FIRE.get(), true, true,
+                    impact.x, impact.y + 3.0D, impact.z, 1, 0, 0, 0, 0);
+            server.sendParticles(player, ModParticles.CINDERVANE_IMPACT_EMITTER.get(), true, true,
+                    impact.x, impact.y + 0.8D, impact.z, 64, 1.5D, 0.4D, 1.5D, 0);
+            if (ground.getType() == HitResult.Type.BLOCK) {
+                Vec3 point = ground.getLocation();
+                server.sendParticles(player, ModParticles.CINDERVANE_CRASH_GROUND.get(), true, true,
+                        point.x, point.y + 0.04D, point.z, 1, 0, 0, 0, 0);
+                server.sendParticles(player, ModParticles.CINDERVANE_CRASH_CIRCLE.get(), true, true,
+                        point.x, point.y + 0.07D, point.z, 1, 0, 0, 0, 0);
+            }
+        }
+    }
+
+    private boolean isFireBodyImmuneBlock(BlockState state) {
+        return state.is(Blocks.BEDROCK) || state.is(Blocks.OBSIDIAN);
+    }
+
+    private List<LivingEntity> grantAlliesExplosionImmunity(ServerLevel server, double x, double y, double z) {
+        double radius = FIRE_BODY_EXPLOSION_RADIUS + 4.0D;
+        AABB area = new AABB(x - radius, y - radius, z - radius, x + radius, y + radius, z + radius);
+        List<LivingEntity> allies = server.getEntitiesOfClass(LivingEntity.class, area,
+                entity -> entity.isAlive() && entity != this && this.isAlly(entity));
+
+        if (allies.isEmpty()) {
+            return allies;
+        }
+
+        for (LivingEntity ally : allies) {
+            ally.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 40, 4, true, false, false));
+            ally.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 200, 0, true, false, false));
+            ally.setRemainingFireTicks(0);
+        }
+
+        return allies;
+    }
+
+    private void applyFireBodyBlastDamage(ServerLevel server, double x, double y, double z, List<Entity> immune) {
+        double radius = FIRE_BODY_EXPLOSION_RADIUS + 2.5D;
+        AABB area = new AABB(x - radius, y - radius, z - radius, x + radius, y + radius, z + radius);
+        double configuredDamage = DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.CINDERVANE_ID)
+                .extraDouble("fire_body_explosion_damage", FIRE_BODY_EXPLOSION_DAMAGE);
+        float blastDamage = (float) Math.max(0.0D, configuredDamage);
+
+        Set<Integer> immuneIds = new HashSet<>();
+        for (Entity entity : immune) {
+            immuneIds.add(entity.getId());
+        }
+        immuneIds.add(this.getId());
+
+        List<LivingEntity> targets = server.getEntitiesOfClass(LivingEntity.class, area,
+                living -> living.isAlive()
+                        && !immuneIds.contains(living.getId())
+                        && !this.isAlly(living)
+                        && !DragonElementalImmunity.isFireImmune(living));
+
+        if (targets.isEmpty()) {
+            return;
+        }
+
+        for (LivingEntity target : targets) {
+            if (target.hurtOrSimulate(server.damageSources().explosion(this, this), blastDamage)) {
+                target.igniteForSeconds(8);
+            }
+        }
+    }
+
+    private void applyFireBodyCrashSelfDamage(ServerLevel server) {
+        double configuredSelfDamage = DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.CINDERVANE_ID)
+                .extraDouble("fire_body_self_damage_on_crash", FIRE_BODY_SELF_DAMAGE_ON_CRASH);
+        float selfDamage = (float) Math.max(0.0D, configuredSelfDamage);
+        if (selfDamage <= 0.0F) {
+            return;
+        }
+        this.hurt(server.damageSources().explosion(this, this), selfDamage);
+    }
+
+    private void carveFireBodyImprint(ServerLevel server, BlockPos center) {
+        int radius = Mth.ceil(FIRE_BODY_IMPRINT_RADIUS);
+        double radiusSq = FIRE_BODY_IMPRINT_RADIUS * FIRE_BODY_IMPRINT_RADIUS;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                double horizontalSq = dx * dx + dz * dz;
+                if (horizontalSq > radiusSq) {
+                    continue;
+                }
+
+                double normalized = Math.sqrt(horizontalSq) / FIRE_BODY_IMPRINT_RADIUS;
+                double depth = (1.0D - normalized * normalized) * (FIRE_BODY_IMPRINT_RADIUS * FIRE_BODY_IMPRINT_DEPTH_FACTOR);
+                int maxDepth = Mth.floor(depth);
+
+                for (int dy = 0; dy <= maxDepth; dy++) {
+                    cursor.set(center.getX() + dx, center.getY() - dy, center.getZ() + dz);
+                    if (!server.isLoaded(cursor)) {
+                        continue;
+                    }
+
+                    BlockState state = server.getBlockState(cursor);
+                    if (state.isAir() || isFireBodyImmuneBlock(state)) {
+                        continue;
+                    }
+
+                    server.destroyBlock(cursor, true, this);
+                }
+            }
+        }
+    }
+
+    public boolean isBreathingFire() {
+        return this.entityData.get(DATA_FIRE_BREATHING);
+    }
+
+    public void setBreathingFire(boolean breathing) {
+        if (breathing && !isBreathingFire() && !level().isClientSide()) {
+            level().broadcastEntityEvent(this, FIRE_BODY_START_EVENT);
+            getSoundHandler().playMovingEntitySound(ModSounds.CINDERVANE_FIRE_BODY_START.get(), 1.2F, 1.0F, 45);
+        }
+        this.entityData.set(DATA_FIRE_BREATHING, breathing);
+    }
+
+    public boolean isFireBodySuppressed() {
+        return fireBodySuppressionTicks > 0;
+    }
+
+    public void suppressFireBody(int durationTicks) {
+        if (level().isClientSide() || durationTicks <= 0) {
+            return;
+        }
+
+        fireBodySuppressionTicks = Math.max(fireBodySuppressionTicks, durationTicks);
+        combatManager.forceEndAbility(ModAbilities.CINDERVANE_FIRE_BODY);
+        fireBodyCrashArmed = false;
+        fireBodyCrashMaxHeight = 0.0D;
+        setBreathingFire(false);
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        AnimationHelper.registerDragonControllers(this, controllers, vocalController,
+                movementController, flightController, vocalController, actionController, fastActionController, interactionController);
+    }
+
+    private void setupAnimationControllers() {
+        animationHandler.setupMovementController(movementController);
+        animationHandler.setupActionController(actionController);
+        animationHandler.setupFastActionController(fastActionController);
+        animationHandler.setupFlightController(flightController);
+        animationHandler.setupInteractionController(interactionController);
+    }
+
+    @Override
+    public Map<String, VocalEntry> getVocalEntries() {
+        return VOCAL_ENTRIES;
+    }
+
+    @Override
+    public DragonVisionProfile getVisionProfile() {
+        return CindervaneStatProfile.Vision.PROFILE;
+    }
+
+    @Override
+    public DragonSoundProfile getSoundProfile() {
+        return CindervaneSoundProfile.INSTANCE;
+    }
+
+    @Override
+    public DragonAbilityType<?, ?> getPrimaryAttackAbility() {
+        return getMeleeMode() == 0
+                ? ModAbilities.CINDERVANE_BITE
+                : ModAbilities.CINDERVANE_SLASH_GRAB;
+    }
+
+    private void enforcePrimaryMeleeForFlight(@Nullable Player rider) {
+        if (level().isClientSide() || getMeleeMode() == 0) {
+            return;
+        }
+        setMeleeMode(0);
+        if (rider instanceof ServerPlayer serverPlayer) {
+            serverPlayer.sendOverlayMessage(
+                    Component.translatable("saintsdragons.message.cindervane_slashing_ground_only"));
+        }
+        syncMeleeMode(rider);
+    }
+
+    private void syncMeleeMode(@Nullable Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            NetworkHandler.sendToPlayer(serverPlayer, new MessageDragonMeleeMode(getMeleeMode()));
+        }
+    }
+
+    @Override
+    public int getDrinkingDurationTicks() {
+        return DRINKING_ANIMATION_TICKS;
+    }
+
+    @Override
+    public double getDrinkingReach() {
+        return 4.5D;
+    }
+
+    @Override
+    public void startDrinkingAnimation() {
+        animationHandler.triggerDrinkingAnimation();
+    }
+
+    @Override
+    public void stopDrinkingAnimation() {
+        stopTriggeredAnim(
+                CindervaneAnimationHandler.MOVEMENT_CONTROLLER,
+                CindervaneAnimationHandler.DRINKING_TRIGGER
+        );
+    }
+
+    @Override
+    protected DragonAbilityType<?, ?> getHurtAbilityType() {
+        return ModAbilities.CINDERVANE_HURT;
+    }
+
+    @Override
+    public int getDeathAnimationDurationTicks() {
+        return 50;
+    }
+
+    @Override
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel hurtLevel, @Nonnull DamageSource source, float amount) {
+        if (isDying()) {
+            return false;
+        }
+        rememberIncomingProjectile(source);
+        if (source.is(DamageTypes.IN_FIRE) ||
+            source.is(DamageTypes.ON_FIRE) ||
+            source.is(DamageTypes.LAVA) ||
+            source.is(DamageTypes.HOT_FLOOR)) {
+            if (this.isOnFire() || this.getRemainingFireTicks() > 0) {
+                this.clearFire();
+                this.setRemainingFireTicks(0);
+            }
+            return false;
+        }
+
+        if (source.is(DamageTypes.FALL)) {
+            return false;
+        }
+
+        if (isSleeping() || isSleepingEntering() || isSleepTransitioning()) {
+            startSleepExit();
+            suppressSleep(200);
+        }
+
+        return super.hurtServer(hurtLevel, source, amount);
+    }
+
+    @Override
+    protected double getCullingInflateX() {
+        return 6.0D;
+    }
+
+    @Override
+    protected double getCullingInflateY() {
+        return 3.0D;
+    }
+
+    @Override
+    protected double getCullingInflateZ() {
+        return 6.0D;
+    }
+
+    @Override
+    protected DragonAbilityType<?, ?> getDeathAbilityType() {
+        return ModAbilities.CINDERVANE_DIE;
+    }
+
+    @Override
+    protected boolean isRidingAbilityAllowed(DragonAbilityType<?, ?> abilityType) {
+        return abilityType == ModAbilities.CINDERVANE_BITE
+                || abilityType == ModAbilities.CINDERVANE_SLASH_GRAB
+                || abilityType == ModAbilities.CINDERVANE_FIRE_BODY
+                || abilityType == ModAbilities.CINDERVANE_DOUBLE_BITE
+                || abilityType == ModAbilities.CINDERVANE_MAGMA_VOLLEY;
+    }
+
+    @Override
+    public void forceEndActiveAbility() {
+        combatManager.forceEndActiveAbility();
+        fireBodyCrashArmed = false;
+        this.setBreathingFire(false);
+    }
+
+    @Override
+    public boolean doHurtTarget(net.minecraft.server.level.ServerLevel hurtTargetLevel, @NotNull Entity target) {
+        if (!this.isVehicle() && !this.isOrderedToSit()) {
+            combatManager.tryUseAbility(getPrimaryAttackAbility());
+        }
+        return true;
+    }
+
+    @Override
+    public boolean isFood(@Nonnull ItemStack stack) {
+        return stack.is(ModTags.Items.CINDERVANE_FOODS);
+    }
+
+    @Override
+    public @NotNull InteractionResult mobInteract(@NotNull Player player, @NotNull InteractionHand hand) {
+        InteractionResult handlerResult = interactionHandler.handleInteraction(player, hand);
+        if (handlerResult != InteractionResult.PASS) {
+            return handlerResult;
+        }
+
+        return super.mobInteract(player, hand);
+    }
+
+    @Override
+    protected void onRiderOpenInventory(Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            openCindervaneInventory(serverPlayer);
+        }
+    }
+
+    private void openCindervaneInventory(ServerPlayer player) {
+        if (!this.isAlive() || player.distanceToSqr(this) > 64.0D) {
+            return;
+        }
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, playerInventory, ignored) -> new DragonInventoryMenu(containerId, playerInventory, this),
+                this.getDisplayName()
+        ));
+    }
+
+    private void dropCindervaneChestContents() {
+        for (int slot = 0; slot < cindervaneChestInventory.getContainerSize(); slot++) {
+            ItemStack stack = cindervaneChestInventory.getItem(slot);
+            if (!stack.isEmpty()) {
+                this.spawnAtLocation((net.minecraft.server.level.ServerLevel) this.level(), stack.copy());
+                cindervaneChestInventory.setItem(slot, ItemStack.EMPTY);
+            }
+        }
+    }
+
+    public void removeCindervaneChestAndDropContents() {
+        if (this.level().isClientSide() || !hasCindervaneChest()) {
+            return;
+        }
+        dropCindervaneChestContents();
+        setCindervaneChest(false);
+        this.playSound(SoundEvents.DONKEY_CHEST, 1.0F, 1.0F);
+    }
+
+    public boolean hasCindervaneChest() {
+        return this.entityData.get(DATA_HAS_CHEST);
+    }
+
+    @Override
+    public boolean hasSaddle() {
+        return this.entityData.get(DATA_SADDLED);
+    }
+
+    @Override
+    public void setSaddle(boolean saddled) {
+        if (!saddled && hasAttachedChest()) {
+            return;
+        }
+        this.entityData.set(DATA_SADDLED, saddled);
+        if (!saddled && isVehicle()) {
+            ejectPassengers();
+        }
+    }
+
+    @Override
+    public boolean hasAttachedChest() {
+        return hasCindervaneChest();
+    }
+
+    public void setCindervaneChest(boolean value) {
+        if (value && !hasSaddle()) {
+            return;
+        }
+        this.entityData.set(DATA_HAS_CHEST, value);
+        if (!value) {
+            cindervaneChestInventory.clearContent();
+        }
+    }
+
+    @Override
+    public void setAttachedChest(boolean value) {
+        setCindervaneChest(value);
+    }
+
+    public Container getCindervaneChestInventory() {
+        return cindervaneChestInventory;
+    }
+
+    @Override
+    public Container getAttachedChestInventory() {
+        return getCindervaneChestInventory();
+    }
+
+    @Override
+    public void removeAttachedChestAndDropContents() {
+        removeCindervaneChestAndDropContents();
+    }
+
+    @Override
+    protected void dropAdditionalDeathLootAfterBase(@NotNull DamageSource source) {
+        if (!level().isClientSide()) {
+            dropEquipmentOnDeath();
+            if (getGender() == DragonGender.FEMALE) {
+                DragonLootTables.dropEntityLoot(this, DragonLootTables.CINDERVANE_FEMALE_DEATH, source);
+            }
+        }
+    }
+
+    private void dropEquipmentOnDeath() {
+        if (hasCindervaneChest()) {
+            dropCindervaneChestContents();
+            spawnAtLocation((net.minecraft.server.level.ServerLevel) level(), Items.CHEST);
+            setCindervaneChest(false);
+        }
+        if (hasSaddle()) {
+            spawnAtLocation((net.minecraft.server.level.ServerLevel) level(), Items.SADDLE);
+            setSaddle(false);
+        }
+    }
+
+    @Nullable
+    @Override
+    public AgeableMob getBreedOffspring(@Nonnull ServerLevel level, @Nonnull AgeableMob partner) {
+        return createBreedOffspring(level, partner, ModEntities.CINDERVANE.get(), Cindervane::applyConfiguredAttributes);
+    }
+
+    @Override
+    public void addAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        super.addAdditionalSaveDataTag(tag);
+        tag.putInt("TimeFlying", timeFlying);
+        saveRideableData(tag);
+        tag.putInt("FeedingCooldownTicks", Math.max(0, this.entityData.get(DATA_FEEDING_COOLDOWN)));
+
+        if (this.packLeaderUuid != null) {
+            tag.store("PackLeaderUuid", UUIDUtil.CODEC, this.packLeaderUuid);
+        }
+        tag.putBoolean("CindervaneHasChest", hasCindervaneChest());
+        tag.putBoolean("CindervaneSaddled", hasSaddle());
+        if (hasCindervaneChest()) {
+            tag.put("CindervaneChestItems", com.leon.saintsdragons.common.item.util.EquipmentStacks.saveContainer(cindervaneChestInventory, registryAccess()));
+        }
+    }
+
+    @Override
+    public void readAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        super.readAdditionalSaveDataTag(tag);
+
+        loadRideableData(tag);
+        boolean savedFlying = tag.getBooleanOr("Flying", false);
+        this.timeFlying = tag.getIntOr("TimeFlying", 0);
+        this.packLeaderUuid = tag.contains("PackLeaderUuid") ? tag.read("PackLeaderUuid", UUIDUtil.CODEC).orElse(null) : null;
+        if (this.isTame()) {
+            this.packLeaderUuid = null;
+        }
+        if (!savedFlying) {
+            airTicks = 0;
+        } else {
+            airTicks = Math.max(airTicks, 1);
+        }
+        groundTicks = 0;
+
+        this.setNoGravity(isFlying() || isHovering());
+        if (tag.contains("FeedingCooldownTicks")) {
+            this.entityData.set(DATA_FEEDING_COOLDOWN, Math.max(0, tag.getIntOr("FeedingCooldownTicks", 0)));
+        }
+        boolean restoredChest = tag.getBooleanOr("CindervaneHasChest", false);
+        boolean restoredSaddle = restoredChest
+                || tag.contains("CindervaneSaddled") && tag.getBooleanOr("CindervaneSaddled", false);
+        setSaddle(restoredSaddle);
+        setCindervaneChest(restoredChest);
+        if (hasCindervaneChest() && tag.contains("CindervaneChestItems")) {
+            com.leon.saintsdragons.common.item.util.EquipmentStacks.loadContainer(cindervaneChestInventory, tag.getListOrEmpty("CindervaneChestItems"), registryAccess());
+        }
+        if (!level().isClientSide()) {
+            this.tickCount = 0;
+        }
+
+        applyConfiguredAttributes();
+    }
+
+    @Override
+    public @Nullable UUID getPackLeaderUuid() {
+        return this.packLeaderUuid;
+    }
+
+    @Override
+    public void setPackLeaderUuid(@Nullable UUID leaderUuid) {
+        this.packLeaderUuid = leaderUuid;
+    }
+
+    @Override
+    public int getMaxPackSize() {
+        return MAX_PACK_SIZE;
+    }
+
+    @Override
+    public double getPackSearchRadius() {
+        return PACK_SEARCH_RADIUS;
+    }
+
+    @Override
+    public String getAiAirCombatBlockReason() {
+        return isInWater() || isInLava() ? "fluid" : null;
+    }
+
+    @Override
+    public DragonWaterCombatProfile getWaterCombatProfile() {
+        return CindervaneStatProfile.WaterSurfaceCombat.PROFILE;
+    }
+
+    @Override
+    public DragonAirCombatSettings getAiAirCombatSettings() {
+        return AI_AIR_COMBAT_SETTINGS;
+    }
+
+    public CindervanePackFlightCoordinator getPackFlightCoordinator() {
+        return packFlightCoordinator;
+    }
+
+    @Override
+    protected boolean canApplyFlyingState(boolean flying) {
+        return isAiWaterBreachTakeoffActive()
+                || !(flying && !isVehicle() && (isInWater() || isInWater() || isInLava()));
+    }
+
+    @Override
+    protected int getRedirectedFlyingTakeoffTicks() {
+        return TAKEOFF_ANIMATION_TICKS;
+    }
+
+    @Override
+    protected void onFlyingStateChanged(boolean wasFlying, boolean flying) {
+        if (flying) {
+            enforcePrimaryMeleeForFlight(getControllingPassenger() instanceof Player player ? player : null);
+            switchToAirNavigation();
+            setLanding(false);
+            this.getNavigation().stop();
+        } else {
+            takeoffComponent.clear();
+            if (!isLanding()) {
+                switchToGroundNavigation();
+                setHovering(false);
+            }
+        }
+    }
+
+    @Override
+    protected void onTakeoffStateStarted() {
+        enforcePrimaryMeleeForFlight(getControllingPassenger() instanceof Player player ? player : null);
+        triggerAnim(AnimationHelper.FLIGHT_CONTROLLER, AnimationHelper.TAKEOFF);
+        getSoundHandler().playMovingEntitySound(ModSounds.CINDERVANE_TAKEOFF.get(), 1.2f, 1.0f, 55);
+    }
+
+    @Override
+    public float getFlightSpeed() {
+        return (float) this.getAttributeValue(Attributes.FLYING_SPEED);
+    }
+
+    @Override
+    public double getPreferredFlightAltitude() {
+        double base = 24.0D + this.getRandom().nextDouble() * 10.0D;
+        return Mth.clamp(base, 20.0D, 45.0D);
+    }
+
+    @Override
+    public boolean canTakeoff() {
+        if (this.isBaby() || !this.isAlive()) {
+            return false;
+        }
+        if (this.isInWater()) {
+            return false;
+        }
+        return this.onGround();
+    }
+
+    @Override
+    protected void resetTimeFlyingAfterLanding() {
+        this.timeFlying = 0;
+    }
+
+    public void handleAiLandingComplete() {
+        if (isInWater()) {
+            suppressSleep(60);
+            completeTouchdownLanding(LandingSource.AI);
+            return;
+        }
+        if (!level().isClientSide()) {
+            triggerAnim(AnimationHelper.MOVEMENT_CONTROLLER, AnimationHelper.LANDED);
+            getSoundHandler().playMovingEntitySound(ModSounds.CINDERVANE_LANDED.get(), 1.0f, 1.0f, 59);
+            suppressSleep(60);
+        }
+        completeTouchdownLanding(LandingSource.AI);
+        startStandardLandedRecovery(LANDED_RECOVERY_TICKS);
+    }
+
+    @Override
+    protected void completeGroundedAerialRecoveryLanding() {
+        handleAiLandingComplete();
+    }
+
+    @Override
+    public boolean isFlapping() {
+        return isFlying() && this.getDeltaMovement().y > -0.1D;
+    }
+
+    public boolean canBeBound() {
+        return !isDying() && !isAccelerating();
+    }
+
+    @Override
+    public DragonAbilityType<?, ?> getChannelingAbility() {
+        return ModAbilities.CINDERVANE_MAGMA_VOLLEY;
+    }
+
+    public void setServerBonePosition(String boneName, Vec3 position) {
+        if (boneName == null || position == null) return;
+        this.serverBonePositionCache.put(boneName, position);
+    }
+
+    public Vec3 getBonePositionForPassenger(String boneName) {
+        if (boneName == null) {
+            return null;
+        }
+        if (this.level().isClientSide()) {
+            return this.clientLocatorCache.get(boneName);
+        }
+        return this.serverBonePositionCache.get(boneName);
+    }
+
+    @Override
+    protected ScreenShakeComponent getScreenShakeComponent() {
+        return screenShakeComponent;
+    }
+
+    @Override
+    public double getShakeDistance() {
+        return 18.0;
+    }
+
+
+    @Override
+    public boolean supportsSleep() {
+        return true;
+    }
+
+    @Override
+    protected boolean useSleepSitDownTimer() {
+        return true;
+    }
+
+    @Override
+    protected boolean requireSeatedBeforeFallAsleep() {
+        return true;
+    }
+
+    @Override
+    protected boolean sleepForceSitDownOnEnter() {
+        return true;
+    }
+
+    @Override
+    protected int getSleepExitSuppressionTicks() {
+        return 20;
+    }
+
+    @Override
+    protected int getSleepWakeUpSuppressionTicks() {
+        return 20;
+    }
+
+    @Override
+    protected void onSleepLockCommand(int snapshot) {
+        if (getCommand() != 1) {
+            setCommand(1);
+            setOrderedToSit(true);
+        }
+    }
+
+    @Override
+    protected void onSleepUnlockCommand(int desired) {
+        if (desired >= 0 && desired != getCommand()) {
+            setCommand(desired);
+            setOrderedToSit(desired == 1);
+        }
+    }
+
+    @Override
+    protected void onSleepSitDownAnimation() {
+        animationHandler.triggerSitDownAnimation();
+        setOrderedToSit(true);
+    }
+
+    @Override
+    protected void onSleepFallAsleepAnimation() {
+        animationHandler.triggerFallAsleepAnimation();
+    }
+
+    @Override
+    protected void onSleepLoopAnimation() {
+        setOrderedToSit(true);
+    }
+
+    @Override
+    protected void onSleepWakeUpAnimation() {
+        animationHandler.triggerWakeUpAnimation();
+    }
+
+    @Override
+    protected void onSleepSitUpAnimation() {
+        animationHandler.triggerSitUpAnimation();
+        setOrderedToSit(false);
+    }
+
+    @Override
+    protected void onSleepExitSeated() {
+        setOrderedToSit(true);
+        setSitProgress(Math.max(getSitProgress(), maxSitTicks()));
+    }
+
+    private void tickFeedingCooldown() {
+        int cooldownTicks = this.entityData.get(DATA_FEEDING_COOLDOWN);
+        if (cooldownTicks > 0) {
+            cooldownTicks--;
+            this.entityData.set(DATA_FEEDING_COOLDOWN, cooldownTicks);
+        }
+    }
+
+    @Override
+    public DragonEntity.DragonSleepPreferences getSleepPreferences() {
+        return DragonEntity.DragonSleepPreferences.NOCTURNAL();
+    }
+
+    @Override
+    public boolean canSleepNow() {
+        return !isBreathingFire() && !isVehicle() && getActiveAbility() == null;
+    }
+
+    @Override
+    protected Supplier<? extends Block> getEggBlock() {
+        return ModBlocks.CINDERVANE_EGG;
+    }
+
+}

@@ -1,0 +1,343 @@
+package com.leon.saintsdragons.server.ai.navigation;
+
+import com.leon.saintsdragons.server.ai.pathfinding.DragonWalkNodeEvaluator;
+import com.leon.saintsdragons.server.ai.navigation.async.VoxelAabbSweeper;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import com.leon.saintsdragons.server.entity.dragons.util.DragonDestructionManager;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.control.MoveControl;
+import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.level.pathfinder.PathFinder;
+import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Objects;
+import javax.annotation.Nonnull;
+
+public class PathNavigateGround extends GroundPathNavigation {
+    private static final double MAX_SHORTCUT_DISTANCE = 10.0D;
+    private static final double MAX_GROUNDED_ASCENDING_WAYPOINT_OFFSET = 0.5D;
+    private static final double MAX_DESCENDING_WAYPOINT_OFFSET = 1.5D;
+    private static final double MIN_BLOCKED_ASCENT_RISE = 0.25D;
+    private static final double MAX_BLOCKED_ASCENT_RISE = 1.5D;
+    private static final int BLOCKED_ASCENT_STALL_TICKS = 4;
+    private static final int BLOCKED_ASCENT_JUMP_COOLDOWN_TICKS = 10;
+    private static final int MAX_BLOCKED_ASCENT_JUMPS_PER_NODE = 2;
+    private boolean waterEntryAllowed;
+    private float finalWaypointTolerance = Float.NaN;
+    private @Nullable Path debugTrackedPath;
+    private int debugTrackedNodeIndex = -1;
+    private int debugNodeStallTicks;
+    private int debugSkippedFollowTicks;
+    private boolean debugPathActive;
+    private boolean debugCanUpdatePath = true;
+    private boolean debugMoveCommandIssued;
+    private @Nullable Vec3 debugMoveTarget;
+    private double debugMoveSpeed;
+    private int blockedAscentNodeIndex = -1;
+    private int blockedAscentJumpAttempts;
+    private int blockedAscentJumpCooldown;
+    private int debugBlockedAscentJumpCount;
+    private int debugLastBlockedAscentNode = -1;
+
+    public PathNavigateGround(Mob mob, Level world) {
+        super(mob, world);
+    }
+
+    public void setWaterEntryAllowed(boolean allowed) {
+        if (waterEntryAllowed == allowed) {
+            return;
+        }
+        waterEntryAllowed = allowed;
+        setCanFloat(allowed);
+    }
+
+    public boolean isWaterEntryAllowed() {
+        return waterEntryAllowed;
+    }
+
+    public void setFinalWaypointTolerance(double tolerance) {
+        finalWaypointTolerance = (float) Math.max(0.05D, tolerance);
+    }
+
+    public void clearFinalWaypointTolerance() {
+        finalWaypointTolerance = Float.NaN;
+    }
+
+    @Override
+    public void tick() {
+        if (blockedAscentJumpCooldown > 0) {
+            blockedAscentJumpCooldown--;
+        }
+
+        Path pathBeforeTick = this.path;
+        boolean activeBeforeTick = pathBeforeTick != null && !pathBeforeTick.isDone();
+        debugCanUpdatePath = this.canUpdatePath();
+        if (activeBeforeTick) {
+            if (pathBeforeTick != debugTrackedPath) {
+                debugSkippedFollowTicks = debugCanUpdatePath ? 0 : 1;
+            } else if (!debugCanUpdatePath) {
+                debugSkippedFollowTicks++;
+            } else {
+                debugSkippedFollowTicks = 0;
+            }
+        }
+
+        super.tick();
+
+        Path activePath = this.path;
+        debugPathActive = activePath != null && !activePath.isDone();
+        if (debugPathActive) {
+            int nodeIndex = activePath.getNextNodeIndex();
+            boolean newPath = activePath != debugTrackedPath;
+            if (newPath || nodeIndex != debugTrackedNodeIndex) {
+                if (newPath) {
+                    debugBlockedAscentJumpCount = 0;
+                    debugLastBlockedAscentNode = -1;
+                }
+                debugTrackedPath = activePath;
+                debugTrackedNodeIndex = nodeIndex;
+                debugNodeStallTicks = 0;
+                blockedAscentNodeIndex = nodeIndex;
+                blockedAscentJumpAttempts = 0;
+                blockedAscentJumpCooldown = 0;
+            } else {
+                debugNodeStallTicks++;
+            }
+
+            tryAssistBlockedAscent(activePath, nodeIndex);
+        }
+
+        MoveControl moveControl = this.mob.getMoveControl();
+        debugMoveCommandIssued = moveControl.hasWanted();
+        debugMoveTarget = debugMoveCommandIssued
+                ? new Vec3(moveControl.getWantedX(), moveControl.getWantedY(), moveControl.getWantedZ())
+                : null;
+        debugMoveSpeed = debugMoveCommandIssued ? moveControl.getSpeedModifier() : 0.0D;
+    }
+
+    public DebugSnapshot getDebugSnapshot() {
+        return new DebugSnapshot(
+                debugPathActive,
+                debugCanUpdatePath,
+                debugSkippedFollowTicks,
+                debugNodeStallTicks,
+                debugMoveCommandIssued,
+                debugMoveTarget,
+                debugMoveSpeed,
+                finalWaypointTolerance,
+                debugBlockedAscentJumpCount,
+                debugLastBlockedAscentNode,
+                blockedAscentJumpCooldown
+        );
+    }
+
+    private void tryAssistBlockedAscent(Path path, int nodeIndex) {
+        if (nodeIndex != blockedAscentNodeIndex
+                || debugNodeStallTicks < BLOCKED_ASCENT_STALL_TICKS
+                || blockedAscentJumpCooldown > 0
+                || blockedAscentJumpAttempts >= MAX_BLOCKED_ASCENT_JUMPS_PER_NODE
+                || !this.mob.onGround()
+                || !this.mob.horizontalCollision
+                || this.mob.isInWater()) {
+            return;
+        }
+
+        Vec3 waypoint = this.getNextGroundedPathPosition(path);
+        double rise = waypoint.y - this.mob.getY();
+        double dx = waypoint.x - this.mob.getX();
+        double dz = waypoint.z - this.mob.getZ();
+        double maximumHorizontalDistance = Math.max(1.0D, this.mob.getBbWidth());
+        if (rise <= MIN_BLOCKED_ASCENT_RISE
+                || rise > MAX_BLOCKED_ASCENT_RISE
+                || dx * dx + dz * dz > maximumHorizontalDistance * maximumHorizontalDistance) {
+            return;
+        }
+
+        this.mob.getJumpControl().jump();
+        blockedAscentJumpAttempts++;
+        blockedAscentJumpCooldown = BLOCKED_ASCENT_JUMP_COOLDOWN_TICKS;
+        debugBlockedAscentJumpCount++;
+        debugLastBlockedAscentNode = nodeIndex;
+    }
+
+    @Override
+    public boolean moveTo(Path path, double speedModifier) {
+        clearFinalWaypointTolerance();
+        return super.moveTo(path, speedModifier);
+    }
+
+    @Override
+    public void stop() {
+        clearFinalWaypointTolerance();
+        super.stop();
+    }
+
+    @Override
+    protected @NotNull PathFinder createPathFinder(int maxVisitedNodes) {
+        this.nodeEvaluator = new DragonWalkNodeEvaluator(() ->
+                this.mob instanceof DragonEntity dragon
+                        && this.level instanceof ServerLevel serverLevel
+                        && DragonDestructionManager.canApplyPassiveTreeDestruction(serverLevel, dragon));
+        this.nodeEvaluator.setCanPassDoors(true);
+        return new PathFinderGround(this.nodeEvaluator, maxVisitedNodes);
+    }
+
+    @Override
+    protected void followThePath() {
+        Path path = Objects.requireNonNull(this.path);
+        Vec3 entityPos = this.getTempMobPos();
+        Vec3 actualEntityPos = this.mob.position();
+        int pathLength = path.getNodeCount();
+
+        // Use the current path-node plane instead of the mob's rounded Y. Thin
+        // supports place the mob below the raw node plane without creating a climb.
+        int currentNodeY = path.getNode(path.getNextNodeIndex()).y;
+        for (int i = path.getNextNodeIndex(); i < path.getNodeCount(); i++) {
+            if (path.getNode(i).y != currentNodeY) {
+                pathLength = i;
+                break;
+            }
+        }
+
+        float waypointTolerance = this.mob.getBbWidth() > 0.75F
+                ? this.mob.getBbWidth() * 0.5F
+                : 0.75F - this.mob.getBbWidth() * 0.5F;
+        if (path.getNextNodeIndex() == path.getNodeCount() - 1
+                && Float.isFinite(finalWaypointTolerance)) {
+            waypointTolerance = Math.min(waypointTolerance, finalWaypointTolerance);
+        }
+
+        if (this.tryShortcut(path, actualEntityPos, pathLength)) {
+            if (this.isAt(path, waypointTolerance)
+                    || this.atElevationChange(path)
+                    && this.isAt(path, Math.min(this.mob.getBbWidth() * 0.5F, waypointTolerance))) {
+                path.setNextNodeIndex(path.getNextNodeIndex() + 1);
+            }
+        }
+        this.doStuckDetection(entityPos);
+    }
+
+    private boolean isAt(Path path, float threshold) {
+        final Vec3 pathPos = this.getNextGroundedPathPosition(path);
+        final double verticalOffset = this.mob.getY() - pathPos.y;
+        final boolean reachedAscendingElevation = verticalOffset >= 0.0D
+                || this.mob.onGround()
+                && verticalOffset >= -MAX_GROUNDED_ASCENDING_WAYPOINT_OFFSET;
+        return Mth.abs((float) (this.mob.getX() - pathPos.x)) < threshold &&
+                Mth.abs((float) (this.mob.getZ() - pathPos.z)) < threshold &&
+                reachedAscendingElevation &&
+                verticalOffset <= MAX_DESCENDING_WAYPOINT_OFFSET;
+    }
+
+    private boolean atElevationChange(Path path) {
+        final int curr = path.getNextNodeIndex();
+        final int end = Math.min(path.getNodeCount(), curr + Mth.ceil(this.mob.getBbWidth() * 0.5F) + 1);
+        final int currY = path.getNode(curr).y;
+        for (int i = curr + 1; i < end; i++) {
+            if (path.getNode(i).y != currY) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean tryShortcut(Path path, Vec3 entityPos, int pathLength) {
+        for (int i = pathLength; --i > path.getNextNodeIndex(); ) {
+            final Vec3 vec = this.getGroundedPathPosition(path, i).subtract(entityPos);
+            if (vec.lengthSqr() > MAX_SHORTCUT_DISTANCE * MAX_SHORTCUT_DISTANCE) {
+                continue;
+            }
+            if (GroundPathGeometry.canShortcut(this.mob.getBoundingBox(), vec,
+                    (body, movement) -> VoxelAabbSweeper.isClear(this.level, this.mob, body, movement),
+                    this::hasSafeShortcutSupport)) {
+                path.setNextNodeIndex(i);
+                return false; // Found a shortcut
+            }
+        }
+        return true; // No shortcut found, continue normally
+    }
+
+    private Vec3 getNextGroundedPathPosition(Path path) {
+        return this.getGroundedPathPosition(path, path.getNextNodeIndex());
+    }
+
+    private Vec3 getGroundedPathPosition(Path path, int nodeIndex) {
+        Vec3 pathPos = path.getEntityPosAtNode(this.mob, nodeIndex);
+        return new Vec3(pathPos.x, this.getGroundY(pathPos), pathPos.z);
+    }
+
+    @Override
+    protected double getGroundY(Vec3 pathPos) {
+        AABB body = this.mob.getBoundingBox().move(pathPos.subtract(this.mob.position()));
+        double support = findSupportHeight(body);
+        return Double.isFinite(support) ? support : super.getGroundY(pathPos);
+    }
+
+    private double findSupportHeight(AABB body) {
+        AABB below = new AABB(body.minX, body.minY - GroundPathGeometry.MAX_SUPPORT_GAP, body.minZ,
+                body.maxX, body.minY + GroundPathGeometry.SUPPORT_EPSILON, body.maxZ);
+        double highestSurfaceY = Double.NEGATIVE_INFINITY;
+        for (VoxelShape shape : this.level.getBlockCollisions(this.mob, below)) {
+            for (AABB obstacle : shape.toAabbs()) {
+                highestSurfaceY = Math.max(highestSurfaceY, GroundPathGeometry.supportHeight(body, obstacle));
+            }
+        }
+        return highestSurfaceY;
+    }
+
+    private boolean hasSafeShortcutSupport(AABB body) {
+        double support = findSupportHeight(body);
+        if (!Double.isFinite(support) || Math.abs(support - body.minY) > GroundPathGeometry.SUPPORT_EPSILON) {
+            return false;
+        }
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        int y = Mth.floor(body.minY + GroundPathGeometry.SUPPORT_EPSILON);
+        for (int x = Mth.floor(body.minX); x <= Mth.floor(body.maxX - GroundPathGeometry.SUPPORT_EPSILON); x++) {
+            for (int z = Mth.floor(body.minZ); z <= Mth.floor(body.maxZ - GroundPathGeometry.SUPPORT_EPSILON); z++) {
+                cursor.set(x, y, z);
+                PathType type = WalkNodeEvaluator.getPathTypeStatic(this.mob, cursor);
+                if (type == PathType.LAVA || type == PathType.WATER
+                        || type == PathType.WATER_BORDER || this.mob.getPathfindingMalus(type) != 0.0F) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    protected boolean hasValidPathType(@Nonnull PathType pathType) {
+        if (pathType == PathType.LAVA) {
+            return false; // Dragons avoid lava paths entirely
+        }
+
+        if (pathType == PathType.WATER) {
+            return waterEntryAllowed || this.mob.isInWater();
+        }
+
+        return pathType != PathType.OPEN;
+    }
+
+    public record DebugSnapshot(boolean pathActive,
+                                boolean canUpdatePath,
+                                int skippedFollowTicks,
+                                int nodeStallTicks,
+                                boolean moveCommandIssued,
+                                @Nullable Vec3 moveTarget,
+                                double moveSpeed,
+                                float finalWaypointTolerance,
+                                int blockedAscentJumpCount,
+                                int lastBlockedAscentNode,
+                                int blockedAscentJumpCooldown) {
+    }
+}

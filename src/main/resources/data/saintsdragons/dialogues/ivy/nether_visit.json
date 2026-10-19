@@ -1,0 +1,195 @@
+{
+  "start_at": "nether_thoughts_1",
+  "resume": {
+    "texts": [
+      {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.resume.0"
+      },
+      {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.resume.1"
+      },
+      {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.resume.2"
+      },
+      {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.resume.3"
+      }
+    ],
+    "requires_all_flags": [
+      "ivy_recruited",
+      "dimension:minecraft:the_nether"
+    ]
+  },
+  "states": {
+    "nether_thoughts_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_1.choice.0"
+          },
+          "next": "nether_thoughts_2"
+        }
+      ]
+    },
+    "nether_thoughts_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_2.choice.0"
+          },
+          "next": "nether_thoughts_3"
+        }
+      ]
+    },
+    "nether_thoughts_3": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_3.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_3.choice.0"
+          },
+          "next": "nether_thoughts_4"
+        }
+      ]
+    },
+    "nether_thoughts_4": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_4.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_4.choice.0"
+          },
+          "next": "nether_thoughts_5"
+        }
+      ]
+    },
+    "nether_thoughts_5": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_5.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_5.choice.0"
+          },
+          "next": "nether_thoughts_6"
+        }
+      ]
+    },
+    "nether_thoughts_6": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_6.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_6.choice.0"
+          },
+          "next": "nether_thoughts_7"
+        }
+      ]
+    },
+    "nether_thoughts_7": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_7.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_7.choice.0"
+          },
+          "next": "nether_thoughts_8"
+        }
+      ]
+    },
+    "nether_thoughts_8": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_8.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_8.choice.0"
+          },
+          "next": "nether_thoughts_9"
+        }
+      ]
+    },
+    "nether_thoughts_9": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_9.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_9.choice.0"
+          },
+          "next": "nether_thoughts_10"
+        }
+      ]
+    },
+    "nether_thoughts_10": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_10.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_10.choice.0"
+          },
+          "next": "nether_thoughts_11",
+          "set_flag": "ivy_nether_dialogue_done"
+        }
+      ]
+    },
+    "nether_thoughts_11": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.nether_visit.nether_thoughts_11.text"
+      }
+    }
+  }
+}

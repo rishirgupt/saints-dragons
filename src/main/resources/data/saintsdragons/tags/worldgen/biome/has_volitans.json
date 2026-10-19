@@ -1,0 +1,25 @@
+{
+  "values": [
+    {
+      "id": "#c:ocean",
+      "required": false
+    },
+    {
+      "id": "#c:is_ocean",
+      "required": false
+    },
+    {
+      "id": "#forge:is_ocean",
+      "required": false
+    },
+    "minecraft:ocean",
+    "minecraft:deep_ocean",
+    "minecraft:cold_ocean",
+    "minecraft:deep_cold_ocean",
+    "minecraft:frozen_ocean",
+    "minecraft:deep_frozen_ocean",
+    "minecraft:lukewarm_ocean",
+    "minecraft:deep_lukewarm_ocean",
+    "minecraft:warm_ocean"
+  ]
+}

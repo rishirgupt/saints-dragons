@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "EFE",
+    "FCF",
+    "EFE"
+  ],
+  "key": {
+    "F": "minecraft:chorus_fruit",
+    "E": "minecraft:end_stone",
+    "C": "saintsdragons:dragon_binder_core"
+  },
+  "result": {
+    "id": "saintsdragons:nulljaw_binder",
+    "count": 1
+  }
+}

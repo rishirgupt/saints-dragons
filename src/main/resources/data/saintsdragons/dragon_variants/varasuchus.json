@@ -1,0 +1,14 @@
+{
+  "variants": [
+    {
+      "id": "saintsdragons:default",
+      "name": "default",
+      "weight": 100
+    },
+    {
+      "id": "saintsdragons:void_kissed",
+      "name": "void_kissed",
+      "weight": 0
+    }
+  ]
+}

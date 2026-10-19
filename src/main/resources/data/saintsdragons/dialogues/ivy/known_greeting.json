@@ -1,0 +1,626 @@
+{
+  "start_at": "return_greeting",
+  "states": {
+    "return_greeting": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "texts": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_greeting.text.0"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_greeting.text.1",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_greeting.text.2",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_greeting.text.3",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_greeting.text.4",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_greeting.text.5"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_greeting.text.6"
+        }
+      ],
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_greeting.choice.0"
+          },
+          "next": "return_prompt"
+        }
+      ]
+    },
+    "return_prompt": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "texts": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.text.0"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.text.1"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.text.2"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.text.3"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.text.4"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.text.5"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.text.6"
+        }
+      ],
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.0"
+          },
+          "next": "trade"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.1"
+          },
+          "next": "ivy_inventory",
+          "requires_flag": "ivy_recruited"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.2"
+          },
+          "next": "plushie_prepared",
+          "requires_flag": "ivy_recruited",
+          "hidden_if_flag": "ivy_plushie_received"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.3"
+          },
+          "next": "saintsdragons:ivy/nether_visit#nether_thoughts_1",
+          "requires_all_flags": [
+            "ivy_recruited",
+            "dimension:minecraft:the_nether"
+          ],
+          "hidden_if_flag": "ivy_nether_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.4"
+          },
+          "next": "saintsdragons:ivy/end_visit#end_thoughts_1",
+          "requires_all_flags": [
+            "ivy_recruited",
+            "dimension:minecraft:the_end"
+          ],
+          "hidden_if_flag": "ivy_end_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.5"
+          },
+          "next": "saintsdragons:ivy/known_meeting_about_work#what_do_you_do",
+          "hidden_if_flag": "known_work_done",
+          "hidden_if_all_flags": [
+            "work_dragons",
+            "work_gardening",
+            "work_expert"
+          ]
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.6"
+          },
+          "next": "saintsdragons:ivy/known_meeting_about_dragon#dragon_knowledge",
+          "hidden_if_flag": "known_dragons_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.14"
+          },
+          "next": "saintsdragons:ivy/dragon_raevyx#raevyx_1",
+          "requires_flag": "owns_dragon:raevyx",
+          "requires_all_flags": [
+            "ivy_recruited"
+          ],
+          "hidden_if_flag": "ivy_raevyx_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.15"
+          },
+          "next": "saintsdragons:ivy/dragon_cindervane#cindervane_1",
+          "requires_flag": "owns_dragon:cindervane",
+          "requires_all_flags": [
+            "ivy_recruited"
+          ],
+          "hidden_if_flag": "ivy_cindervane_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.16"
+          },
+          "next": "saintsdragons:ivy/dragon_stegonaut#stegonaut_1",
+          "requires_flag": "owns_dragon:stegonaut",
+          "requires_all_flags": [
+            "ivy_recruited"
+          ],
+          "hidden_if_flag": "ivy_stegonaut_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.17"
+          },
+          "next": "saintsdragons:ivy/dragon_varasuchus#varasuchus_1",
+          "requires_flag": "owns_dragon:varasuchus",
+          "requires_all_flags": [
+            "ivy_recruited"
+          ],
+          "hidden_if_flag": "ivy_varasuchus_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.18"
+          },
+          "next": "saintsdragons:ivy/dragon_ignivorus#ignivorus_1",
+          "requires_flag": "owns_dragon:ignivorus",
+          "requires_all_flags": [
+            "ivy_recruited"
+          ],
+          "hidden_if_flag": "ivy_ignivorus_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.19"
+          },
+          "next": "saintsdragons:ivy/dragon_volitans#volitans_1",
+          "requires_flag": "owns_dragon:volitans",
+          "requires_all_flags": [
+            "ivy_recruited"
+          ],
+          "hidden_if_flag": "ivy_volitans_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.20"
+          },
+          "next": "saintsdragons:ivy/dragon_nulljaw#nulljaw_1",
+          "requires_flag": "owns_dragon:nulljaw",
+          "requires_all_flags": [
+            "ivy_recruited"
+          ],
+          "hidden_if_flag": "ivy_nulljaw_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.21"
+          },
+          "next": "saintsdragons:ivy/dragon_atroxiia#atroxiia_1",
+          "requires_flag": "owns_dragon:atroxiia",
+          "requires_all_flags": [
+            "ivy_recruited"
+          ],
+          "hidden_if_flag": "ivy_atroxiia_dialogue_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.22"
+          },
+          "next": "saintsdragons:ivy/recruited_trader_history#trader_1",
+          "requires_flag": "ivy_recruited",
+          "hidden_if_flag": "ivy_trader_history_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.23"
+          },
+          "next": "saintsdragons:ivy/recruited_trading_opinion#trading_1",
+          "requires_flag": "ivy_recruited",
+          "hidden_if_flag": "ivy_trading_opinion_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.24"
+          },
+          "next": "saintsdragons:ivy/recruited_past_work#past_1",
+          "requires_flag": "ivy_recruited",
+          "hidden_if_flag": "ivy_past_work_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.25"
+          },
+          "next": "saintsdragons:ivy/recruited_favorite_food#food_1",
+          "requires_flag": "ivy_recruited",
+          "hidden_if_flag": "ivy_favorite_food_done"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.7"
+          },
+          "next": "needs_help",
+          "set_flag": "cindervane_request_asked",
+          "requires_flag": "known_dragons_done",
+          "requires_all_flags": [
+            "known_work_done"
+          ],
+          "hidden_if_flag": "cindervane_request_asked"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.8"
+          },
+          "next": "cindervane_request_followup",
+          "requires_flag": "cindervane_request_asked",
+          "requires_all_flags": [
+            "known_dragons_done",
+            "known_work_done"
+          ],
+          "hidden_if_flag": "cindervane_quest_started"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.9"
+          },
+          "next": "saintsdragons:ivy/quest_cindervane_complete#quest_check_in",
+          "requires_flag": "cindervane_quest_started",
+          "hidden_if_flag": "cindervane_quest_completed"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.10"
+          },
+          "next": "goodbye",
+          "hidden_if_flag": "ivy_recruited"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.11"
+          },
+          "next": "recruited_goodbye",
+          "requires_flag": "ivy_command_follow"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.12"
+          },
+          "next": "recruited_goodbye_stay",
+          "requires_flag": "ivy_command_stay"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.return_prompt.choice.13"
+          },
+          "next": "recruited_goodbye_wander",
+          "requires_flag": "ivy_command_wander"
+        }
+      ]
+    },
+    "trade": {
+      "type": "open_trade",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.trade.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.trade.choice.0"
+          },
+          "next": "return_greeting"
+        }
+      ]
+    },
+    "ivy_inventory": {
+      "type": "open_inventory",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.ivy_inventory.text.0"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.ivy_inventory.text.1"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.ivy_inventory.text.2"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.ivy_inventory.text.3"
+        }
+      ],
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.ivy_inventory.choice.0"
+          },
+          "next": "return_greeting"
+        }
+      ]
+    },
+    "plushie_prepared": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_prepared.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_prepared.choice.0"
+          },
+          "next": "plushie_important"
+        }
+      ]
+    },
+    "plushie_important": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_important.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_important.choice.0"
+          },
+          "next": "plushie_gift",
+          "set_flag": "ivy_plushie_received"
+        }
+      ]
+    },
+    "plushie_gift": {
+      "type": "give_ivy_plushie",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_gift.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_gift.choice.0"
+          },
+          "next": "plushie_magic"
+        }
+      ]
+    },
+    "plushie_magic": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_magic.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_magic.choice.0"
+          },
+          "next": "plushie_appear"
+        }
+      ]
+    },
+    "plushie_appear": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_appear.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_appear.choice.0"
+          },
+          "next": "plushie_thanks"
+        }
+      ]
+    },
+    "plushie_thanks": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.plushie_thanks.text"
+      }
+    },
+    "needs_help": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.needs_help.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.needs_help.choice.0"
+          },
+          "next": "saintsdragons:ivy/quest_cindervane#cindervane_migration_1"
+        }
+      ]
+    },
+    "cindervane_request_followup": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_greeting.cindervane_request_followup.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting.cindervane_request_followup.choice.0"
+          },
+          "next": "saintsdragons:ivy/quest_cindervane#cindervane_migration_2"
+        }
+      ]
+    },
+    "goodbye": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.goodbye.text.0",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.goodbye.text.1",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.goodbye.text.2",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.goodbye.text.3",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.goodbye.text.4",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        }
+      ]
+    },
+    "recruited_goodbye": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye.text.0",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye.text.1"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye.text.2"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye.text.3"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye.text.4"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye.text.5"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye.text.6"
+        }
+      ]
+    },
+    "recruited_goodbye_stay": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_stay.text.0"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_stay.text.1"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_stay.text.2"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_stay.text.3"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_stay.text.4"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_stay.text.5"
+        }
+      ]
+    },
+    "recruited_goodbye_wander": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_wander.text.0"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_wander.text.1"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting.recruited_goodbye_wander.text.2"
+        }
+      ]
+    }
+  }
+}

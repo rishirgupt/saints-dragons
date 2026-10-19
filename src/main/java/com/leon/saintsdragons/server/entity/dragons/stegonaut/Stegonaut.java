@@ -1,0 +1,1052 @@
+package com.leon.saintsdragons.server.entity.dragons.stegonaut;
+
+import com.leon.saintsdragons.common.config.dragon.profile.StegonautStatProfile;
+import net.minecraft.core.UUIDUtil;
+import com.leon.saintsdragons.server.ai.dragonbrain.perception.DragonVisionProfile;
+
+import com.mojang.serialization.Dynamic;
+import com.leon.saintsdragons.util.animation.AnimationHelper;
+import com.leon.saintsdragons.util.animation.EntityAnimationController;
+
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonBrain;
+import com.leon.saintsdragons.server.ai.dragonbrain.profiles.StegonautBrain;
+import com.leon.saintsdragons.server.ai.navigation.PathNavigateGround;
+import com.leon.saintsdragons.server.entity.ability.abilities.stegonaut.StegonautBuffAbility;
+import com.leon.saintsdragons.server.entity.ability.abilities.stegonaut.StegonautGroundEatingAbility;
+import com.leon.saintsdragons.server.entity.ability.abilities.stegonaut.StegonautGroundSlamAbility;
+import com.leon.saintsdragons.server.entity.base.RideableGroundDragon;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import com.leon.saintsdragons.server.entity.base.DragonGender;
+import com.leon.saintsdragons.server.entity.component.ScreenShakeComponent;
+import com.leon.saintsdragons.server.entity.dragons.stegonaut.handlers.StegonautAnimationHandler;
+import com.leon.saintsdragons.server.entity.dragons.stegonaut.handlers.StegonautInteractionHandler;
+import com.leon.saintsdragons.server.entity.dragons.stegonaut.handlers.StegonautSoundProfile;
+import com.leon.saintsdragons.server.entity.controller.stegonaut.StegonautRiderController;
+import com.leon.saintsdragons.server.entity.interfaces.DragonSoundProfile;
+import com.leon.saintsdragons.server.entity.interfaces.DragonSaddleCarrier;
+import com.leon.saintsdragons.server.entity.interfaces.PackMember;
+import com.leon.saintsdragons.server.entity.interfaces.ShakesScreen;
+import com.leon.saintsdragons.server.menu.DragonInventoryMenu;
+import com.leon.saintsdragons.server.loot.DragonLootTables;
+import com.leon.saintsdragons.common.network.DragonRiderAction;
+import com.leon.saintsdragons.common.config.SaintsDragonsConfig;
+import com.leon.saintsdragons.common.registry.ModTags;
+import com.leon.saintsdragons.server.world.DragonSpawnRules;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.server.level.ServerLevel;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Supplier;
+import com.leon.saintsdragons.server.entity.ability.DragonAbilityType;
+import com.leon.saintsdragons.common.registry.ModEntities;
+import com.leon.saintsdragons.common.registry.ModBlocks;
+import com.leon.saintsdragons.common.registry.ModSounds;
+import com.leon.saintsdragons.common.registry.ModAbilities;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfig;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfigLoader;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.Container;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nonnull;
+import com.geckolib.animatable.instance.AnimatableInstanceCache;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.animation.AnimationController;
+import com.geckolib.util.GeckoLibUtil;
+
+public class Stegonaut extends RideableGroundDragon implements PackMember<Stegonaut>, ShakesScreen, DragonSaddleCarrier {
+    private static final StegonautBrain DRAGON_BRAIN = new StegonautBrain();
+    @Override
+    protected Identifier getDragonAttributesId() {
+        return DragonAttributeConfigLoader.STEGONAUT_ID;
+    }
+
+    private static final EntityDataAccessor<Boolean> DATA_HAS_CHEST =
+            SynchedEntityData.defineId(Stegonaut.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_SADDLED =
+            SynchedEntityData.defineId(Stegonaut.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_FEEDING_COOLDOWN =
+            SynchedEntityData.defineId(Stegonaut.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_SCREEN_SHAKE_AMOUNT =
+            SynchedEntityData.defineId(Stegonaut.class, EntityDataSerializers.FLOAT);
+    public static final double BREED_PARTNER_RANGE = StegonautStatProfile.Entity.BREED_PARTNER_RANGE;
+    public static final double BREED_DISTANCE_SQR = StegonautStatProfile.Entity.BREED_DISTANCE_SQR;
+    private static final int MIN_AMBIENT_DELAY = 200;
+    private static final int MAX_AMBIENT_DELAY = 600;
+    private static final double BABY_MAX_HEALTH = StegonautStatProfile.Entity.BABY_MAX_HEALTH;
+    private static final double BABY_ARMOR = StegonautStatProfile.Entity.BABY_ARMOR;
+    private static final double GROUND_MOVEMENT_SPEED = StegonautStatProfile.Entity.GROUND_MOVEMENT_SPEED;
+    private static final float BABY_HITBOX_SCALE = 0.65F;
+    private static final float MAX_UP_STEP = 1.25F;
+    private static final double RIDER_JUMP_STRENGTH = StegonautStatProfile.Entity.RIDER_JUMP_STRENGTH;
+    private static final double RIDER_JUMP_FORWARD_BOOST = StegonautStatProfile.Entity.RIDER_JUMP_FORWARD_BOOST;
+    private static final int FLEX_CONTROL_LOCK_TICKS = 100;
+    private static final int FLEX_COOLDOWN_TICKS = StegonautStatProfile.Entity.FLEX_COOLDOWN_TICKS;
+    private static final int STEGONAUT_CHEST_SLOTS = 15;
+    public static final double RIDER_WALK_SPEED = StegonautStatProfile.Entity.RIDER_WALK_SPEED;
+    public static final double RIDER_RUN_SPEED = StegonautStatProfile.Entity.RIDER_RUN_SPEED;
+    private static final int MAX_PACK_SIZE = 4;
+    private static final double PACK_SEARCH_RADIUS = StegonautStatProfile.Entity.PACK_SEARCH_RADIUS;
+    private static final Map<String, VocalEntry> VOCAL_ENTRIES = new VocalEntryBuilder()
+             .add("grumble1", AnimationHelper.VOCAL_CONTROLLER, "animation.stegonaut.grumble1", ModSounds.STEGONAUT_GRUMBLE_1, 0.6f, 1.1f, 0.2f, false, false, true)
+             .add("grumble2", AnimationHelper.VOCAL_CONTROLLER, "animation.stegonaut.grumble2", ModSounds.STEGONAUT_GRUMBLE_2, 0.6f, 1.1f, 0.2f, false, false, true)
+             .add("grumble3", AnimationHelper.VOCAL_CONTROLLER, "animation.stegonaut.grumble3", ModSounds.STEGONAUT_GRUMBLE_3, 0.6f, 1.1f, 0.2f, false, false, true)
+             .add("stegonaut_flex", StegonautAnimationHandler.MOVEMENT_CONTROLLER, "animation.stegonaut.flex", ModSounds.STEGONAUT_FLEX, 1.4f, 0.95f, 0.05f, false, false, false)
+             .add("stegonaut_hurt", AnimationHelper.INTERACTION_CONTROLLER, "animation.stegonaut.hurt", ModSounds.STEGONAUT_HURT, 1.0f, 0.95f, 0.1f, false, true, true)
+            .add("stegonaut_die", AnimationHelper.INTERACTION_CONTROLLER, "animation.stegonaut.die", ModSounds.STEGONAUT_DIE, 1.2f, 1.0f, 0.0f, false, true, true)
+            .build();
+    private boolean suppressSitAnimation = false;
+    private boolean boundToBinder = false;
+    @Nullable
+    private UUID packLeaderUuid;
+    private final AnimatableInstanceCache dragonCache = GeckoLibUtil.createInstanceCache(this);
+    private final StegonautAnimationHandler animationController = new StegonautAnimationHandler(this);
+    private final StegonautInteractionHandler interactionHandler = new StegonautInteractionHandler(this);
+    private final StegonautRiderController riderController = new StegonautRiderController(this);
+    private final ScreenShakeComponent screenShakeComponent;
+    private final AnimationController<Stegonaut> movementController;
+    private final AnimationController<Stegonaut> actionController;
+    private final AnimationController<Stegonaut> vocalController;
+    private final AnimationController<Stegonaut> interactionController;
+    private final SimpleContainer stegonautChestInventory = new SimpleContainer(STEGONAUT_CHEST_SLOTS);
+    private final StegonautBuffAbility buffAbility = new StegonautBuffAbility(this);
+
+    public Stegonaut(EntityType<? extends Stegonaut> entityType, Level level) {
+        super(entityType, level);
+        java.util.Objects.requireNonNull(this.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT)).setBaseValue(MAX_UP_STEP);
+        this.movementController = new EntityAnimationController<>(this, "movement", 2, animationController::handleMovementAnimation);
+        this.actionController = new EntityAnimationController<>(this, StegonautAnimationHandler.ACTION_CONTROLLER, 5, animationController::actionPredicate);
+        this.vocalController = new EntityAnimationController<>(this, AnimationHelper.VOCAL_CONTROLLER, 2, AnimationHelper::vocalIdle);
+        this.interactionController = new EntityAnimationController<>(this, AnimationHelper.INTERACTION_CONTROLLER, 1, AnimationHelper::interactionIdle);
+        this.screenShakeComponent = new ScreenShakeComponent(this, DATA_SCREEN_SHAKE_AMOUNT, 0.18F);
+        setupAnimationControllers();
+        seedAmbientSoundTimer(MIN_AMBIENT_DELAY, MAX_AMBIENT_DELAY, 80);
+        if (!level.isClientSide()) {
+            applyConfiguredAttributes();
+            this.setHealth(this.getMaxHealth());
+        }
+    }
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+    }
+
+    @Override
+    protected void defineRideableDragonData(SynchedEntityData.Builder builder) {
+        builder.define(DATA_HAS_CHEST, false);
+        builder.define(DATA_SADDLED, false);
+        builder.define(DATA_FEEDING_COOLDOWN, 0);
+        builder.define(DATA_SCREEN_SHAKE_AMOUNT, 0.0F);
+    }
+    @Override
+    public Map<String, VocalEntry> getVocalEntries() {
+        return VOCAL_ENTRIES;
+    }
+    @Override
+    public DragonVisionProfile getVisionProfile() {
+        return StegonautStatProfile.Vision.PROFILE;
+    }
+
+    @Override
+    public DragonSoundProfile getSoundProfile() {
+        return StegonautSoundProfile.INSTANCE;
+    }
+
+    @Override
+    protected @NotNull PathNavigation createNavigation(@NotNull Level level) {
+        return new PathNavigateGround(this, level);
+    }
+
+    @Override
+    protected Brain<?> makeBrain(Brain.Packed packedBrain) {
+        return DragonBrain.makeBrain(DRAGON_BRAIN, this, packedBrain);
+    }
+
+    @Override
+    protected void customServerAiStep(net.minecraft.server.level.ServerLevel aiStepLevel) {
+        DragonBrain.tick(DRAGON_BRAIN, this);
+        super.customServerAiStep(aiStepLevel);
+    }
+
+    public static AttributeSupplier.Builder createAttributes() {
+        return Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, StegonautStatProfile.Entity.ATTRIBUTE_MAX_HEALTH)
+                .add(Attributes.KNOCKBACK_RESISTANCE, StegonautStatProfile.Entity.ATTRIBUTE_KNOCKBACK_RESISTANCE)
+                .add(Attributes.MOVEMENT_SPEED, GROUND_MOVEMENT_SPEED)
+                .add(Attributes.ATTACK_DAMAGE, StegonautStatProfile.Entity.ATTRIBUTE_ATTACK_DAMAGE)
+                .add(Attributes.ARMOR, StegonautStatProfile.Entity.ATTRIBUTE_ARMOR)
+                .add(Attributes.FOLLOW_RANGE, StegonautStatProfile.Entity.ATTRIBUTE_FOLLOW_RANGE);
+    }
+
+    @Override
+    protected boolean supportsRiderAction(DragonRiderAction action) {
+        return switch (action) {
+            case ABILITY_USE, ABILITY_STOP, OPEN_INVENTORY -> true;
+            default -> super.supportsRiderAction(action);
+        };
+    }
+
+    @Override
+    protected RiderFlexSpec getRiderFlexSpec() {
+        return new RiderFlexSpec(FLEX_CONTROL_LOCK_TICKS, FLEX_COOLDOWN_TICKS);
+    }
+
+    @Override
+    protected boolean canRiderFlex(ServerPlayer player, RiderFlexSpec spec) {
+        return super.canRiderFlex(player, spec)
+                && !isBaby()
+                && !isDying()
+                && isGroundedForAction()
+                && !isInWater()
+                && !isOrderedToSit()
+                && !isInSitTransition()
+                && !isSleeping()
+                && !isSleepTransitioning()
+                && getActiveAbility() == null;
+    }
+
+    @Override
+    protected void playRiderFlex(ServerPlayer player, RiderFlexSpec spec) {
+        getNavigation().stop();
+        setDeltaMovement(Vec3.ZERO);
+        getSoundHandler().playVocal("stegonaut_flex");
+    }
+
+    @Override
+    protected boolean tryReleaseHeldRidingAbility(String abilityName) {
+        if (ModAbilities.STEGONAUT_GROUND_EATING.getName().equals(abilityName)) {
+            var active = combatManager.getActiveAbility();
+            if (active != null && active.getAbilityType() == ModAbilities.STEGONAUT_GROUND_EATING) {
+                ((StegonautGroundEatingAbility) active).requestRelease();
+                return true;
+            }
+        }
+        if (ModAbilities.STEGONAUT_GROUND_SLAM.getName().equals(abilityName)) {
+            var active = combatManager.getActiveAbility();
+            if (active != null && active.getAbilityType() == ModAbilities.STEGONAUT_GROUND_SLAM) {
+                ((StegonautGroundSlamAbility) active).requestRelease();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    protected boolean handleCustomRiderAction(ServerPlayer player, DragonRiderAction action,
+                                              String abilityName, boolean locked) {
+        if (action == DragonRiderAction.ABILITY_USE
+                && ModAbilities.STEGONAUT_GROUND_SLAM.getName().equals(abilityName)) {
+            var active = combatManager.getActiveAbility();
+            if (active != null && active.getAbilityType() == ModAbilities.STEGONAUT_GROUND_SLAM) {
+                ((StegonautGroundSlamAbility) active).requestChain();
+                return true;
+            }
+        }
+        if (action == DragonRiderAction.ABILITY_STOP
+                && ModAbilities.STEGONAUT_GROUND_SLAM.getName().equals(abilityName)
+                && tryReleaseHeldRidingAbility(abilityName)) {
+            return true;
+        }
+        if (action == DragonRiderAction.ABILITY_STOP
+                && ModAbilities.STEGONAUT_GROUND_EATING.getName().equals(abilityName)
+                && tryReleaseHeldRidingAbility(abilityName)) {
+            return true;
+        }
+        return super.handleCustomRiderAction(player, action, abilityName, locked);
+    }
+
+    @Override
+    protected void onRiderOpenInventory(Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            openStegonautInventory(serverPlayer);
+        }
+    }
+
+    @Override
+    protected boolean canGroundDragonJump() {
+        return !isOrderedToSit() && getActiveAbility() == null;
+    }
+
+    @Override
+    protected boolean usesGroundJumpLandingAnimation() {
+        return true;
+    }
+
+    @Override
+    protected void triggerGroundJumpAnimation() {
+        animationController.triggerJumpAnimation();
+    }
+
+    @Override
+    protected void triggerGroundJumpLandedAnimation() {
+        animationController.triggerJumpLandedAnimation();
+    }
+
+    @Override
+    protected double getRiderJumpStrength() {
+        return RIDER_JUMP_STRENGTH;
+    }
+
+    @Override
+    protected double getRiderJumpForwardBoost() {
+        return RIDER_JUMP_FORWARD_BOOST;
+    }
+
+    @Override
+    protected int getRiderGroundJumpAnimationFallHoldTicks() {
+        return 3;
+    }
+
+    @Override
+    public boolean isFood(@Nonnull ItemStack stack) {
+        return stack.is(ModTags.Items.STEGONAUT_FOODS);
+    }
+
+    public boolean canFeed() {
+        return this.entityData.get(DATA_FEEDING_COOLDOWN) <= 0;
+    }
+
+    public void setFeedingCooldown(int ticks) {
+        this.entityData.set(DATA_FEEDING_COOLDOWN, Math.max(0, ticks));
+    }
+
+    public Vec3 getGroundEatingProjectileOrigin() {
+        return this.position().add(0, this.getBbHeight() * 0.8, 0);
+    }
+
+    @Override
+    public DragonAbilityType<?, ?> getPrimaryAttackAbility() {
+        return getMeleeMode() == 0
+                ? ModAbilities.STEGONAUT_BITE
+                : ModAbilities.STEGONAUT_CHIN_SLAM;
+    }
+
+    public DragonAbilityType<?, ?> getRandomAiAttackAbility() {
+        return this.getRandom().nextBoolean()
+                ? ModAbilities.STEGONAUT_BITE
+                : ModAbilities.STEGONAUT_CHIN_SLAM;
+    }
+
+    @Override
+    public RiderAbilityBinding getAttackRiderAbility() {
+        String abilityId = getMeleeMode() == 0
+                ? ModAbilities.STEGONAUT_BITE.getName()
+                : ModAbilities.STEGONAUT_CHIN_SLAM.getName();
+        return new RiderAbilityBinding(abilityId, RiderAbilityBinding.Activation.PRESS);
+    }
+
+    @Override
+    public RiderAbilityBinding getTertiaryRiderAbility() {
+        return new RiderAbilityBinding(ModAbilities.STEGONAUT_GROUND_EATING.getName(), RiderAbilityBinding.Activation.HOLD);
+    }
+
+    @Override
+    public RiderAbilityBinding getSecondaryRiderAbility() {
+        return new RiderAbilityBinding(ModAbilities.STEGONAUT_GROUND_SLAM.getName(), RiderAbilityBinding.Activation.HOLD);
+    }
+
+    @Override
+    protected boolean isRidingAbilityAllowed(DragonAbilityType<?, ?> abilityType) {
+        return abilityType == ModAbilities.STEGONAUT_BITE
+                || abilityType == ModAbilities.STEGONAUT_CHIN_SLAM
+                || abilityType == ModAbilities.STEGONAUT_GROUND_EATING
+                || abilityType == ModAbilities.STEGONAUT_GROUND_SLAM;
+    }
+
+    @Override
+    protected DragonAbilityType<?, ?> getHurtAbilityType() {
+        return ModAbilities.STEGONAUT_HURT;
+    }
+
+    @Override
+    public int getDeathAnimationDurationTicks() {
+        return 43;
+    }
+
+    @Override
+    protected void dropAdditionalDeathLootAfterBase(@NotNull DamageSource source) {
+        if (!level().isClientSide()) {
+            dropEquipmentOnDeath();
+            if (getGender() == DragonGender.FEMALE) {
+                DragonLootTables.dropEntityLoot(this, DragonLootTables.STEGONAUT_FEMALE_DEATH, source);
+            }
+        }
+    }
+
+    @Override
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel hurtLevel, @NotNull DamageSource source, float amount) {
+        if (isDying()) {
+            return false;
+        }
+        rememberIncomingProjectile(source);
+        if (!isWildStegonautDamageAllowed(source)) {
+            return false;
+        }
+        if (source.is(DamageTypeTags.IS_FALL)) {
+            amount *= 0.3F;
+        }
+
+        return super.hurtServer(hurtLevel, source, amount);
+    }
+
+    private boolean isWildStegonautDamageAllowed(@NotNull DamageSource source) {
+        Entity attacker = source.getEntity();
+        if (!(attacker instanceof Stegonaut other)) {
+            return true;
+        }
+        if (this.isTame() || other.isTame()) {
+            return true;
+        }
+        if (this.isBaby() || other.isBaby()) {
+            return false;
+        }
+        return false;
+    }
+
+    @Override
+    protected double getCullingInflateX() {
+        return 6.0D;
+    }
+
+    @Override
+    protected double getCullingInflateY() {
+        return 3.0D;
+    }
+
+    @Override
+    protected double getCullingInflateZ() {
+        return 6.0D;
+    }
+
+    @Override
+    protected DragonAbilityType<?, ?> getDeathAbilityType() {
+        return ModAbilities.STEGONAUT_DIE;
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(movementController, vocalController, actionController, interactionController);
+    }
+
+    private void setupAnimationControllers() {
+        AnimationHelper.registerSoundKeyframes(this, movementController, actionController,
+                vocalController, interactionController);
+        animationController.setupMovementController(movementController);
+        animationController.setupActionController(actionController);
+        AnimationHelper.registerGrumbles(vocalController, this);
+        animationController.setupInteractionController(interactionController);
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.dragonCache;
+    }
+
+    @Override
+    public AgeableMob getBreedOffspring(@Nonnull ServerLevel level, @Nonnull AgeableMob other) {
+        return createBreedOffspring(level, other, ModEntities.STEGONAUT.get(), Stegonaut::applyConfiguredAttributes);
+    }
+
+    public void applyConfiguredAttributes() {
+        DragonAttributeConfig config = getConfiguredDragonAttributes();
+        applyConfiguredHealthAndArmor(config, BABY_MAX_HEALTH, BABY_ARMOR);
+        setAttributeBase(Attributes.MOVEMENT_SPEED, GROUND_MOVEMENT_SPEED);
+        clampHealthToMax();
+    }
+
+    @Override
+    public void ageBoundaryReached() {
+        super.ageBoundaryReached();
+        applyConfiguredAttributes();
+        refreshDimensions();
+    }
+
+    @Override
+    protected float getBabyHitboxScale() {
+        return BABY_HITBOX_SCALE;
+    }
+
+    @Override
+    public boolean canBreed() {
+        return this.isTame() && !this.isBaby() && this.getHealth() >= this.getMaxHealth() && this.isInLove();
+    }
+
+    @Override
+    protected Supplier<? extends Block> getEggBlock() {
+        return ModBlocks.STEGONAUT_EGG;
+    }
+
+    public static boolean canSpawnHere(EntityType<? extends Stegonaut> type,
+                                       LevelAccessor level,
+                                       EntitySpawnReason spawnType,
+                                       BlockPos pos,
+                                       RandomSource random) {
+        boolean hasSpawnSpace = SaintsDragonsConfig.isStegonautCustomSpawningEnabled()
+                ? DragonSpawnRules.hasCaveGroundSpawnSpace(level, pos)
+                : DragonSpawnRules.hasDryGroundSpawnSpace(level, pos);
+        return hasSpawnSpace && DragonSpawnRules.passesNearbyDragonDensityCheck(level, spawnType, pos, Stegonaut.class);
+    }
+    @Override
+    public @NotNull InteractionResult mobInteract(@NotNull Player player, @NotNull InteractionHand hand) {
+        InteractionResult handlerResult = interactionHandler.handleInteraction(player, hand);
+        if (handlerResult != InteractionResult.PASS) {
+            return handlerResult;
+        }
+        return super.mobInteract(player, hand);
+    }
+
+    private void dropStegonautChestContents() {
+        for (int slot = 0; slot < stegonautChestInventory.getContainerSize(); slot++) {
+            ItemStack stack = stegonautChestInventory.getItem(slot);
+            if (!stack.isEmpty()) {
+                this.spawnAtLocation((net.minecraft.server.level.ServerLevel) this.level(), stack.copy());
+                stegonautChestInventory.setItem(slot, ItemStack.EMPTY);
+            }
+        }
+    }
+
+    public void removeStegonautChestAndDropContents() {
+        if (this.level().isClientSide() || !hasStegonautChest()) {
+            return;
+        }
+        dropStegonautChestContents();
+        setStegonautChest(false);
+        this.playSound(SoundEvents.DONKEY_CHEST, 1.0F, 1.0F);
+    }
+
+    @Override
+    protected void clearSittingForMounting() {
+        suppressSitAnimation = true;
+        setOrderedToSit(false);
+        suppressSitAnimation = false;
+        clearSitTransitionState();
+    }
+
+    private int grumbleCooldown = 0;
+    private String selectAmbientGrumble() {
+        if (isDying() || getTarget() != null || isBaby()) {
+            return null;
+        }
+
+        return selectWeightedAmbientVocal("grumble1", 0.4f, "grumble2", 0.7f, "grumble3");
+    }
+    private void handleAmbientSounds() {
+        if (isDying() || isSleeping() || isSleepTransitioning()) {
+            return;
+        }
+
+        tickAmbientVocalSounds(MIN_AMBIENT_DELAY, MAX_AMBIENT_DELAY, this::selectAmbientGrumble);
+    }
+
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        if (!level().isClientSide()) {
+            if (this.isTame()) {
+                this.packLeaderUuid = null;
+            }
+        }
+        tickRiderControlLock();
+        if (!level().isClientSide()) {
+            tickAnimationStates();
+        }
+    }
+
+
+    @Override
+    public boolean supportsSleep() {
+        return true;
+    }
+
+    @Override
+    public boolean isSleepSuppressed() {
+        return super.isSleepSuppressed() || getTarget() != null || isInWater() || isVehicle();
+    }
+
+    @Override
+    protected boolean useSleepSitDownTimer() {
+        return true;
+    }
+
+    @Override
+    protected boolean requireSeatedBeforeFallAsleep() {
+        return true;
+    }
+
+    @Override
+    protected boolean sleepForceSitDownOnEnter() {
+        return true;
+    }
+
+    @Override
+    protected int getSleepExitSuppressionTicks() {
+        return 0;
+    }
+
+    @Override
+    protected int getSleepWakeUpSuppressionTicks() {
+        return 0;
+    }
+
+    @Override
+    protected boolean isAlreadySeatedForSleep() {
+        return isOrderedToSit() || shouldStaySeatedCommand() || getSitProgress() >= maxSitTicks();
+    }
+
+    @Override
+    protected boolean shouldStaySeatedAfterWake(int sleepCommandSnapshot) {
+        return isTame() && sleepCommandSnapshot == 1;
+    }
+
+    @Override
+    protected void onSleepLockCommand(int snapshot) {
+    }
+
+    @Override
+    protected void onSleepUnlockCommand(int desired) {
+    }
+
+    @Override
+    protected void onSleepFreezeTick() {
+        super.onSleepFreezeTick();
+        if (!isSleepingExiting()) {
+            this.setOrderedToSit(true);
+        }
+    }
+
+    @Override
+    protected void onSleepSitDownAnimation() {
+        animationController.triggerSitDownAnimation();
+        setOrderedToSit(true);
+    }
+
+    @Override
+    protected void onSleepFallAsleepAnimation() {
+        animationController.triggerFallAsleepAnimation();
+    }
+
+    @Override
+    protected void onSleepWakeUpAnimation() {
+        animationController.triggerWakeUpAnimation();
+        setOrderedToSit(true);
+    }
+
+    @Override
+    protected void onSleepSitUpAnimation() {
+        animationController.triggerSitUpAnimation();
+        setOrderedToSit(false);
+    }
+
+    @Override
+    protected void onSleepExitSeated() {
+        setOrderedToSit(true);
+        setSitProgress(Math.max(getSitProgress(), maxSitTicks()));
+        setGroundMoveStateFromAI(0);
+    }
+
+    @Override
+    protected void onSleepExitStarted() {
+        setOrderedToSit(true);
+    }
+
+    @Override
+    public DragonEntity.DragonSleepPreferences getSleepPreferences() {
+        return DragonEntity.DragonSleepPreferences.NOCTURNAL();
+    }
+
+    @Override
+    public boolean canSleepNow() {
+        return !DragonEntity.DragonSleepPreferences.isNaturalDay(level());
+    }
+
+    @Override
+    public float maxSitTicks() {
+        return getSitDownAnimationTicks();
+    }
+
+    private int getSitDownAnimationTicks() {
+        return 38;
+    }
+
+    private int getSitUpAnimationTicks() {
+        return 38;
+    }
+
+    private int getFallAsleepAnimationTicks() {
+        return 38;
+    }
+
+    private int getWakeUpAnimationTicks() {
+        return 38;
+    }
+
+    @Override
+    protected int getSleepSitDownDuration() {
+        return getSitDownAnimationTicks();
+    }
+
+    @Override
+    protected int getSleepSitUpDuration() {
+        return getSitUpAnimationTicks();
+    }
+
+    @Override
+    protected int getSleepFallAsleepDuration() {
+        return getFallAsleepAnimationTicks();
+    }
+
+    @Override
+    protected int getSleepWakeUpDuration() {
+        return getWakeUpAnimationTicks();
+    }
+
+    @Override
+    public void setOrderedToSit(boolean sitting) {
+        boolean wasSitting = this.isOrderedToSit();
+        super.setOrderedToSit(sitting);
+        if (level().isClientSide()) {
+            return;
+        }
+        if (wasSitting == sitting) {
+            return;
+        }
+        if (suppressSitAnimation) {
+            if (!sitting) {
+                clearSitTransitionState();
+            }
+            return;
+        }
+        if (isSleeping() || isSleepTransitioning()) {
+            return;
+        }
+        setGroundMoveStateFromAI(0);
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+
+        if (!level().isClientSide()) {
+            tickFeedingCooldown();
+            handleAmbientSounds();
+        }
+        screenShakeComponent.tick();
+
+        if (this.isAlive()) {
+            buffAbility.tick();
+        } else {
+            buffAbility.cleanup();
+        }
+        if (grumbleCooldown > 0) {
+            grumbleCooldown--;
+        }
+        if (!isSleeping() && !isSleepTransitioning()) {
+            tickSitTransition(
+                    getSitDownAnimationTicks(),
+                    getSitUpAnimationTicks(),
+                    animationController::triggerSitDownAnimation,
+                    animationController::triggerSitUpAnimation
+            );
+        }
+    }
+
+    private void tickFeedingCooldown() {
+        int cooldownTicks = this.entityData.get(DATA_FEEDING_COOLDOWN);
+        if (cooldownTicks > 0) {
+            this.entityData.set(DATA_FEEDING_COOLDOWN, cooldownTicks - 1);
+        }
+    }
+
+    private boolean shouldStaySeatedCommand() {
+        return this.isTame() && this.getCommand() == 1;
+    }
+    public void playEatMovingSound() {
+        if (!level().isClientSide()) {
+            getSoundHandler().playMovingEntitySound(ModSounds.STEGONAUT_EAT.get(), 1.0f, isBaby() ? 1.6f : 1.0f, 22);
+        }
+    }
+    public boolean hasStegonautChest() {
+        return this.entityData.get(DATA_HAS_CHEST);
+    }
+
+    @Override
+    public boolean hasSaddle() {
+        return this.entityData.get(DATA_SADDLED);
+    }
+
+    @Override
+    public void setSaddle(boolean saddled) {
+        if (!saddled && hasAttachedChest()) {
+            return;
+        }
+        this.entityData.set(DATA_SADDLED, saddled);
+        if (!saddled && isVehicle()) {
+            ejectPassengers();
+        }
+    }
+
+    @Override
+    public boolean hasAttachedChest() {
+        return hasStegonautChest();
+    }
+
+    public void setStegonautChest(boolean value) {
+        if (value && !hasSaddle()) {
+            return;
+        }
+        this.entityData.set(DATA_HAS_CHEST, value);
+        if (!value) {
+            stegonautChestInventory.clearContent();
+        }
+    }
+
+    @Override
+    public void setAttachedChest(boolean value) {
+        setStegonautChest(value);
+    }
+
+    public Container getStegonautChestInventory() {
+        return stegonautChestInventory;
+    }
+
+    @Override
+    public Container getAttachedChestInventory() {
+        return getStegonautChestInventory();
+    }
+
+    @Override
+    public void removeAttachedChestAndDropContents() {
+        removeStegonautChestAndDropContents();
+    }
+
+    private void openStegonautInventory(ServerPlayer player) {
+        if (!this.isAlive() || player.distanceToSqr(this) > 64.0D) {
+            return;
+        }
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, playerInventory, ignored) -> new DragonInventoryMenu(containerId, playerInventory, this),
+                this.getDisplayName()
+        ));
+    }
+
+    @Override
+    public void addAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        super.addAdditionalSaveDataTag(tag);
+        tag.putInt("StegonautCommand", this.getCommand());
+        tag.putBoolean("StegonautOrderedSit", this.isOrderedToSit());
+        tag.putInt("GrumbleCooldown", grumbleCooldown);
+        tag.putInt("FeedingCooldownTicks", Math.max(0, this.entityData.get(DATA_FEEDING_COOLDOWN)));
+        tag.putBoolean("BoundToBinder", boundToBinder);
+        if (this.packLeaderUuid != null) {
+            tag.store("PackLeaderUuid", UUIDUtil.CODEC, this.packLeaderUuid);
+        }
+        tag.putBoolean("StegonautHasChest", hasStegonautChest());
+        tag.putBoolean("StegonautSaddled", hasSaddle());
+        if (hasStegonautChest()) {
+            tag.put("StegonautChestItems", com.leon.saintsdragons.common.item.util.EquipmentStacks.saveContainer(stegonautChestInventory, registryAccess()));
+        }
+        saveSitProgress(tag);
+        saveRideableData(tag);
+    }
+
+    @Override
+    public void readAdditionalSaveDataTag(@NotNull CompoundTag tag) {
+        super.readAdditionalSaveDataTag(tag);
+        loadRideableData(tag);
+
+        int restoredCommand = this.getCommand();
+        if (tag.contains("StegonautCommand")) {
+            restoredCommand = tag.getIntOr("StegonautCommand", 0);
+            this.setCommand(restoredCommand);
+        }
+        boolean restoredOrderedSit = tag.contains("StegonautOrderedSit")
+                ? tag.getBooleanOr("StegonautOrderedSit", false)
+                : restoredCommand == 1;
+        grumbleCooldown = tag.getIntOr("GrumbleCooldown", 0);
+        if (tag.contains("FeedingCooldownTicks")) {
+            this.entityData.set(DATA_FEEDING_COOLDOWN, Math.max(0, tag.getIntOr("FeedingCooldownTicks", 0)));
+        }
+        boundToBinder = tag.getBooleanOr("BoundToBinder", false);
+        this.packLeaderUuid = tag.contains("PackLeaderUuid") ? tag.read("PackLeaderUuid", UUIDUtil.CODEC).orElse(null) : null;
+        if (this.isTame()) {
+            this.packLeaderUuid = null;
+        }
+
+        boolean restoredChest = tag.getBooleanOr("StegonautHasChest", false);
+        boolean restoredSaddle = restoredChest
+                || tag.contains("StegonautSaddled") && tag.getBooleanOr("StegonautSaddled", false);
+        setSaddle(restoredSaddle);
+        setStegonautChest(restoredChest);
+        if (hasStegonautChest() && tag.contains("StegonautChestItems")) {
+            com.leon.saintsdragons.common.item.util.EquipmentStacks.loadContainer(stegonautChestInventory, tag.getListOrEmpty("StegonautChestItems"), registryAccess());
+        }
+        if (tag.contains("SitProgress")) {
+            setSitProgress(tag.getFloatOr("SitProgress", 0.0F));
+        }
+        refreshCommandState();
+        this.setOrderedToSit(restoredOrderedSit);
+        applyConfiguredAttributes();
+    }
+
+    @Override
+    protected boolean canAddPassenger(@NotNull Entity passenger) {
+        return hasSaddle() && super.canAddPassenger(passenger);
+    }
+
+    private void dropEquipmentOnDeath() {
+        if (hasStegonautChest()) {
+            dropStegonautChestContents();
+            spawnAtLocation((net.minecraft.server.level.ServerLevel) level(), Items.CHEST);
+            setStegonautChest(false);
+        }
+        if (hasSaddle()) {
+            spawnAtLocation((net.minecraft.server.level.ServerLevel) level(), Items.SADDLE);
+            setSaddle(false);
+        }
+    }
+
+    @Override
+    public @Nullable UUID getPackLeaderUuid() {
+        return this.packLeaderUuid;
+    }
+
+    @Override
+    public void setPackLeaderUuid(@Nullable UUID leaderUuid) {
+        this.packLeaderUuid = leaderUuid;
+    }
+
+    @Override
+    public int getMaxPackSize() {
+        return MAX_PACK_SIZE;
+    }
+
+    @Override
+    public double getPackSearchRadius() {
+        return PACK_SEARCH_RADIUS;
+    }
+
+    @Override
+    public boolean canTarget(Entity entity) {
+        if (this.isBaby()) {
+            return false;
+        }
+
+        if (entity instanceof Stegonaut otherStegonaut) {
+            if (otherStegonaut.isBaby()) {
+                return false;
+            }
+            return false;
+        }
+        if (entity instanceof Player player && !this.isTame()) {
+            if (isAggressiveWild()) {
+                return !player.isCreative() && !player.isSpectator();
+            }
+            return this.getLastHurtByMob() == player || this.getTarget() == player;
+        }
+        return super.canTarget(entity);
+    }
+
+    public boolean isAggressiveWild() {
+        return isWildAggressionEnabled();
+    }
+
+    @Override
+    public boolean isWildAggressionEnabled() {
+        return DragonAttributeConfigLoader.getInstance()
+                .getConfig(DragonAttributeConfigLoader.STEGONAUT_ID)
+                .extraBoolean("aggressive_wild", false);
+    }
+
+    @Override
+    public @NotNull Vec3 getRiddenInput(@NotNull Player player, @NotNull Vec3 deltaIn) {
+        if (areRiderControlsLocked()) {
+            return Vec3.ZERO;
+        }
+
+        Vec3 input = riderController.getRiddenInput(player, deltaIn);
+        if (!level().isClientSide()) {
+            float fwd = (float) Math.max(-1.0D, Math.min(1.0D, input.z));
+            float str = (float) Math.max(-1.0D, Math.min(1.0D, input.x));
+            setLastRiderForward(Math.abs(fwd) > 0.02f ? fwd : 0f);
+            setLastRiderStrafe(Math.abs(str) > 0.02f ? str : 0f);
+        }
+        return input;
+    }
+
+    @Override
+    public float getRiddenSpeed(@NotNull Player rider) {
+        return riderController.getRiddenSpeed(rider);
+    }
+
+    @Override
+    public void tickRidden(@NotNull Player player, @NotNull Vec3 travelVec) {
+        super.tickRidden(player, travelVec);
+        riderController.tickRidden(player, travelVec);
+    }
+
+    @Override
+    public void travel(@NotNull Vec3 motion) {
+        if (this.isVehicle() && this.getControllingPassenger() instanceof Player player) {
+            travelStandardRiddenGround(player, getRiddenInput(player, motion), riderController.getRiddenSpeed(player));
+            return;
+        }
+
+        super.travel(motion);
+    }
+
+    @Override
+    protected void positionRider(@Nonnull @NotNull Entity passenger,
+                                 @Nonnull @NotNull Entity.MoveFunction moveFunction) {
+        riderController.positionRider(passenger, moveFunction);
+    }
+
+    @Override
+    public @NotNull Vec3 getDismountLocationForPassenger(@NotNull LivingEntity passenger) {
+        return riderController.getDismountLocationForPassenger(passenger);
+    }
+
+    @Override
+    public @Nullable LivingEntity getControllingPassenger() {
+        return riderController.getControllingPassenger();
+    }
+
+    public boolean canBeBound() {
+        return !isSleeping() && !isDying();
+    }
+
+    @Override
+    protected ScreenShakeComponent getScreenShakeComponent() {
+        return screenShakeComponent;
+    }
+
+    @Override
+    public double getShakeDistance() {
+        return 24.0D;
+    }
+}

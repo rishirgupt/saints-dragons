@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.leon.saintsdragons.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "DragonPartQueryMixin",
+    "BrewingStandBlockEntityMixin",
+    "IgnivorusPartLifecycleMixin",
+    "PlayerDefaultAttributesMixin",
+    "RangedAttributeAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

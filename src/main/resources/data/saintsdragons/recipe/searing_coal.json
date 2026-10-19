@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SSS",
+    "SCS",
+    "SSS"
+  ],
+  "key": {
+    "S": "saintsdragons:cindervane_scale",
+    "C": "minecraft:coal"
+  },
+  "result": {
+    "id": "saintsdragons:searing_coal",
+    "count": 3
+  }
+}

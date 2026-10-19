@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DDD",
+    "DDD",
+    "DDD"
+  ],
+  "key": {
+    "D": "saintsdragons:dragonheart_alloy"
+  },
+  "result": {
+    "id": "saintsdragons:dragonheart_alloy_block"
+  }
+}

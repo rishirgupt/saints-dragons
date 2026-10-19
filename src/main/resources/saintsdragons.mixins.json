@@ -1,0 +1,29 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.leon.saintsdragons.fabric.mixin.fabric",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "AirDismountInputMixin",
+    "EntityTurnMixin",
+    "DragonPartAttackMixin",
+    "DragonPartInteractionMixin",
+    "CameraMixin",
+    "EntityRenderStateMixin",
+    "RiderMixin",
+    "LivingEntityRendererMixin",
+    "LocalPlayerPickMixin",
+    "InventoryScreenMixin"
+  ],
+  "mixins": [
+    "ChunkGeneratorStructureStateMixin",
+    "NameTagItemMixin",
+    "LivingEntityMixin",
+    "PlayerMixin",
+    "RedStoneWireBlockMixin",
+    "StructureTemplateEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "saintsdragons:draconic_crucible",
+  "pattern": [
+    "AWA",
+    "W W",
+    "S S"
+  ],
+  "key": {
+    "A": "saintsdragons:dragonheart_alloy",
+    "S": "saintsdragons:ignivorus_scale",
+    "W": "saintsdragons:ignivorus_wing_hide"
+  },
+  "result": {
+    "id": "saintsdragons:dragonlord_leggings",
+    "count": 1
+  },
+  "required_heat_level": 3,
+  "processing_time": 1800
+}

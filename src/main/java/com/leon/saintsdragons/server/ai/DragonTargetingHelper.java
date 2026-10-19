@@ -1,0 +1,108 @@
+package com.leon.saintsdragons.server.ai;
+
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import com.leon.saintsdragons.server.ai.navigation.async.DragonFlightSpace;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.npc.villager.AbstractVillager;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.raid.Raider;
+
+public final class DragonTargetingHelper {
+    private DragonTargetingHelper() {
+    }
+
+    /** The outermost living mount, including modded mobs and stacked passenger chains. */
+    public static LivingEntity combatTarget(LivingEntity target) {
+        if (!(target instanceof Player)) return target;
+        LivingEntity result = target;
+        for (Entity vehicle = target.getVehicle(); vehicle != null; vehicle = vehicle.getVehicle()) {
+            if (vehicle instanceof LivingEntity living && living.isAlive() && !living.isRemoved()) {
+                result = living;
+            }
+        }
+        return result;
+    }
+
+    public static Entity movementAnchor(LivingEntity target) {
+        if (!(target instanceof Player)) return target;
+        Entity rootVehicle = target.getRootVehicle();
+        return rootVehicle != target && rootVehicle.isAlive() ? rootVehicle : target;
+    }
+
+    public static LivingEntity livingMovementAnchor(LivingEntity target) {
+        Entity anchor = movementAnchor(target);
+        return anchor instanceof LivingEntity livingAnchor ? livingAnchor : target;
+    }
+
+    public static boolean isMovementAnchorInWater(LivingEntity target) {
+        return movementAnchor(target).isInWater();
+    }
+
+    public static double movementStopDistance(LivingEntity target, double targetStopDistance) {
+        Entity anchor = movementAnchor(target);
+        double mountRadiusIncrease = Math.max(0.0D, (anchor.getBbWidth() - target.getBbWidth()) * 0.5D);
+        return Math.max(0.0D, targetStopDistance) + mountRadiusIncrease;
+    }
+
+    public static boolean isTargetAirborne(LivingEntity target, double minHeightAboveGround) {
+        if (target == null) {
+            return false;
+        }
+        Entity anchor = movementAnchor(target);
+        if (anchor != target) {
+            return !anchor.onGround();
+        }
+        if (target.onGround()) {
+            return false;
+        }
+        if (target instanceof Player player && player.isFallFlying()) {
+            return true;
+        }
+
+        return DragonFlightSpace.heightAboveLocalFloor(target, minHeightAboveGround + 2.0D) > minHeightAboveGround;
+    }
+
+    public static boolean isBiteOnlyPreyTarget(DragonEntity dragon, LivingEntity target) {
+        if (dragon == null
+                || !dragon.isPassiveHuntTarget(target)
+                || dragon.getLastHurtByMob() == target) {
+            return false;
+        }
+        return isPassivePreyType(target);
+    }
+
+    public static boolean isPassivePreyType(LivingEntity target) {
+        if (target == null || target instanceof Player || target instanceof DragonEntity) {
+            return false;
+        }
+        if (target instanceof Animal) {
+            return true;
+        }
+
+        MobCategory category = target.getType().getCategory();
+        return category == MobCategory.CREATURE
+                || category == MobCategory.WATER_CREATURE
+                || category == MobCategory.WATER_AMBIENT
+                || category == MobCategory.UNDERGROUND_WATER_CREATURE
+                || category == MobCategory.AMBIENT
+                || category == MobCategory.AXOLOTLS;
+    }
+
+    public static boolean isTaggedHuntTarget(LivingEntity target, TagKey<EntityType<?>> tag) {
+        return target != null && target.getType().builtInRegistryHolder().is(tag);
+    }
+
+    public static boolean isVillageDefender(Entity entity) {
+        return entity instanceof AbstractVillager || entity instanceof IronGolem;
+    }
+
+    public static boolean isActiveRaidTarget(LivingEntity target) {
+        return target instanceof Raider raider && raider.hasActiveRaid();
+    }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    { "rolls": 1, "entries": [{ "type": "minecraft:item", "name": "saintsdragons:bleeding_bolt_music_disc" }] },
+    { "rolls": 1, "entries": [{ "type": "minecraft:item", "name": "saintsdragons:draconic_codex" }] },
+    { "rolls": 1, "entries": [{ "type": "minecraft:item", "name": "saintsdragons:dragon_brush" }] },
+    {
+      "rolls": 1,
+      "entries": [
+        { "type": "minecraft:empty", "weight": 200 },
+        { "type": "minecraft:item", "name": "saintsdragons:raevyx_wingtalon", "weight": 1 },
+        { "type": "minecraft:item", "name": "saintsdragons:raevyx_wing_hide", "weight": 1 },
+        { "type": "minecraft:item", "name": "saintsdragons:raevyx_scale", "weight": 1 }
+      ]
+    }
+  ]
+}

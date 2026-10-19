@@ -1,0 +1,647 @@
+{
+  "start_at": "what_do_you_do",
+  "resume": {
+    "texts": [
+      {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.resume.0"
+      },
+      {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.resume.1"
+      },
+      {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.resume.2"
+      },
+      {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.resume.3"
+      }
+    ],
+    "requires_all_flags": [
+      "dimension:minecraft:overworld"
+    ]
+  },
+  "states": {
+    "what_do_you_do": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_you_do.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_you_do.choice.0"
+          },
+          "next": "ridiculous_dragons_1",
+          "hidden_if_flag": "work_dragons"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_you_do.choice.1"
+          },
+          "next": "gardening_1",
+          "hidden_if_flag": "work_gardening"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_you_do.choice.2"
+          },
+          "next": "dragon_expert_1",
+          "hidden_if_flag": "work_expert"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_you_do.choice.3"
+          },
+          "set_flag": "known_work_done",
+          "next": "work_done"
+        }
+      ]
+    },
+    "what_do_menu": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_menu.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_menu.choice.0"
+          },
+          "next": "ridiculous_dragons_1",
+          "hidden_if_flag": "work_dragons"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_menu.choice.1"
+          },
+          "next": "gardening_1",
+          "hidden_if_flag": "work_gardening"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_menu.choice.2"
+          },
+          "next": "dragon_expert_1",
+          "hidden_if_flag": "work_expert"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.what_do_menu.choice.3"
+          },
+          "set_flag": "known_work_done",
+          "next": "work_done"
+        }
+      ]
+    },
+    "ridiculous_dragons_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_1.choice.0"
+          },
+          "next": "ridiculous_dragons_2"
+        }
+      ]
+    },
+    "ridiculous_dragons_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_2.choice.0"
+          },
+          "next": "ridiculous_dragons_3"
+        }
+      ]
+    },
+    "ridiculous_dragons_3": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_3.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_3.choice.0"
+          },
+          "next": "ridiculous_dragons_4"
+        }
+      ]
+    },
+    "ridiculous_dragons_4": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_4.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_4.choice.0"
+          },
+          "next": "ridiculous_dragons_5"
+        }
+      ]
+    },
+    "ridiculous_dragons_5": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_5.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_5.choice.0"
+          },
+          "next": "ridiculous_dragons_6"
+        }
+      ]
+    },
+    "ridiculous_dragons_6": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_6.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_6.choice.0"
+          },
+          "next": "ridiculous_dragons_7"
+        }
+      ]
+    },
+    "ridiculous_dragons_7": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_7.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_7.choice.0"
+          },
+          "next": "ridiculous_dragons_8"
+        }
+      ]
+    },
+    "ridiculous_dragons_8": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_8.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_8.choice.0"
+          },
+          "next": "ridiculous_dragons_9"
+        }
+      ]
+    },
+    "ridiculous_dragons_9": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_9.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_9.choice.0"
+          },
+          "next": "ridiculous_dragons_10"
+        }
+      ]
+    },
+    "ridiculous_dragons_10": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_10.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_10.choice.0"
+          },
+          "next": "ridiculous_dragons_11"
+        }
+      ]
+    },
+    "ridiculous_dragons_11": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_11.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_11.choice.0"
+          },
+          "next": "ridiculous_dragons_12"
+        }
+      ]
+    },
+    "ridiculous_dragons_12": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_12.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.ridiculous_dragons_12.choice.0"
+          },
+          "next": "what_do_menu",
+          "set_flag": "work_dragons"
+        }
+      ]
+    },
+    "gardening_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_1.choice.0"
+          },
+          "next": "gardening_2"
+        }
+      ]
+    },
+    "gardening_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_2.choice.0"
+          },
+          "next": "gardening_3"
+        }
+      ]
+    },
+    "gardening_3": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_3.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_3.choice.0"
+          },
+          "next": "gardening_4"
+        }
+      ]
+    },
+    "gardening_4": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_4.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_4.choice.0"
+          },
+          "next": "gardening_5"
+        }
+      ]
+    },
+    "gardening_5": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_5.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.gardening_5.choice.0"
+          },
+          "next": "what_do_menu",
+          "set_flag": "work_gardening"
+        }
+      ]
+    },
+    "dragon_expert_1": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_1.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_1.choice.0"
+          },
+          "next": "dragon_expert_2"
+        }
+      ]
+    },
+    "dragon_expert_2": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_2.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_2.choice.0"
+          },
+          "next": "dragon_expert_3"
+        }
+      ]
+    },
+    "dragon_expert_3": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_3.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_3.choice.0"
+          },
+          "next": "dragon_expert_4"
+        }
+      ]
+    },
+    "dragon_expert_4": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_4.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_4.choice.0"
+          },
+          "next": "dragon_expert_5"
+        }
+      ]
+    },
+    "dragon_expert_5": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_5.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_5.choice.0"
+          },
+          "next": "dragon_expert_6"
+        }
+      ]
+    },
+    "dragon_expert_6": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_6.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_6.choice.0"
+          },
+          "next": "dragon_expert_7"
+        }
+      ]
+    },
+    "dragon_expert_7": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_7.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_7.choice.0"
+          },
+          "next": "dragon_expert_8"
+        }
+      ]
+    },
+    "dragon_expert_8": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_8.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_8.choice.0"
+          },
+          "next": "dragon_expert_9"
+        }
+      ]
+    },
+    "dragon_expert_9": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_9.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_9.choice.0"
+          },
+          "next": "dragon_expert_10"
+        }
+      ]
+    },
+    "dragon_expert_10": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_10.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_10.choice.0"
+          },
+          "next": "dragon_expert_11"
+        }
+      ]
+    },
+    "dragon_expert_11": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_11.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_11.choice.0"
+          },
+          "next": "dragon_expert_12"
+        }
+      ]
+    },
+    "dragon_expert_12": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_12.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_12.choice.0"
+          },
+          "next": "dragon_expert_13"
+        }
+      ]
+    },
+    "dragon_expert_13": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_13.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_13.choice.0"
+          },
+          "next": "dragon_expert_14"
+        }
+      ]
+    },
+    "dragon_expert_14": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_14.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_14.choice.0"
+          },
+          "next": "dragon_expert_15"
+        }
+      ]
+    },
+    "dragon_expert_15": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_15.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_15.choice.0"
+          },
+          "next": "dragon_expert_16"
+        }
+      ]
+    },
+    "dragon_expert_16": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_16.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.dragon_expert_16.choice.0"
+          },
+          "next": "what_do_menu",
+          "set_flag": "work_expert"
+        }
+      ]
+    },
+    "work_done": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.work_done.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_meeting_about_work.work_done.choice.0"
+          },
+          "next": "saintsdragons:ivy/known_greeting#return_prompt"
+        }
+      ]
+    }
+  }
+}

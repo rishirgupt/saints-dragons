@@ -1,0 +1,2702 @@
+package com.leon.saintsdragons.fabric;
+
+import com.leon.saintsdragons.client.camera.DragonRideCameraTuning;
+import com.leon.saintsdragons.common.config.SaintsDragonsConfig;
+import com.leon.saintsdragons.common.config.ToolsArmorConfig;
+import com.leon.saintsdragons.common.config.dragon.DragonAbilityOverride;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfig;
+import com.leon.saintsdragons.common.config.dragon.DragonAttributeConfigLoader;
+import com.leon.saintsdragons.client.ui.config.ConfigNavigationScreen;
+import com.leon.saintsdragons.server.entity.dragons.cindervane.Cindervane;
+import com.leon.saintsdragons.server.entity.dragons.ignivorus.Ignivorus;
+import com.leon.saintsdragons.server.entity.dragons.nulljaw.Nulljaw;
+import com.leon.saintsdragons.server.entity.dragons.raevyx.Raevyx;
+import com.leon.saintsdragons.server.entity.dragons.stegonaut.Stegonaut;
+import com.leon.saintsdragons.server.entity.dragons.varasuchus.Varasuchus;
+import com.leon.saintsdragons.server.entity.dragons.volitans.Volitans;
+import com.leon.saintsdragons.server.entity.draconianswarm.AbstractDraconianSwarmEntity;
+import com.leon.saintsdragons.fabric.config.SaintsDragonsFabricClientConfig;
+import com.leon.saintsdragons.fabric.config.SaintsDragonsFabricServerConfig;
+import com.leon.saintsdragons.fabric.config.SaintsDragonsFabricSpawnConfig;
+import com.leon.saintsdragons.fabric.config.SaintsDragonsFabricToolsArmorConfig;
+import com.leon.saintsdragons.platform.ConfigHelper;
+import com.terraformersmc.modmenu.api.ConfigScreenFactory;
+import com.terraformersmc.modmenu.api.ModMenuApi;
+import me.shedaniel.autoconfig.AutoConfig;
+import me.shedaniel.autoconfig.ConfigHolder;
+import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
+import me.shedaniel.clothconfig2.api.ConfigBuilder;
+import me.shedaniel.clothconfig2.api.ConfigCategory;
+import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+
+/**
+ * Custom ModMenu screen wiring spawn tuning and dragon attribute sliders through Cloth Config.
+ */
+@Environment(EnvType.CLIENT)
+public class SaintsDragonsModMenuIntegration implements ModMenuApi {
+    private static final Component TITLE = Component.translatable("config.saintsdragons.title");
+    private static final Component SPAWN_CATEGORY = Component.translatable("config.saintsdragons.category.spawning");
+    private static final Component ATTRIBUTES_CATEGORY = Component.translatable("config.saintsdragons.category.attributes");
+    private static final Component TOOLS_ARMOR_CATEGORY = Component.translatable("config.saintsdragons.category.tools_armor");
+    private static final Component CLIENT_COMMON_CATEGORY = Component.translatable("saintsdragons.config_screen.client_common");
+    private static final Component RIDER_CAMERA_CATEGORY = Component.translatable("saintsdragons.config_screen.dragon_rider_camera");
+    private static final Component GAMEPLAY_CATEGORY = Component.translatable("saintsdragons.config_screen.gameplay");
+    private static final Component DRAGON_NEEDS_CATEGORY = Component.translatable("saintsdragons.config_screen.dragon_needs");
+    private static final Component NPCS_CATEGORY = Component.translatable("saintsdragons.config_screen.npcs");
+
+    private enum Page {
+        CLIENT_COMMON,
+        CLIENT_RIDER_CAMERA,
+        SERVER_GAMEPLAY,
+        SERVER_DRAGON_NEEDS,
+        SERVER_SPAWNING,
+        SERVER_TOOLS_ARMOR,
+        SERVER_NPCS,
+        DRAGON_ATTRIBUTES
+    }
+
+    @Override
+    public ConfigScreenFactory<?> getModConfigScreenFactory() {
+        return this::createRootScreen;
+    }
+
+    private Screen createRootScreen(Screen parent) {
+        return new ConfigNavigationScreen(parent, TITLE, List.of(
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.client"),
+                        this::createClientMenu
+                ),
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.server"),
+                        this::createServerMenu,
+                        () -> !isRemoteServerSession(),
+                        Component.translatable("saintsdragons.config_screen.server.remote_disabled")
+                )
+        ));
+    }
+
+    private Screen createClientMenu(Screen parent) {
+        return new ConfigNavigationScreen(parent, Component.translatable("saintsdragons.config_screen.client"), List.of(
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.client_common"),
+                        screen -> createConfigScreen(screen, Page.CLIENT_COMMON)
+                ),
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.dragon_rider_camera"),
+                        screen -> createConfigScreen(screen, Page.CLIENT_RIDER_CAMERA)
+                )
+        ));
+    }
+
+    private Screen createServerMenu(Screen parent) {
+        return new ConfigNavigationScreen(parent, Component.translatable("saintsdragons.config_screen.server"), List.of(
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.server_common"),
+                        this::createServerCommonMenu
+                ),
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.attributes"),
+                        screen -> createConfigScreen(screen, Page.DRAGON_ATTRIBUTES)
+                )
+        ));
+    }
+
+    private Screen createServerCommonMenu(Screen parent) {
+        return new ConfigNavigationScreen(parent, Component.translatable("saintsdragons.config_screen.server_common"), List.of(
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.gameplay"),
+                        screen -> createConfigScreen(screen, Page.SERVER_GAMEPLAY)
+                ),
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.dragon_needs"),
+                        screen -> createConfigScreen(screen, Page.SERVER_DRAGON_NEEDS)
+                ),
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.spawning"),
+                        screen -> createConfigScreen(screen, Page.SERVER_SPAWNING)
+                ),
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.tools_armor"),
+                        screen -> createConfigScreen(screen, Page.SERVER_TOOLS_ARMOR)
+                ),
+                new ConfigNavigationScreen.Destination(
+                        Component.translatable("saintsdragons.config_screen.npcs"),
+                        screen -> createConfigScreen(screen, Page.SERVER_NPCS)
+                )
+        ));
+    }
+
+    private Screen createConfigScreen(Screen parent, Page page) {
+        ConfigHolder<SaintsDragonsFabricSpawnConfig> holder = AutoConfig.getConfigHolder(SaintsDragonsFabricSpawnConfig.class);
+        ConfigHolder<SaintsDragonsFabricServerConfig> serverHolder = AutoConfig.getConfigHolder(SaintsDragonsFabricServerConfig.class);
+        ConfigHolder<SaintsDragonsFabricClientConfig> clientHolder = AutoConfig.getConfigHolder(SaintsDragonsFabricClientConfig.class);
+        ConfigHolder<SaintsDragonsFabricToolsArmorConfig> toolsArmorHolder = AutoConfig.getConfigHolder(SaintsDragonsFabricToolsArmorConfig.class);
+        SaintsDragonsFabricSpawnConfig config = holder.getConfig();
+        SaintsDragonsFabricClientConfig clientConfig = clientHolder.getConfig();
+        boolean remoteServer = isRemoteServerSession();
+
+        DragonAttributeConfigLoader loader = DragonAttributeConfigLoader.getInstance();
+        DragonAttributeConfig cindervaneCurrent = loader.getConfig(DragonAttributeConfigLoader.CINDERVANE_ID);
+        DragonAttributeConfig cindervaneDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.CINDERVANE_ID);
+        CindervaneAttributeBuffer cindervaneBuffer = new CindervaneAttributeBuffer();
+        cindervaneBuffer.maxHealth = cindervaneCurrent.maxHealth();
+        cindervaneBuffer.armor = cindervaneCurrent.armor();
+        cindervaneBuffer.flyingSpeed = cindervaneCurrent.flyingSpeed();
+        cindervaneBuffer.biteDamage = cindervaneCurrent.abilityDamage("bite",
+                cindervaneDefaults.abilityDamage("bite", 12.0D));
+        cindervaneBuffer.doubleBiteDamage = cindervaneCurrent.abilityDamage("double_bite",
+                cindervaneDefaults.abilityDamage("double_bite", 15.0D));
+        cindervaneBuffer.slashGrabHit1Damage = cindervaneCurrent.abilityDamage("slash_grab_hit1",
+                cindervaneDefaults.abilityDamage("slash_grab_hit1", 5.0D));
+        cindervaneBuffer.slashGrabHit2Damage = cindervaneCurrent.abilityDamage("slash_grab_hit2",
+                cindervaneDefaults.abilityDamage("slash_grab_hit2", 7.0D));
+        cindervaneBuffer.volleyDamage = cindervaneCurrent.abilityDamage("magma_volley",
+                cindervaneDefaults.abilityDamage("magma_volley", 20.0D));
+        cindervaneBuffer.magmaVolleyCooldownSeconds = cindervaneCurrent.extraDouble("magma_volley_cooldown_seconds",
+                cindervaneDefaults.extraDouble("magma_volley_cooldown_seconds", 20.0D));
+        cindervaneBuffer.fireBodyDamage = cindervaneCurrent.abilityDamage("fire_body",
+                cindervaneDefaults.abilityDamage("fire_body", 3.0D));
+        cindervaneBuffer.tamingChanceBase = cindervaneCurrent.extraDouble("taming_chance_base", 25.0);
+        cindervaneBuffer.tamingChanceChicken = cindervaneCurrent.extraDouble("taming_chance_chicken", 33.3333D);
+        cindervaneBuffer.tamingChanceHearty = cindervaneCurrent.extraDouble("taming_chance_hearty", 50.0);
+        cindervaneBuffer.eggHatchChanceNormal = cindervaneCurrent.extraDouble("egg_hatch_time_ticks_normal", 12000.0D);
+        cindervaneBuffer.fireBodyExplosionDamage = cindervaneCurrent.extraDouble("fire_body_explosion_damage", 200.0D);
+        cindervaneBuffer.fireBodySelfDamageOnCrash = cindervaneCurrent.extraDouble("fire_body_self_damage_on_crash", 40.0D);
+        cindervaneBuffer.wildFlyingSpeedMultiplier = cindervaneCurrent.extraDouble("wild_flying_speed_multiplier",
+                cindervaneDefaults.extraDouble("wild_flying_speed_multiplier", 1.0D));
+        cindervaneBuffer.aggressiveWild = cindervaneCurrent.extraBoolean("aggressive_wild", false);
+
+        DragonAttributeConfig raevyxCurrent = loader.getConfig(DragonAttributeConfigLoader.RAEVYX_ID);
+        DragonAttributeConfig raevyxDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.RAEVYX_ID);
+        RaevyxAttributeBuffer raevyxBuffer = new RaevyxAttributeBuffer();
+        raevyxBuffer.maxHealth = raevyxCurrent.maxHealth();
+        raevyxBuffer.armor = raevyxCurrent.armor();
+        raevyxBuffer.flyingSpeed = raevyxCurrent.flyingSpeed();
+        raevyxBuffer.biteDamage = raevyxCurrent.abilityDamage("bite",
+                raevyxDefaults.abilityDamage("bite", 15.0D));
+        raevyxBuffer.beamDamage = raevyxCurrent.abilityDamage("lightning_beam",
+                raevyxDefaults.abilityDamage("lightning_beam", 35.0D));
+        raevyxBuffer.hornDamage = raevyxCurrent.abilityDamage("horn_gore",
+                raevyxDefaults.abilityDamage("horn_gore", 15.0D));
+        raevyxBuffer.dashDamage = raevyxCurrent.abilityDamage("dash",
+                raevyxDefaults.abilityDamage("dash", 10.0D));
+        raevyxBuffer.tamingChanceBase = raevyxCurrent.extraDouble("taming_chance_base", 20.0);
+        raevyxBuffer.tamingChanceMutton = raevyxCurrent.extraDouble("taming_chance_mutton", 20.0D);
+        raevyxBuffer.tamingChancePorkchop = raevyxCurrent.extraDouble("taming_chance_porkchop", 20.0D);
+        raevyxBuffer.tamingChanceHearty = raevyxCurrent.extraDouble("taming_chance_hearty", 33.3333D);
+        raevyxBuffer.tamingStunHealth = raevyxCurrent.extraDouble("taming_stun_health",
+                raevyxDefaults.extraDouble("taming_stun_health", 60.0D));
+        raevyxBuffer.wildFlyingSpeedMultiplier = raevyxCurrent.extraDouble("wild_flying_speed_multiplier",
+                raevyxDefaults.extraDouble("wild_flying_speed_multiplier", 1.0D));
+        raevyxBuffer.beamDrainPerTick = raevyxCurrent.extraDouble("beam_drain_per_tick",
+                raevyxDefaults.extraDouble("beam_drain_per_tick", 0.014D));
+        raevyxBuffer.beamRegenPerTick = raevyxCurrent.extraDouble("beam_regen_per_tick",
+                raevyxDefaults.extraDouble("beam_regen_per_tick", 0.0025D));
+        raevyxBuffer.summonStormCooldownTicks = raevyxCurrent.extraDouble("summon_storm_cooldown_ticks",
+                raevyxDefaults.extraDouble("summon_storm_cooldown_ticks", 4800.0D));
+        raevyxBuffer.summonStormSuperchargeTicks = raevyxCurrent.extraDouble("summon_storm_supercharge_ticks",
+                raevyxDefaults.extraDouble("summon_storm_supercharge_ticks", 1200.0D));
+        raevyxBuffer.summonStormSuperchargeDamageMultiplier = raevyxCurrent.extraDouble("summon_storm_supercharge_damage_multiplier",
+                raevyxDefaults.extraDouble("summon_storm_supercharge_damage_multiplier", 2.0D));
+        raevyxBuffer.summonStormDurationTicks = raevyxCurrent.extraDouble("summon_storm_duration_ticks",
+                raevyxDefaults.extraDouble("summon_storm_duration_ticks", 1200.0D));
+        raevyxBuffer.legacyTaming = raevyxCurrent.extraBoolean("legacy_taming", false);
+        raevyxBuffer.diveLoopEnabled = raevyxCurrent.extraBoolean("dive_loop_enabled",
+                raevyxDefaults.extraBoolean("dive_loop_enabled", true));
+        raevyxBuffer.eggHatchTimeTicksNormal = raevyxCurrent.extraDouble("egg_hatch_time_ticks_normal", 18000.0D);
+        raevyxBuffer.eggHatchTimeTicksThunder = raevyxCurrent.extraDouble("egg_hatch_time_ticks_thunder", 9600.0D);
+        raevyxBuffer.aggressiveWild = raevyxCurrent.extraBoolean("aggressive_wild", false);
+
+        DragonAttributeConfig varasuchusCurrent = loader.getConfig(DragonAttributeConfigLoader.VARASUCHUS_ID);
+        DragonAttributeConfig varasuchusDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.VARASUCHUS_ID);
+        VarasuchusAttributeBuffer varasuchusBuffer = new VarasuchusAttributeBuffer();
+        varasuchusBuffer.maxHealth = varasuchusCurrent.maxHealth();
+        varasuchusBuffer.armor = varasuchusCurrent.armor();
+        varasuchusBuffer.swimSpeed = varasuchusCurrent.extraDouble("swim_speed", 1.45D);
+        varasuchusBuffer.bitePhase1 = varasuchusCurrent.abilityDamage("bite_phase1", 15.0D);
+        varasuchusBuffer.bitePhase2 = varasuchusCurrent.abilityDamage("bite_phase2", 25.0D);
+        varasuchusBuffer.tailAttack = varasuchusCurrent.abilityDamage("tail_attack", 7.0D);
+        varasuchusBuffer.tailguardParry = varasuchusCurrent.abilityDamage("tailguard_parry", 10.0D);
+        varasuchusBuffer.dashTailSwipe = varasuchusCurrent.abilityDamage("dash_tail_swipe", 10.0D);
+        varasuchusBuffer.dashClaw = varasuchusCurrent.abilityDamage("dash_claw", 15.0D);
+        varasuchusBuffer.clawAttack = varasuchusCurrent.abilityDamage("claw_attack", 8.0D);
+        varasuchusBuffer.hornPhase1 = varasuchusCurrent.abilityDamage("horn_gore_phase1", 8.0D);
+        varasuchusBuffer.hornPhase2 = varasuchusCurrent.abilityDamage("horn_gore_phase2", 15.8D);
+        varasuchusBuffer.tamingChance = varasuchusCurrent.extraDouble("taming_chance", 16.6667D);
+        varasuchusBuffer.tamingChanceBeef = varasuchusCurrent.extraDouble("taming_chance_beef", 16.6667D);
+        varasuchusBuffer.tamingChanceTropical = varasuchusCurrent.extraDouble("taming_chance_tropical", 25.0D);
+        varasuchusBuffer.legacyTaming = varasuchusCurrent.extraBoolean("legacy_taming", false);
+        varasuchusBuffer.eggHatchChanceNormal = varasuchusCurrent.extraDouble("egg_hatch_time_ticks_normal", 24000.0D);
+        varasuchusBuffer.aggressiveWild = varasuchusCurrent.extraBoolean("aggressive_wild", true);
+
+        DragonAttributeConfig stegonautCurrent = loader.getConfig(DragonAttributeConfigLoader.STEGONAUT_ID);
+        DragonAttributeConfig stegonautDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.STEGONAUT_ID);
+        StegonautAttributeBuffer stegonautBuffer = new StegonautAttributeBuffer();
+        stegonautBuffer.maxHealth = stegonautCurrent.maxHealth();
+        stegonautBuffer.armor = stegonautCurrent.armor();
+        stegonautBuffer.biteDamage = stegonautCurrent.abilityDamage("bite",
+                stegonautDefaults.abilityDamage("bite", 5.0D));
+        stegonautBuffer.chinSlamDamage = stegonautCurrent.abilityDamage("chin_slam",
+                stegonautDefaults.abilityDamage("chin_slam", 8.0D));
+        stegonautBuffer.groundEatingDamage = stegonautCurrent.abilityDamage("ground_eating",
+                stegonautDefaults.abilityDamage("ground_eating", 10.0D));
+        stegonautBuffer.groundSlamDamage = stegonautCurrent.abilityDamage("ground_slam",
+                stegonautDefaults.abilityDamage("ground_slam", 20.0D));
+        stegonautBuffer.groundSlamKnockback = stegonautCurrent.extraDouble("ground_slam_knockback",
+                stegonautDefaults.extraDouble("ground_slam_knockback", 1.35D));
+        stegonautBuffer.groundSlam2Damage = stegonautCurrent.abilityDamage("ground_slam2",
+                stegonautDefaults.abilityDamage("ground_slam2", 25.0D));
+        stegonautBuffer.groundSlam2Knockback = stegonautCurrent.extraDouble("ground_slam2_knockback",
+                stegonautDefaults.extraDouble("ground_slam2_knockback", 1.8D));
+        stegonautBuffer.groundSlamPillarDamage = stegonautCurrent.abilityDamage("ground_slam_pillar",
+                stegonautDefaults.abilityDamage("ground_slam_pillar", 10.0D));
+        stegonautBuffer.groundSlamPillarKnockback = stegonautCurrent.extraDouble("ground_slam_pillar_knockback",
+                stegonautDefaults.extraDouble("ground_slam_pillar_knockback", 0.9D));
+        stegonautBuffer.tamingChanceBase = stegonautCurrent.extraDouble("taming_chance_base", 100.0);
+        stegonautBuffer.tamingChanceHearty = stegonautCurrent.extraDouble("taming_chance_hearty", 100.0);
+        stegonautBuffer.eggHatchChanceNormal = stegonautCurrent.extraDouble("egg_hatch_time_ticks_normal", 30000.0D);
+        stegonautBuffer.aggressiveWild = stegonautCurrent.extraBoolean("aggressive_wild", false);
+
+        DragonAttributeConfig ignivorusCurrent = loader.getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID);
+        DragonAttributeConfig ignivorusDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.IGNIVORUS_ID);
+        IgnivorusAttributeBuffer ignivorusBuffer = new IgnivorusAttributeBuffer();
+        ignivorusBuffer.maxHealth = ignivorusCurrent.maxHealth();
+        ignivorusBuffer.armor = ignivorusCurrent.armor();
+        ignivorusBuffer.flyingSpeed = ignivorusCurrent.flyingSpeed();
+        ignivorusBuffer.biteDamage = ignivorusCurrent.abilityDamage("bite",
+                ignivorusDefaults.abilityDamage("bite", 50.0D));
+        ignivorusBuffer.bodySlamDamage = ignivorusCurrent.abilityDamage("body_slam",
+                ignivorusDefaults.abilityDamage("body_slam", 40.0D));
+        ignivorusBuffer.leapSlamDamage = ignivorusCurrent.abilityDamage("leap_slam",
+                ignivorusDefaults.abilityDamage("leap_slam", 50.0D));
+        ignivorusBuffer.fireBreathDamage = ignivorusCurrent.abilityDamage("fire_breath",
+                ignivorusDefaults.abilityDamage("fire_breath", 80.0D));
+        ignivorusBuffer.fireballDamage = ignivorusCurrent.abilityDamage("fireball",
+                ignivorusDefaults.abilityDamage("fireball", 70.0D));
+        ignivorusBuffer.magmaPillarDamage = ignivorusCurrent.abilityDamage("magma_pillar",
+                ignivorusDefaults.abilityDamage("magma_pillar", 18.0D));
+        ignivorusBuffer.wingSwipeDamage = ignivorusCurrent.abilityDamage("wing_swipe",
+                ignivorusDefaults.abilityDamage("wing_swipe", 15.0D));
+        ignivorusBuffer.stompDamage = ignivorusCurrent.abilityDamage("stomp",
+                ignivorusDefaults.abilityDamage("stomp", 18.0D));
+        ignivorusBuffer.bulldozeDamage = ignivorusCurrent.abilityDamage("bulldoze",
+                ignivorusDefaults.abilityDamage("bulldoze", 10.0D));
+        ignivorusBuffer.ultimateDamage = ignivorusCurrent.abilityDamage("ultimate",
+                ignivorusDefaults.abilityDamage("ultimate", 200.0D));
+        ignivorusBuffer.ultimatePenalty = ignivorusCurrent.extraDouble("ultimate_penalty_health",
+                ignivorusDefaults.extraDouble("ultimate_penalty_health", 50.0D));
+        ignivorusBuffer.ultimateTriggerHealthFraction = ignivorusCurrent.extraDouble(
+                "ultimate_trigger_health_fraction",
+                ignivorusDefaults.extraDouble("ultimate_trigger_health_fraction", 0.6D)
+        );
+        ignivorusBuffer.tamingChanceBase = ignivorusCurrent.extraDouble("taming_chance_base", 14.2857D);
+        ignivorusBuffer.tamingChanceBeef = ignivorusCurrent.extraDouble("taming_chance_beef", 20.0D);
+        ignivorusBuffer.tamingChanceMutton = ignivorusCurrent.extraDouble("taming_chance_mutton", 14.2857D);
+        ignivorusBuffer.tamingChancePorkchop = ignivorusCurrent.extraDouble("taming_chance_porkchop", 14.2857D);
+        ignivorusBuffer.tamingChanceHearty = ignivorusCurrent.extraDouble("taming_chance_hearty", 25.0);
+        ignivorusBuffer.tamingStunHealth = ignivorusCurrent.extraDouble("taming_stun_health",
+                ignivorusDefaults.extraDouble("taming_stun_health", 100.0D));
+        ignivorusBuffer.wildFlyingSpeedMultiplier = ignivorusCurrent.extraDouble("wild_flying_speed_multiplier",
+                ignivorusDefaults.extraDouble("wild_flying_speed_multiplier", 1.0D));
+        ignivorusBuffer.fireBreathDrainPerTick = ignivorusCurrent.extraDouble("fire_breath_drain_per_tick",
+                ignivorusDefaults.extraDouble("fire_breath_drain_per_tick", 0.004166666666666667D));
+        ignivorusBuffer.fireBreathRegenPerTick = ignivorusCurrent.extraDouble("fire_breath_regen_per_tick",
+                ignivorusDefaults.extraDouble("fire_breath_regen_per_tick", 0.0025D));
+        ignivorusBuffer.legacyTaming = ignivorusCurrent.extraBoolean("legacy_taming", false);
+        ignivorusBuffer.eggHatchChanceNormal = ignivorusCurrent.extraDouble("egg_hatch_time_ticks_normal", 36000.0D);
+        ignivorusBuffer.aggressiveWild = ignivorusCurrent.extraBoolean("aggressive_wild", false);
+
+        DragonAttributeConfig volitansCurrent = loader.getConfig(DragonAttributeConfigLoader.VOLITANS_ID);
+        DragonAttributeConfig volitansDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.VOLITANS_ID);
+        VolitansAttributeBuffer volitansBuffer = new VolitansAttributeBuffer();
+        volitansBuffer.maxHealth = volitansCurrent.maxHealth();
+        volitansBuffer.armor = volitansCurrent.armor();
+        volitansBuffer.flyingSpeed = volitansCurrent.flyingSpeed();
+        volitansBuffer.riderSwimSpeed = volitansCurrent.extraDouble("rider_swim_speed", 1.42D);
+        volitansBuffer.wildFlyingSpeedMultiplier = volitansCurrent.extraDouble("wild_flying_speed_multiplier",
+                volitansDefaults.extraDouble("wild_flying_speed_multiplier", 1.0D));
+        volitansBuffer.biteDamage = volitansCurrent.abilityDamage("bite",
+                volitansDefaults.abilityDamage("bite", 12.0D));
+        volitansBuffer.clawDamage = volitansCurrent.abilityDamage("claw",
+                volitansDefaults.abilityDamage("claw", 11.0D));
+        volitansBuffer.hornGoreDamage = volitansCurrent.abilityDamage("horn_gore",
+                volitansDefaults.abilityDamage("horn_gore", 15.0D));
+        volitansBuffer.roarGroundDamage = volitansCurrent.abilityDamage("roar_ground",
+                volitansDefaults.abilityDamage("roar_ground", 10.0D));
+        volitansBuffer.roarAirWaterDamage = volitansCurrent.abilityDamage("roar_air_water",
+                volitansDefaults.abilityDamage("roar_air_water", 7.0D));
+        volitansBuffer.burrowDamage = volitansCurrent.abilityDamage("burrow",
+                volitansDefaults.abilityDamage("burrow", 30.0D));
+        volitansBuffer.poisonBallDamage = volitansCurrent.abilityDamage("poison_ball",
+                volitansDefaults.abilityDamage("poison_ball", 12.0D));
+        volitansBuffer.waterBreathDamage = volitansCurrent.abilityDamage("water_breath",
+                volitansDefaults.abilityDamage("water_breath", 1.8D));
+        volitansBuffer.poisonBreathDamage = volitansCurrent.abilityDamage("poison_breath",
+                volitansDefaults.abilityDamage("poison_breath", 1.4D));
+        volitansBuffer.tamingChanceBase = volitansCurrent.extraDouble("taming_chance_base",
+                volitansDefaults.extraDouble("taming_chance_base", 20.0D));
+        volitansBuffer.tamingChanceHearty = volitansCurrent.extraDouble("taming_chance_hearty",
+                volitansDefaults.extraDouble("taming_chance_hearty", 30.0D));
+        volitansBuffer.tamingStunHealth = volitansCurrent.extraDouble("taming_stun_health",
+                volitansDefaults.extraDouble("taming_stun_health", 60.0D));
+        volitansBuffer.legacyTaming = volitansCurrent.extraBoolean("legacy_taming", false);
+        volitansBuffer.eggHatchChanceNormal = volitansCurrent.extraDouble("egg_hatch_time_ticks_normal", 18000.0D);
+        volitansBuffer.breathActiveTicksMax = volitansCurrent.extraDouble("breath_active_ticks_max",
+                volitansDefaults.extraDouble("breath_active_ticks_max", 240.0D));
+        volitansBuffer.breathDrainPerTick = volitansCurrent.extraDouble("breath_drain_per_tick",
+                volitansDefaults.extraDouble("breath_drain_per_tick", 1.0D / (20.0D * 12.0D)));
+        volitansBuffer.breathRegenPerTick = volitansCurrent.extraDouble("breath_regen_per_tick",
+                volitansDefaults.extraDouble("breath_regen_per_tick", 0.0025D));
+        volitansBuffer.poisonBreathPoisonDurationTicks = volitansCurrent.extraDouble("poison_breath_poison_duration_ticks",
+                volitansDefaults.extraDouble("poison_breath_poison_duration_ticks", 80.0D));
+        volitansBuffer.poisonBreathPoisonLevel = volitansCurrent.extraDouble("poison_breath_poison_level",
+                volitansDefaults.extraDouble("poison_breath_poison_level", 1.0D));
+        volitansBuffer.poisonBallPoisonDurationTicks = volitansCurrent.extraDouble("poison_ball_poison_duration_ticks",
+                volitansDefaults.extraDouble("poison_ball_poison_duration_ticks", 120.0D));
+        volitansBuffer.poisonBallPoisonLevel = volitansCurrent.extraDouble("poison_ball_poison_level",
+                volitansDefaults.extraDouble("poison_ball_poison_level", 1.0D));
+        volitansBuffer.roarGroundPoisonDurationTicks = volitansCurrent.extraDouble("roar_ground_poison_duration_ticks",
+                volitansDefaults.extraDouble("roar_ground_poison_duration_ticks", 1200.0D));
+        volitansBuffer.roarGroundPoisonLevel = volitansCurrent.extraDouble("roar_ground_poison_level",
+                volitansDefaults.extraDouble("roar_ground_poison_level", 3.0D));
+        volitansBuffer.roarAirWaterPoisonDurationTicks = volitansCurrent.extraDouble("roar_air_water_poison_duration_ticks",
+                volitansDefaults.extraDouble("roar_air_water_poison_duration_ticks", 200.0D));
+        volitansBuffer.roarAirWaterPoisonLevel = volitansCurrent.extraDouble("roar_air_water_poison_level",
+                volitansDefaults.extraDouble("roar_air_water_poison_level", 2.0D));
+        volitansBuffer.aggressiveWild = volitansCurrent.extraBoolean("aggressive_wild", true);
+
+        DragonAttributeConfig nulljawCurrent = loader.getConfig(DragonAttributeConfigLoader.NULLJAW_ID);
+        DragonAttributeConfig nulljawDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.NULLJAW_ID);
+        NulljawAttributeBuffer nulljawBuffer = new NulljawAttributeBuffer();
+        nulljawBuffer.maxHealth = nulljawCurrent.maxHealth();
+        nulljawBuffer.armor = nulljawCurrent.armor();
+        nulljawBuffer.biteDamage = nulljawCurrent.abilityDamage("bite",
+                nulljawDefaults.abilityDamage("bite", 8.0D));
+        nulljawBuffer.invisibilityDurationTicks = nulljawCurrent.extraDouble("invisibility_duration_ticks",
+                nulljawDefaults.extraDouble("invisibility_duration_ticks", 6000.0D));
+
+        DragonAttributeConfig atroxiiaCurrent = loader.getConfig(DragonAttributeConfigLoader.ATROXIIA_ID);
+        DragonAttributeConfig atroxiiaDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.ATROXIIA_ID);
+        AtroxiiaAttributeBuffer atroxiiaBuffer = new AtroxiiaAttributeBuffer();
+        atroxiiaBuffer.gungnirStabDamage = atroxiiaCurrent.abilityDamage("gungnir_stab",
+                atroxiiaDefaults.abilityDamage("gungnir_stab", 40.0D));
+        atroxiiaBuffer.slitherDamage = atroxiiaCurrent.abilityDamage("slither",
+                atroxiiaDefaults.abilityDamage("slither", 5.0D));
+        atroxiiaBuffer.tamingStunHealth = atroxiiaCurrent.extraDouble("taming_stun_health",
+                atroxiiaDefaults.extraDouble("taming_stun_health", 60.0D));
+        atroxiiaBuffer.aggressiveWild = atroxiiaCurrent.extraBoolean("aggressive_wild", false);
+        atroxiiaBuffer.eggHatchTimeTicksNormal = atroxiiaCurrent.extraDouble("egg_hatch_time_ticks_normal",
+                atroxiiaDefaults.extraDouble("egg_hatch_time_ticks_normal", 24000.0D));
+
+        DragonAttributeConfig swarmCurrent = loader.getConfig(DragonAttributeConfigLoader.DRACONIAN_SWARM_ID);
+        DragonAttributeConfig swarmDefaults = loader.getDefaultConfig(DragonAttributeConfigLoader.DRACONIAN_SWARM_ID);
+        DraconianSwarmAttributeBuffer swarmBuffer = new DraconianSwarmAttributeBuffer();
+        swarmBuffer.wave1Count = DragonAttributeConfigLoader.swarmWaveCount(swarmCurrent, 1);
+        swarmBuffer.wave2Count = DragonAttributeConfigLoader.swarmWaveCount(swarmCurrent, 2);
+        swarmBuffer.wave3Count = DragonAttributeConfigLoader.swarmWaveCount(swarmCurrent, 3);
+        swarmBuffer.latcherMaxHealth = swarmCurrent.extraDouble("latcher_max_health", swarmDefaults.extraDouble("latcher_max_health", 12.0D));
+        swarmBuffer.latcherArmor = swarmCurrent.extraDouble("latcher_armor", swarmDefaults.extraDouble("latcher_armor", 0.0D));
+        swarmBuffer.latcherChaseSpeed = swarmCurrent.extraDouble("latcher_chase_speed", swarmDefaults.extraDouble("latcher_chase_speed", 0.80D));
+        swarmBuffer.latcherBiteDamage = swarmCurrent.abilityDamage("latcher_bite", swarmDefaults.abilityDamage("latcher_bite", 4.0D));
+        swarmBuffer.wingedMaxHealth = swarmCurrent.extraDouble("winged_max_health", swarmDefaults.extraDouble("winged_max_health", 6.0D));
+        swarmBuffer.wingedArmor = swarmCurrent.extraDouble("winged_armor", swarmDefaults.extraDouble("winged_armor", 0.0D));
+        swarmBuffer.wingedChaseSpeed = swarmCurrent.extraDouble("winged_chase_speed", swarmDefaults.extraDouble("winged_chase_speed", 1.0D));
+        swarmBuffer.wingedHookAndPullDamage = swarmCurrent.abilityDamage("winged_attack", swarmDefaults.abilityDamage("winged_attack", 1.5D));
+        swarmBuffer.wingedDiveBombDamage = swarmCurrent.abilityDamage("winged_attack2", swarmDefaults.abilityDamage("winged_attack2", 2.025D));
+        swarmBuffer.whettledMaxHealth = swarmCurrent.extraDouble("whettled_max_health", swarmDefaults.extraDouble("whettled_max_health", 16.0D));
+        swarmBuffer.whettledArmor = swarmCurrent.extraDouble("whettled_armor", swarmDefaults.extraDouble("whettled_armor", 0.0D));
+        swarmBuffer.whettledChaseSpeed = swarmCurrent.extraDouble("whettled_chase_speed", swarmDefaults.extraDouble("whettled_chase_speed", 0.90D));
+        swarmBuffer.whettledClawAttackDamage = swarmCurrent.abilityDamage("whettled_clawattack", swarmDefaults.abilityDamage("whettled_clawattack", 4.0D));
+        swarmBuffer.whettledLungeDamage = swarmCurrent.abilityDamage("whettled_movehornattack", swarmDefaults.abilityDamage("whettled_movehornattack", 9.0D));
+
+        ConfigBuilder builder = ConfigBuilder.create()
+                .setParentScreen(parent)
+                .setTitle(pageTitle(page));
+        builder.setTransparentBackground(true);
+        builder.setSavingRunnable(() -> {
+            switch (page) {
+                case CLIENT_COMMON -> clientHolder.save();
+                case CLIENT_RIDER_CAMERA -> DragonRideCameraTuning.save();
+                case SERVER_SPAWNING -> holder.save();
+                case SERVER_TOOLS_ARMOR -> toolsArmorHolder.save();
+                case SERVER_GAMEPLAY, SERVER_DRAGON_NEEDS, SERVER_NPCS -> serverHolder.save();
+                case DRAGON_ATTRIBUTES -> {
+                    persistDragonAttributes(cindervaneBuffer, stegonautBuffer, raevyxBuffer, varasuchusBuffer,
+                            ignivorusBuffer, volitansBuffer, nulljawBuffer, atroxiiaBuffer, swarmBuffer);
+                    refreshLoadedDragonAttributesOnIntegratedServer();
+                }
+            }
+        });
+
+        ConfigEntryBuilder entryBuilder = builder.entryBuilder();
+
+        if (!remoteServer && page == Page.SERVER_SPAWNING) {
+            ConfigCategory spawning = builder.getOrCreateCategory(SPAWN_CATEGORY);
+            addSpawnEntries(spawning, entryBuilder, Component.translatable("config.saintsdragons.spawn.raevyx"),
+                () -> config.raevyxSpawningEnabled, value -> config.raevyxSpawningEnabled = value,
+                SaintsDragonsConfig.RAEVYX_SPAWNING_ENABLED_DEFAULT,
+                () -> config.raevyxSpawnWeight, value -> config.raevyxSpawnWeight = value,
+                () -> config.raevyxMinGroupSize, value -> config.raevyxMinGroupSize = value,
+                () -> config.raevyxMaxGroupSize, value -> config.raevyxMaxGroupSize = value,
+                SaintsDragonsConfig.RAEVYX_CUSTOM_SPAWNING_ENABLED::get, SaintsDragonsConfig.RAEVYX_CUSTOM_SPAWNING_ENABLED::set,
+                SaintsDragonsConfig.RAEVYX_CUSTOM_SPAWNING_ENABLED_DEFAULT,
+                SaintsDragonsConfig.RAEVYX_SPAWN_WEIGHT_DEFAULT,
+                SaintsDragonsConfig.RAEVYX_MIN_GROUP_SIZE_DEFAULT,
+                SaintsDragonsConfig.RAEVYX_MAX_GROUP_SIZE_DEFAULT);
+
+            addSpawnEntries(spawning, entryBuilder, Component.translatable("config.saintsdragons.spawn.stegonaut"),
+                    () -> config.stegonautSpawningEnabled, value -> config.stegonautSpawningEnabled = value,
+                    SaintsDragonsConfig.STEGONAUT_SPAWNING_ENABLED_DEFAULT,
+                    () -> config.stegonautSpawnWeight, value -> config.stegonautSpawnWeight = value,
+                    () -> config.stegonautMinGroupSize, value -> config.stegonautMinGroupSize = value,
+                    () -> config.stegonautMaxGroupSize, value -> config.stegonautMaxGroupSize = value,
+                    SaintsDragonsConfig.STEGONAUT_CUSTOM_SPAWNING_ENABLED::get, SaintsDragonsConfig.STEGONAUT_CUSTOM_SPAWNING_ENABLED::set,
+                    SaintsDragonsConfig.STEGONAUT_CUSTOM_SPAWNING_ENABLED_DEFAULT,
+                    SaintsDragonsConfig.STEGONAUT_SPAWN_WEIGHT_DEFAULT,
+                    SaintsDragonsConfig.STEGONAUT_MIN_GROUP_SIZE_DEFAULT,
+                    SaintsDragonsConfig.STEGONAUT_MAX_GROUP_SIZE_DEFAULT);
+
+            addSpawnEntries(spawning, entryBuilder, Component.translatable("config.saintsdragons.spawn.cindervane"),
+                    () -> config.cindervaneSpawningEnabled, value -> config.cindervaneSpawningEnabled = value,
+                    SaintsDragonsConfig.CINDERVANE_SPAWNING_ENABLED_DEFAULT,
+                    () -> config.cindervaneSpawnWeight, value -> config.cindervaneSpawnWeight = value,
+                    () -> config.cindervaneMinGroupSize, value -> config.cindervaneMinGroupSize = value,
+                    () -> config.cindervaneMaxGroupSize, value -> config.cindervaneMaxGroupSize = value,
+                    null, null, true,
+                    SaintsDragonsConfig.CINDERVANE_SPAWN_WEIGHT_DEFAULT,
+                    SaintsDragonsConfig.CINDERVANE_MIN_GROUP_SIZE_DEFAULT,
+                    SaintsDragonsConfig.CINDERVANE_MAX_GROUP_SIZE_DEFAULT);
+
+            addStructureSpawnEntry(spawning, entryBuilder,
+                    Component.translatable("config.saintsdragons.spawn.ignivorus"),
+                    () -> config.ignivorusSpawningEnabled, value -> config.ignivorusSpawningEnabled = value,
+                    SaintsDragonsConfig.IGNIVORUS_SPAWNING_ENABLED_DEFAULT);
+
+            addStructureSpawnEntry(spawning, entryBuilder,
+                    Component.translatable("config.saintsdragons.spawn.varasuchus"),
+                    () -> config.varasuchusSpawningEnabled, value -> config.varasuchusSpawningEnabled = value,
+                    SaintsDragonsConfig.VARASUCHUS_SPAWNING_ENABLED_DEFAULT);
+
+            addSpawnEntries(spawning, entryBuilder, Component.translatable("config.saintsdragons.spawn.atroxiia"),
+                    () -> config.atroxiiaSpawningEnabled, value -> config.atroxiiaSpawningEnabled = value,
+                    SaintsDragonsConfig.ATROXIIA_SPAWNING_ENABLED_DEFAULT,
+                    () -> config.atroxiiaSpawnWeight, value -> config.atroxiiaSpawnWeight = value,
+                    () -> config.atroxiiaMinGroupSize, value -> config.atroxiiaMinGroupSize = value,
+                    () -> config.atroxiiaMaxGroupSize, value -> config.atroxiiaMaxGroupSize = value,
+                    null, null, true,
+                    SaintsDragonsConfig.ATROXIIA_SPAWN_WEIGHT_DEFAULT,
+                    SaintsDragonsConfig.ATROXIIA_MIN_GROUP_SIZE_DEFAULT,
+                    SaintsDragonsConfig.ATROXIIA_MAX_GROUP_SIZE_DEFAULT);
+
+            addSpawnEntries(spawning, entryBuilder, Component.translatable("config.saintsdragons.spawn.volitans"),
+                    () -> config.volitansSpawningEnabled, value -> config.volitansSpawningEnabled = value,
+                    SaintsDragonsConfig.VOLITANS_SPAWNING_ENABLED_DEFAULT,
+                    () -> config.volitansSpawnWeight, value -> config.volitansSpawnWeight = value,
+                    () -> config.volitansMinGroupSize, value -> config.volitansMinGroupSize = value,
+                    () -> config.volitansMaxGroupSize, value -> config.volitansMaxGroupSize = value,
+                    SaintsDragonsConfig.VOLITANS_CUSTOM_SPAWNING_ENABLED::get, SaintsDragonsConfig.VOLITANS_CUSTOM_SPAWNING_ENABLED::set,
+                    SaintsDragonsConfig.VOLITANS_CUSTOM_SPAWNING_ENABLED_DEFAULT,
+                    SaintsDragonsConfig.VOLITANS_SPAWN_WEIGHT_DEFAULT,
+                    SaintsDragonsConfig.VOLITANS_MIN_GROUP_SIZE_DEFAULT,
+                    SaintsDragonsConfig.VOLITANS_MAX_GROUP_SIZE_DEFAULT);
+
+            addSpawnEntries(spawning, entryBuilder, Component.translatable("config.saintsdragons.spawn.nulljaw"),
+                    () -> config.nulljawSpawningEnabled, value -> config.nulljawSpawningEnabled = value,
+                    SaintsDragonsConfig.NULLJAW_SPAWNING_ENABLED_DEFAULT,
+                    () -> config.nulljawSpawnWeight, value -> config.nulljawSpawnWeight = value,
+                    () -> config.nulljawMinGroupSize, value -> config.nulljawMinGroupSize = value,
+                    () -> config.nulljawMaxGroupSize, value -> config.nulljawMaxGroupSize = value,
+                    null, null, true,
+                    4, 4, 4);
+
+            addOtherSpawnEntries(spawning, entryBuilder, config);
+        }
+
+        if (!remoteServer && page == Page.DRAGON_ATTRIBUTES) {
+            ConfigCategory attributes = builder.getOrCreateCategory(ATTRIBUTES_CATEGORY);
+            addCindervaneAttributes(attributes, entryBuilder, cindervaneBuffer, cindervaneDefaults);
+            addStegonautAttributes(attributes, entryBuilder, stegonautBuffer, stegonautDefaults);
+            addRaevyxAttributes(attributes, entryBuilder, raevyxBuffer, raevyxDefaults);
+            addVarasuchusAttributes(attributes, entryBuilder, varasuchusBuffer, varasuchusDefaults);
+            addIgnivorusAttributes(attributes, entryBuilder, ignivorusBuffer, ignivorusDefaults);
+            addVolitansAttributes(attributes, entryBuilder, volitansBuffer, volitansDefaults);
+            addNulljawAttributes(attributes, entryBuilder, nulljawBuffer, nulljawDefaults);
+            addAtroxiiaAttributes(attributes, entryBuilder, atroxiiaBuffer, atroxiiaDefaults);
+            addDraconianSwarmAttributes(attributes, entryBuilder, swarmBuffer, swarmDefaults);
+        }
+
+        if (!remoteServer && page == Page.SERVER_TOOLS_ARMOR) {
+            ConfigCategory toolsArmor = builder.getOrCreateCategory(TOOLS_ARMOR_CATEGORY);
+            addToolsArmorEntries(toolsArmor, entryBuilder);
+        }
+
+        if (!remoteServer && page == Page.SERVER_GAMEPLAY) {
+            ConfigCategory gameplay = builder.getOrCreateCategory(GAMEPLAY_CATEGORY);
+            List<AbstractConfigListEntry<?>> worldEntries = new ArrayList<>();
+            List<AbstractConfigListEntry<?>> ridingEntries = new ArrayList<>();
+            List<AbstractConfigListEntry<?>> dragonEntries = new ArrayList<>();
+            List<AbstractConfigListEntry<?>> notificationEntries = new ArrayList<>();
+            worldEntries.add(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.dragon_griefing"),
+                    SaintsDragonsConfig.DRAGON_GRIEFING_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.DRAGON_GRIEFING_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.dragon_griefing.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.DRAGON_GRIEFING_ENABLED.set(value))
+             .build());
+            worldEntries.add(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.fire_dragon_block_ignition"),
+                    SaintsDragonsConfig.FIRE_DRAGON_BLOCK_IGNITION_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.FIRE_DRAGON_BLOCK_IGNITION_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.fire_dragon_block_ignition.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.FIRE_DRAGON_BLOCK_IGNITION_ENABLED.set(value))
+             .build());
+            ridingEntries.add(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.screen_shake"),
+                    SaintsDragonsConfig.SCREEN_SHAKE_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.SCREEN_SHAKE_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.screen_shake.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.SCREEN_SHAKE_ENABLED.set(value))
+              .build());
+            ridingEntries.add(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.barrel_roll"),
+                    SaintsDragonsConfig.BARREL_ROLL_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.BARREL_ROLL_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.barrel_roll.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.BARREL_ROLL_ENABLED.set(value))
+              .build());
+            dragonEntries.add(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.dragon_breeding"),
+                    SaintsDragonsConfig.DRAGON_BREEDING_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.DRAGON_BREEDING_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.dragon_breeding.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.DRAGON_BREEDING_ENABLED.set(value))
+              .build());
+            dragonEntries.add(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.stegonaut_buffs"),
+                    SaintsDragonsConfig.STEGONAUT_BUFFS_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.STEGONAUT_BUFFS_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.stegonaut_buffs.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.STEGONAUT_BUFFS_ENABLED.set(value))
+             .build());
+            notificationEntries.add(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.wiki_reminder"),
+                    SaintsDragonsConfig.WIKI_REMINDER_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.WIKI_REMINDER_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.wiki_reminder.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.WIKI_REMINDER_ENABLED.set(value))
+             .build());
+            addSubCategory(gameplay, entryBuilder,
+                    Component.translatable("saintsdragons.config_screen.gameplay.world"), worldEntries);
+            addSubCategory(gameplay, entryBuilder,
+                    Component.translatable("saintsdragons.config_screen.gameplay.riding_effects"), ridingEntries);
+            addSubCategory(gameplay, entryBuilder,
+                    Component.translatable("saintsdragons.config_screen.gameplay.dragons"), dragonEntries);
+            addSubCategory(gameplay, entryBuilder,
+                    Component.translatable("saintsdragons.config_screen.gameplay.notifications"), notificationEntries);
+        }
+
+        if (page == Page.CLIENT_COMMON) {
+            ConfigCategory clientCommon = builder.getOrCreateCategory(CLIENT_COMMON_CATEGORY);
+            List<AbstractConfigListEntry<?>> cameraEntries = new ArrayList<>();
+            List<AbstractConfigListEntry<?>> visualEntries = new ArrayList<>();
+            List<AbstractConfigListEntry<?>> audioEntries = new ArrayList<>();
+            cameraEntries.add(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.raevyx_beam_first_person"),
+                    clientConfig.raevyxBeamFirstPersonEnabled
+            ).setDefaultValue(true)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.raevyx_beam_first_person.tooltip"))
+             .setSaveConsumer(value -> clientConfig.raevyxBeamFirstPersonEnabled = value)
+             .build());
+            cameraEntries.add(entryBuilder.startBooleanToggle(
+                Component.translatable("saintsdragons.config_screen.others.first_person_banking_camera"),
+                clientConfig.firstPersonBankingCameraEnabled
+        ).setDefaultValue(true)
+         .setTooltip(Component.translatable("saintsdragons.config_screen.others.first_person_banking_camera.tooltip"))
+         .setSaveConsumer(value -> clientConfig.firstPersonBankingCameraEnabled = value)
+          .build());
+            cameraEntries.add(entryBuilder.startBooleanToggle(
+                Component.translatable("saintsdragons.config_screen.others.third_person_banking_camera"),
+                clientConfig.thirdPersonBankingCameraEnabled
+        ).setDefaultValue(true)
+         .setTooltip(Component.translatable("saintsdragons.config_screen.others.third_person_banking_camera.tooltip"))
+         .setSaveConsumer(value -> clientConfig.thirdPersonBankingCameraEnabled = value)
+          .build());
+            cameraEntries.add(entryBuilder.startBooleanToggle(
+                Component.translatable("saintsdragons.config_screen.others.dive_camera_wobble"),
+                clientConfig.diveCameraWobbleEnabled
+        ).setDefaultValue(true)
+         .setTooltip(Component.translatable("saintsdragons.config_screen.others.dive_camera_wobble.tooltip"))
+         .setSaveConsumer(value -> clientConfig.diveCameraWobbleEnabled = value)
+          .build());
+            visualEntries.add(entryBuilder.startBooleanToggle(
+                Component.translatable("saintsdragons.config_screen.others.dive_speed_lines"),
+                clientConfig.diveSpeedLinesEnabled
+        ).setDefaultValue(true)
+         .setTooltip(Component.translatable("saintsdragons.config_screen.others.dive_speed_lines.tooltip"))
+         .setSaveConsumer(value -> clientConfig.diveSpeedLinesEnabled = value)
+          .build());
+            audioEntries.add(entryBuilder.startBooleanToggle(
+                Component.translatable("saintsdragons.config_screen.others.generic_dive_loop"),
+                clientConfig.genericDiveLoopEnabled
+        ).setDefaultValue(true)
+         .setTooltip(Component.translatable("saintsdragons.config_screen.others.generic_dive_loop.tooltip"))
+         .setSaveConsumer(value -> clientConfig.genericDiveLoopEnabled = value)
+          .build());
+            audioEntries.add(entryBuilder.startIntSlider(
+                Component.translatable("saintsdragons.config_screen.others.swarm_battle_music_volume"),
+                clientConfig.swarmBattleMusicVolume,
+                0,
+                100
+        ).setDefaultValue(100)
+         .setTooltip(Component.translatable("saintsdragons.config_screen.others.swarm_battle_music_volume.tooltip"))
+         .setTextGetter(value -> Component.literal(value + "%"))
+         .setSaveConsumer(value -> clientConfig.swarmBattleMusicVolume = value)
+         .build());
+            addSubCategory(clientCommon, entryBuilder,
+                    Component.translatable("saintsdragons.config_screen.client.camera_riding"), cameraEntries);
+            addSubCategory(clientCommon, entryBuilder,
+                    Component.translatable("saintsdragons.config_screen.client.visual_effects"), visualEntries);
+            addSubCategory(clientCommon, entryBuilder,
+                    Component.translatable("saintsdragons.config_screen.client.audio"), audioEntries);
+        }
+
+        if (page == Page.CLIENT_RIDER_CAMERA) {
+            ConfigCategory riderCamera = builder.getOrCreateCategory(RIDER_CAMERA_CATEGORY);
+            addRiderCameraEntries(riderCamera, entryBuilder);
+        }
+
+        if (!remoteServer && page == Page.SERVER_DRAGON_NEEDS) {
+            ConfigCategory dragonNeeds = builder.getOrCreateCategory(DRAGON_NEEDS_CATEGORY);
+            dragonNeeds.addEntry(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.hunger_decay"),
+                    SaintsDragonsConfig.HUNGER_DECAY_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.HUNGER_DECAY_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.hunger_decay.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.HUNGER_DECAY_ENABLED.set(value))
+              .build());
+            dragonNeeds.addEntry(entryBuilder.startBooleanToggle(
+                    Component.translatable("saintsdragons.config_screen.others.happiness_decay"),
+                    SaintsDragonsConfig.HAPPINESS_DECAY_ENABLED.get()
+            ).setDefaultValue(SaintsDragonsConfig.HAPPINESS_DECAY_ENABLED_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.happiness_decay.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.HAPPINESS_DECAY_ENABLED.set(value))
+              .build());
+        }
+
+        if (!remoteServer && page == Page.SERVER_NPCS) {
+            ConfigCategory npcs = builder.getOrCreateCategory(NPCS_CATEGORY);
+            npcs.addEntry(entryBuilder.startIntSlider(
+                    Component.translatable("saintsdragons.config_screen.others.ivy.restock_interval"),
+                    SaintsDragonsConfig.IVY_RESTOCK_INTERVAL.get(),
+                    20,
+                    72000
+            ).setDefaultValue(SaintsDragonsConfig.IVY_RESTOCK_INTERVAL_DEFAULT)
+             .setTooltip(Component.translatable("saintsdragons.config_screen.others.ivy.restock_interval.tooltip"))
+             .setSaveConsumer(value -> SaintsDragonsConfig.IVY_RESTOCK_INTERVAL.set(value))
+             .build());
+        }
+
+        return builder.build();
+    }
+
+    private static void addRiderCameraEntries(ConfigCategory category, ConfigEntryBuilder entryBuilder) {
+        DragonRideCameraTuning.bootstrap();
+        for (String dragonKey : DragonRideCameraTuning.getConfigurableProfileKeys()) {
+            DragonRideCameraTuning.CameraProfile current = DragonRideCameraTuning.getProfile(dragonKey);
+            DragonRideCameraTuning.CameraProfile defaults = DragonRideCameraTuning.getDefaultProfile(dragonKey);
+            List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+            entries.add(entryBuilder.startDoubleField(
+                            Component.translatable("saintsdragons.config_screen.dragon_rider_camera.grounded_distance"),
+                            (double) current.groundedDistance())
+                    .setDefaultValue((double) defaults.groundedDistance())
+                    .setMin(DragonRideCameraTuning.MIN_CAMERA_DISTANCE)
+                    .setMax(DragonRideCameraTuning.MAX_CAMERA_DISTANCE)
+                    .setTooltip(Component.translatable(
+                            "saintsdragons.config_screen.dragon_rider_camera.grounded_distance.tooltip"))
+                    .setSaveConsumer(value -> DragonRideCameraTuning.setGroundedDistance(dragonKey, value))
+                    .build());
+            entries.add(entryBuilder.startDoubleField(
+                            Component.translatable("saintsdragons.config_screen.dragon_rider_camera.air_or_water_distance"),
+                            (double) current.airOrWaterDistance())
+                    .setDefaultValue((double) defaults.airOrWaterDistance())
+                    .setMin(DragonRideCameraTuning.MIN_CAMERA_DISTANCE)
+                    .setMax(DragonRideCameraTuning.MAX_CAMERA_DISTANCE)
+                    .setTooltip(Component.translatable(
+                            "saintsdragons.config_screen.dragon_rider_camera.air_or_water_distance.tooltip"))
+                    .setSaveConsumer(value -> DragonRideCameraTuning.setAirOrWaterDistance(dragonKey, value))
+                    .build());
+            addSubCategory(category, entryBuilder,
+                    DragonRideCameraTuning.getProfileDisplayName(dragonKey), entries);
+        }
+    }
+
+    private static Component pageTitle(Page page) {
+        return switch (page) {
+            case CLIENT_COMMON -> Component.translatable("saintsdragons.config_screen.client_common");
+            case CLIENT_RIDER_CAMERA -> Component.translatable("saintsdragons.config_screen.dragon_rider_camera");
+            case SERVER_GAMEPLAY -> Component.translatable("saintsdragons.config_screen.gameplay");
+            case SERVER_DRAGON_NEEDS -> Component.translatable("saintsdragons.config_screen.dragon_needs");
+            case SERVER_SPAWNING -> Component.translatable("saintsdragons.config_screen.spawning");
+            case SERVER_TOOLS_ARMOR -> Component.translatable("saintsdragons.config_screen.tools_armor");
+            case SERVER_NPCS -> Component.translatable("saintsdragons.config_screen.npcs");
+            case DRAGON_ATTRIBUTES -> Component.translatable("saintsdragons.config_screen.attributes");
+        };
+    }
+
+    private static void addSubCategory(ConfigCategory category, ConfigEntryBuilder entryBuilder,
+                                       Component title, List<AbstractConfigListEntry<?>> entries) {
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(title, rawEntries)
+                .setExpanded(true)
+                .build());
+    }
+
+    private void addToolsArmorEntries(ConfigCategory category, ConfigEntryBuilder entryBuilder) {
+        addToolsArmorGroup(category, entryBuilder, "worldroot",
+                toolField("worldroot.sword_damage", ToolsArmorConfig.WORLDROOT_SWORD_DAMAGE, ToolsArmorConfig.WORLDROOT_SWORD_DAMAGE_DEFAULT, 100000.0D),
+                toolField("worldroot.sword_speed", ToolsArmorConfig.WORLDROOT_SWORD_SPEED, ToolsArmorConfig.WORLDROOT_SWORD_SPEED_DEFAULT, 100.0D),
+                toolField("worldroot.pickaxe_damage", ToolsArmorConfig.WORLDROOT_PICKAXE_DAMAGE, ToolsArmorConfig.WORLDROOT_PICKAXE_DAMAGE_DEFAULT, 100000.0D),
+                toolField("worldroot.pickaxe_speed", ToolsArmorConfig.WORLDROOT_PICKAXE_SPEED, ToolsArmorConfig.WORLDROOT_PICKAXE_SPEED_DEFAULT, 100.0D),
+                toolField("worldroot.axe_damage", ToolsArmorConfig.WORLDROOT_AXE_DAMAGE, ToolsArmorConfig.WORLDROOT_AXE_DAMAGE_DEFAULT, 100000.0D),
+                toolField("worldroot.axe_speed", ToolsArmorConfig.WORLDROOT_AXE_SPEED, ToolsArmorConfig.WORLDROOT_AXE_SPEED_DEFAULT, 100.0D),
+                toolField("worldroot.shovel_damage", ToolsArmorConfig.WORLDROOT_SHOVEL_DAMAGE, ToolsArmorConfig.WORLDROOT_SHOVEL_DAMAGE_DEFAULT, 100000.0D),
+                toolField("worldroot.shovel_speed", ToolsArmorConfig.WORLDROOT_SHOVEL_SPEED, ToolsArmorConfig.WORLDROOT_SHOVEL_SPEED_DEFAULT, 100.0D),
+                toolField("worldroot.hoe_damage", ToolsArmorConfig.WORLDROOT_HOE_DAMAGE, ToolsArmorConfig.WORLDROOT_HOE_DAMAGE_DEFAULT, 100000.0D),
+                toolField("worldroot.hoe_speed", ToolsArmorConfig.WORLDROOT_HOE_SPEED, ToolsArmorConfig.WORLDROOT_HOE_SPEED_DEFAULT, 100.0D),
+                toolField("worldroot.dragon_damage_multiplier", ToolsArmorConfig.WORLDROOT_DRAGON_DAMAGE_MULTIPLIER, ToolsArmorConfig.WORLDROOT_DRAGON_DAMAGE_MULTIPLIER_DEFAULT, 1000.0D));
+
+        addToolsArmorGroup(category, entryBuilder, "blood_tempest", entries -> {
+                    entries.add(entryBuilder.startBooleanToggle(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.blood_tempest.katana_ability_enabled"),
+                                    ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_ENABLED.get())
+                            .setYesNoTextSupplier(SaintsDragonsModMenuIntegration::booleanText)
+                            .setSaveConsumer(ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_ENABLED::set)
+                            .build());
+                    entries.add(entryBuilder.startDoubleField(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.blood_tempest.katana_ability_damage_multiplier"),
+                                    ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_DAMAGE_MULTIPLIER.get())
+                            .setDefaultValue(ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_DAMAGE_MULTIPLIER_DEFAULT)
+                            .setMin(0.0D)
+                            .setMax(1000.0D)
+                            .setSaveConsumer(ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_DAMAGE_MULTIPLIER::set)
+                            .build());
+                    entries.add(entryBuilder.startIntField(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.blood_tempest.katana_ability_cooldown"),
+                                    ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_COOLDOWN_TICKS.get())
+                            .setDefaultValue(ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_COOLDOWN_TICKS_DEFAULT)
+                            .setMin(0)
+                            .setMax(72000)
+                            .setSaveConsumer(ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_COOLDOWN_TICKS::set)
+                            .build());
+                    entries.add(entryBuilder.startDoubleField(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.blood_tempest.katana_ability_distance"),
+                                    ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_MAX_DISTANCE.get())
+                            .setDefaultValue(ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_MAX_DISTANCE_DEFAULT)
+                            .setMin(0.75D)
+                            .setMax(100.0D)
+                            .setSaveConsumer(ToolsArmorConfig.BLOOD_TEMPEST_KATANA_ABILITY_MAX_DISTANCE::set)
+                            .build());
+                    entries.add(entryBuilder.startBooleanToggle(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.blood_tempest.dodge_enabled"),
+                                    ToolsArmorConfig.BLOOD_TEMPEST_DODGE_ENABLED.get())
+                            .setYesNoTextSupplier(SaintsDragonsModMenuIntegration::booleanText)
+                            .setSaveConsumer(ToolsArmorConfig.BLOOD_TEMPEST_DODGE_ENABLED::set)
+                            .build());
+                    entries.add(entryBuilder.startIntField(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.blood_tempest.dodge_cooldown"),
+                                    ToolsArmorConfig.BLOOD_TEMPEST_DODGE_COOLDOWN_TICKS.get())
+                            .setDefaultValue(ToolsArmorConfig.BLOOD_TEMPEST_DODGE_COOLDOWN_TICKS_DEFAULT)
+                            .setMin(0)
+                            .setMax(72000)
+                            .setSaveConsumer(ToolsArmorConfig.BLOOD_TEMPEST_DODGE_COOLDOWN_TICKS::set)
+                            .build());
+                },
+                toolField("blood_tempest.katana_damage", ToolsArmorConfig.BLOOD_TEMPEST_KATANA_DAMAGE, ToolsArmorConfig.BLOOD_TEMPEST_KATANA_DAMAGE_DEFAULT, 100000.0D),
+                toolField("blood_tempest.katana_speed", ToolsArmorConfig.BLOOD_TEMPEST_KATANA_SPEED, ToolsArmorConfig.BLOOD_TEMPEST_KATANA_SPEED_DEFAULT, 100.0D),
+                toolField("blood_tempest.katana_reach", ToolsArmorConfig.BLOOD_TEMPEST_KATANA_REACH, ToolsArmorConfig.BLOOD_TEMPEST_KATANA_REACH_DEFAULT, 100.0D),
+                toolField("blood_tempest.katana_critical_bonus", ToolsArmorConfig.BLOOD_TEMPEST_KATANA_CRITICAL_BONUS, ToolsArmorConfig.BLOOD_TEMPEST_KATANA_CRITICAL_BONUS_DEFAULT, 1000.0D),
+                toolField("blood_tempest.raevyx_damage_multiplier", ToolsArmorConfig.BLOOD_TEMPEST_RAEVYX_DAMAGE_MULTIPLIER, ToolsArmorConfig.BLOOD_TEMPEST_RAEVYX_DAMAGE_MULTIPLIER_DEFAULT, 1000.0D),
+                toolField("blood_tempest.helmet_armor", ToolsArmorConfig.BLOOD_TEMPEST_HELMET_ARMOR, ToolsArmorConfig.BLOOD_TEMPEST_HELMET_ARMOR_DEFAULT, 100000.0D),
+                toolField("blood_tempest.chestplate_armor", ToolsArmorConfig.BLOOD_TEMPEST_CHESTPLATE_ARMOR, ToolsArmorConfig.BLOOD_TEMPEST_CHESTPLATE_ARMOR_DEFAULT, 100000.0D),
+                toolField("blood_tempest.leggings_armor", ToolsArmorConfig.BLOOD_TEMPEST_LEGGINGS_ARMOR, ToolsArmorConfig.BLOOD_TEMPEST_LEGGINGS_ARMOR_DEFAULT, 100000.0D),
+                toolField("blood_tempest.boots_armor", ToolsArmorConfig.BLOOD_TEMPEST_BOOTS_ARMOR, ToolsArmorConfig.BLOOD_TEMPEST_BOOTS_ARMOR_DEFAULT, 100000.0D),
+                toolField("blood_tempest.toughness", ToolsArmorConfig.BLOOD_TEMPEST_TOUGHNESS, ToolsArmorConfig.BLOOD_TEMPEST_TOUGHNESS_DEFAULT, 100000.0D),
+                toolField("blood_tempest.knockback_resistance", ToolsArmorConfig.BLOOD_TEMPEST_KNOCKBACK_RESISTANCE, ToolsArmorConfig.BLOOD_TEMPEST_KNOCKBACK_RESISTANCE_DEFAULT, 1.0D),
+                toolField("blood_tempest.forward_dodge_speed", ToolsArmorConfig.BLOOD_TEMPEST_FORWARD_DODGE_SPEED, ToolsArmorConfig.BLOOD_TEMPEST_FORWARD_DODGE_SPEED_DEFAULT, 100.0D),
+                toolField("blood_tempest.side_back_dodge_speed", ToolsArmorConfig.BLOOD_TEMPEST_SIDE_BACK_DODGE_SPEED, ToolsArmorConfig.BLOOD_TEMPEST_SIDE_BACK_DODGE_SPEED_DEFAULT, 100.0D));
+
+        addToolsArmorGroup(category, entryBuilder, "dragonlord", entries -> {
+                    entries.add(entryBuilder.startBooleanToggle(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.dragonlord.sword_ability_enabled"),
+                                    ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_ENABLED.get())
+                            .setYesNoTextSupplier(SaintsDragonsModMenuIntegration::booleanText)
+                            .setSaveConsumer(ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_ENABLED::set)
+                            .build());
+                    entries.add(entryBuilder.startIntField(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.dragonlord.sword_ability_cooldown"),
+                                    ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_COOLDOWN_TICKS.get())
+                            .setDefaultValue(ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_COOLDOWN_TICKS_DEFAULT)
+                            .setMin(0)
+                            .setMax(72000)
+                            .setSaveConsumer(ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_COOLDOWN_TICKS::set)
+                            .build());
+                    entries.add(entryBuilder.startBooleanToggle(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.dragonlord.flight_enabled"),
+                                    ToolsArmorConfig.DRAGONLORD_FLIGHT_ENABLED.get())
+                            .setYesNoTextSupplier(SaintsDragonsModMenuIntegration::booleanText)
+                            .setSaveConsumer(ToolsArmorConfig.DRAGONLORD_FLIGHT_ENABLED::set)
+                            .build());
+                    entries.add(entryBuilder.startBooleanToggle(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.dragonlord.lava_fissure_enabled"),
+                                    ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_ENABLED.get())
+                            .setYesNoTextSupplier(SaintsDragonsModMenuIntegration::booleanText)
+                            .setSaveConsumer(ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_ENABLED::set)
+                            .build());
+                    entries.add(entryBuilder.startIntField(
+                                    Component.translatable("saintsdragons.config_screen.tools_armor.dragonlord.lava_fissure_duration"),
+                                    ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_DURATION_TICKS.get())
+                            .setDefaultValue(ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_DURATION_TICKS_DEFAULT)
+                            .setMin(1)
+                            .setMax(72000)
+                            .setSaveConsumer(ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_DURATION_TICKS::set)
+                            .build());
+                },
+                toolField("dragonlord.sword_damage", ToolsArmorConfig.DRAGONLORD_SWORD_DAMAGE, ToolsArmorConfig.DRAGONLORD_SWORD_DAMAGE_DEFAULT, 100000.0D),
+                toolField("dragonlord.sword_speed", ToolsArmorConfig.DRAGONLORD_SWORD_SPEED, ToolsArmorConfig.DRAGONLORD_SWORD_SPEED_DEFAULT, 100.0D),
+                toolField("dragonlord.sword_reach", ToolsArmorConfig.DRAGONLORD_SWORD_REACH, ToolsArmorConfig.DRAGONLORD_SWORD_REACH_DEFAULT, 100.0D),
+                toolField("dragonlord.sword_critical_bonus", ToolsArmorConfig.DRAGONLORD_SWORD_CRITICAL_BONUS, ToolsArmorConfig.DRAGONLORD_SWORD_CRITICAL_BONUS_DEFAULT, 1000.0D),
+                toolField("dragonlord.ignivorus_damage_multiplier", ToolsArmorConfig.DRAGONLORD_IGNIVORUS_DAMAGE_MULTIPLIER, ToolsArmorConfig.DRAGONLORD_IGNIVORUS_DAMAGE_MULTIPLIER_DEFAULT, 1000.0D),
+                toolField("dragonlord.sword_ability_base_damage", ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_BASE_DAMAGE, ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_BASE_DAMAGE_DEFAULT, 100000.0D),
+                toolField("dragonlord.sword_ability_damage_per_pillar", ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_DAMAGE_PER_PILLAR, ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_DAMAGE_PER_PILLAR_DEFAULT, 100000.0D),
+                toolField("dragonlord.sword_ability_base_knockback", ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_BASE_KNOCKBACK, ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_BASE_KNOCKBACK_DEFAULT, 100.0D),
+                toolField("dragonlord.sword_ability_knockback_per_pillar", ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_KNOCKBACK_PER_PILLAR, ToolsArmorConfig.DRAGONLORD_SWORD_ABILITY_KNOCKBACK_PER_PILLAR_DEFAULT, 100.0D),
+                toolField("dragonlord.helmet_armor", ToolsArmorConfig.DRAGONLORD_HELMET_ARMOR, ToolsArmorConfig.DRAGONLORD_HELMET_ARMOR_DEFAULT, 100000.0D),
+                toolField("dragonlord.chestplate_armor", ToolsArmorConfig.DRAGONLORD_CHESTPLATE_ARMOR, ToolsArmorConfig.DRAGONLORD_CHESTPLATE_ARMOR_DEFAULT, 100000.0D),
+                toolField("dragonlord.leggings_armor", ToolsArmorConfig.DRAGONLORD_LEGGINGS_ARMOR, ToolsArmorConfig.DRAGONLORD_LEGGINGS_ARMOR_DEFAULT, 100000.0D),
+                toolField("dragonlord.boots_armor", ToolsArmorConfig.DRAGONLORD_BOOTS_ARMOR, ToolsArmorConfig.DRAGONLORD_BOOTS_ARMOR_DEFAULT, 100000.0D),
+                toolField("dragonlord.toughness", ToolsArmorConfig.DRAGONLORD_TOUGHNESS, ToolsArmorConfig.DRAGONLORD_TOUGHNESS_DEFAULT, 100000.0D),
+                toolField("dragonlord.helmet_knockback", ToolsArmorConfig.DRAGONLORD_HELMET_KNOCKBACK_RESISTANCE, ToolsArmorConfig.DRAGONLORD_HELMET_KNOCKBACK_RESISTANCE_DEFAULT, 1.0D),
+                toolField("dragonlord.chestplate_knockback", ToolsArmorConfig.DRAGONLORD_CHESTPLATE_KNOCKBACK_RESISTANCE, ToolsArmorConfig.DRAGONLORD_CHESTPLATE_KNOCKBACK_RESISTANCE_DEFAULT, 1.0D),
+                toolField("dragonlord.leggings_knockback", ToolsArmorConfig.DRAGONLORD_LEGGINGS_KNOCKBACK_RESISTANCE, ToolsArmorConfig.DRAGONLORD_LEGGINGS_KNOCKBACK_RESISTANCE_DEFAULT, 1.0D),
+                toolField("dragonlord.boots_knockback", ToolsArmorConfig.DRAGONLORD_BOOTS_KNOCKBACK_RESISTANCE, ToolsArmorConfig.DRAGONLORD_BOOTS_KNOCKBACK_RESISTANCE_DEFAULT, 1.0D),
+                toolField("dragonlord.helmet_health", ToolsArmorConfig.DRAGONLORD_HELMET_MAX_HEALTH_BONUS, ToolsArmorConfig.DRAGONLORD_HELMET_MAX_HEALTH_BONUS_DEFAULT, 10000.0D),
+                toolField("dragonlord.chestplate_health", ToolsArmorConfig.DRAGONLORD_CHESTPLATE_MAX_HEALTH_BONUS, ToolsArmorConfig.DRAGONLORD_CHESTPLATE_MAX_HEALTH_BONUS_DEFAULT, 10000.0D),
+                toolField("dragonlord.leggings_health", ToolsArmorConfig.DRAGONLORD_LEGGINGS_MAX_HEALTH_BONUS, ToolsArmorConfig.DRAGONLORD_LEGGINGS_MAX_HEALTH_BONUS_DEFAULT, 10000.0D),
+                toolField("dragonlord.boots_health", ToolsArmorConfig.DRAGONLORD_BOOTS_MAX_HEALTH_BONUS, ToolsArmorConfig.DRAGONLORD_BOOTS_MAX_HEALTH_BONUS_DEFAULT, 10000.0D),
+                toolField("dragonlord.fire_resistance", ToolsArmorConfig.DRAGONLORD_FIRE_RESISTANCE, ToolsArmorConfig.DRAGONLORD_FIRE_RESISTANCE_DEFAULT, 100000.0D),
+                toolField("dragonlord.blast_resistance", ToolsArmorConfig.DRAGONLORD_BLAST_RESISTANCE, ToolsArmorConfig.DRAGONLORD_BLAST_RESISTANCE_DEFAULT, 100000.0D),
+                toolField("dragonlord.double_jump_velocity", ToolsArmorConfig.DRAGONLORD_DOUBLE_JUMP_VERTICAL_VELOCITY, ToolsArmorConfig.DRAGONLORD_DOUBLE_JUMP_VERTICAL_VELOCITY_DEFAULT, 10.0D),
+                toolField("dragonlord.landing_minimum_drop", ToolsArmorConfig.DRAGONLORD_LANDING_MINIMUM_DROP, ToolsArmorConfig.DRAGONLORD_LANDING_MINIMUM_DROP_DEFAULT, 1000.0D),
+                toolField("dragonlord.landing_shockwave_radius", ToolsArmorConfig.DRAGONLORD_LANDING_SHOCKWAVE_RADIUS, ToolsArmorConfig.DRAGONLORD_LANDING_SHOCKWAVE_RADIUS_DEFAULT, 100.0D),
+                toolField("dragonlord.landing_knock_up_strength", ToolsArmorConfig.DRAGONLORD_LANDING_KNOCK_UP_STRENGTH, ToolsArmorConfig.DRAGONLORD_LANDING_KNOCK_UP_STRENGTH_DEFAULT, 100.0D),
+                toolField("dragonlord.landing_impact_damage", ToolsArmorConfig.DRAGONLORD_LANDING_IMPACT_DAMAGE, ToolsArmorConfig.DRAGONLORD_LANDING_IMPACT_DAMAGE_DEFAULT, 100000.0D),
+                toolField("dragonlord.lava_fissure_damage", ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_DAMAGE, ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_DAMAGE_DEFAULT, 100000.0D),
+                toolField("dragonlord.lava_fissure_radius", ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_RADIUS, ToolsArmorConfig.DRAGONLORD_LAVA_FISSURE_RADIUS_DEFAULT, 100.0D));
+    }
+
+    private static ToolsArmorField toolField(String key, ConfigHelper.DoubleValue value, double defaultValue, double max) {
+        return new ToolsArmorField(Component.translatable("saintsdragons.config_screen.tools_armor." + key), value, defaultValue, max);
+    }
+
+    private static Component booleanText(boolean value) {
+        return Component.translatable("saintsdragons.config_screen.boolean." + value);
+    }
+
+    private static void addToolsArmorGroup(ConfigCategory category, ConfigEntryBuilder entryBuilder,
+                                           String key, ToolsArmorField... fields) {
+        addToolsArmorGroup(category, entryBuilder, key, entries -> {
+        }, fields);
+    }
+
+    private static void addToolsArmorGroup(ConfigCategory category, ConfigEntryBuilder entryBuilder,
+                                           String key, Consumer<List<AbstractConfigListEntry>> extraEntries,
+                                           ToolsArmorField... fields) {
+        List<AbstractConfigListEntry> entries = new ArrayList<>();
+        for (ToolsArmorField field : fields) {
+            entries.add(entryBuilder.startDoubleField(field.label(), field.value().get())
+                    .setDefaultValue(field.defaultValue())
+                    .setMin(0.0D)
+                    .setMax(field.max())
+                    .setSaveConsumer(field.value()::set)
+                    .build());
+        }
+        extraEntries.accept(entries);
+        category.addEntry(entryBuilder.startSubCategory(
+                Component.translatable("saintsdragons.config_screen.tools_armor." + key), entries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private record ToolsArmorField(Component label, ConfigHelper.DoubleValue value, double defaultValue, double max) {
+    }
+
+    private void addSpawnEntries(ConfigCategory category,
+                                 ConfigEntryBuilder entryBuilder,
+                                 Component label,
+                                 BooleanSupplier spawningEnabledGetter,
+                                 Consumer<Boolean> spawningEnabledSetter,
+                                 boolean defaultSpawningEnabled,
+                                 IntSupplier weightGetter,
+                                 IntConsumer weightSetter,
+                                 IntSupplier minGetter,
+                                 IntConsumer minSetter,
+                                 IntSupplier maxGetter,
+                                 IntConsumer maxSetter,
+                                 BooleanSupplier customSpawningGetter,
+                                 Consumer<Boolean> customSpawningSetter,
+                                 boolean defaultCustomSpawning,
+                                 int defaultWeight,
+                                 int defaultMin,
+                                 int defaultMax) {
+        category.addEntry(buildSpawnEntries(entryBuilder, label,
+                spawningEnabledGetter, spawningEnabledSetter, defaultSpawningEnabled,
+                weightGetter, weightSetter, minGetter, minSetter, maxGetter, maxSetter,
+                customSpawningGetter, customSpawningSetter, defaultCustomSpawning,
+                defaultWeight, defaultMin, defaultMax));
+    }
+
+    private AbstractConfigListEntry<?> buildSpawnEntries(ConfigEntryBuilder entryBuilder,
+                                                          Component label,
+                                                          BooleanSupplier spawningEnabledGetter,
+                                                          Consumer<Boolean> spawningEnabledSetter,
+                                                          boolean defaultSpawningEnabled,
+                                                          IntSupplier weightGetter,
+                                                          IntConsumer weightSetter,
+                                                          IntSupplier minGetter,
+                                                          IntConsumer minSetter,
+                                                          IntSupplier maxGetter,
+                                                          IntConsumer maxSetter,
+                                                          BooleanSupplier customSpawningGetter,
+                                                          Consumer<Boolean> customSpawningSetter,
+                                                          boolean defaultCustomSpawning,
+                                                          int defaultWeight,
+                                                          int defaultMin,
+                                                          int defaultMax) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startBooleanToggle(
+                        Component.translatable("config.saintsdragons.spawn.enabled"),
+                        spawningEnabledGetter.getAsBoolean())
+                .setDefaultValue(defaultSpawningEnabled)
+                .setTooltip(Component.translatable("config.saintsdragons.spawn.enabled.tooltip"))
+                .setSaveConsumer(spawningEnabledSetter::accept)
+                .build());
+        if (customSpawningGetter != null && customSpawningSetter != null) {
+            entries.add(entryBuilder.startBooleanToggle(
+                            Component.translatable("config.saintsdragons.spawn.custom_spawning"),
+                            customSpawningGetter.getAsBoolean())
+                    .setDefaultValue(defaultCustomSpawning)
+                    .setSaveConsumer(customSpawningSetter::accept)
+                    .build());
+        }
+        entries.add(entryBuilder.startIntField(Component.translatable("config.saintsdragons.spawn.weight"), weightGetter.getAsInt())
+                .setDefaultValue(defaultWeight)
+                .setMin(0)
+                .setMax(5000)
+                .setTooltip(Component.translatable("config.saintsdragons.spawn.weight.tooltip"))
+                .setSaveConsumer(weightSetter::accept)
+                .build());
+        entries.add(entryBuilder.startIntField(Component.translatable("config.saintsdragons.spawn.min_group"), minGetter.getAsInt())
+                .setDefaultValue(defaultMin)
+                .setMin(1)
+                .setMax(10)
+                .setTooltip(Component.translatable("config.saintsdragons.spawn.min_group.tooltip"))
+                .setSaveConsumer(minSetter::accept)
+                .build());
+        entries.add(entryBuilder.startIntField(Component.translatable("config.saintsdragons.spawn.max_group"), maxGetter.getAsInt())
+                .setDefaultValue(defaultMax)
+                .setMin(1)
+                .setMax(10)
+                .setTooltip(Component.translatable("config.saintsdragons.spawn.max_group.tooltip"))
+                .setSaveConsumer(maxSetter::accept)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        return entryBuilder.startSubCategory(label, rawEntries).setExpanded(false).build();
+    }
+
+    private void addStructureSpawnEntry(ConfigCategory category,
+                                         ConfigEntryBuilder entryBuilder,
+                                         Component label,
+                                         BooleanSupplier spawningEnabledGetter,
+                                         Consumer<Boolean> spawningEnabledSetter,
+                                         boolean defaultSpawningEnabled) {
+        category.addEntry(buildStructureSpawnEntry(entryBuilder, label,
+                spawningEnabledGetter, spawningEnabledSetter, defaultSpawningEnabled));
+    }
+
+    private AbstractConfigListEntry<?> buildStructureSpawnEntry(ConfigEntryBuilder entryBuilder,
+                                                                 Component label,
+                                                                 BooleanSupplier spawningEnabledGetter,
+                                                                 Consumer<Boolean> spawningEnabledSetter,
+                                                                 boolean defaultSpawningEnabled) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startBooleanToggle(
+                        Component.translatable("config.saintsdragons.spawn.enabled"),
+                        spawningEnabledGetter.getAsBoolean())
+                .setDefaultValue(defaultSpawningEnabled)
+                .setTooltip(Component.translatable("config.saintsdragons.spawn.structure_enabled.tooltip"))
+                .setSaveConsumer(spawningEnabledSetter::accept)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        return entryBuilder.startSubCategory(label, rawEntries)
+                .setExpanded(false)
+                .build();
+    }
+
+    private void addOtherSpawnEntries(ConfigCategory category,
+                                      ConfigEntryBuilder entryBuilder,
+                                      SaintsDragonsFabricSpawnConfig config) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(buildSpawnEntries(entryBuilder, Component.translatable("config.saintsdragons.spawn.moop"),
+                () -> config.moopSpawningEnabled, value -> config.moopSpawningEnabled = value,
+                SaintsDragonsConfig.MOOP_SPAWNING_ENABLED_DEFAULT,
+                () -> config.moopSpawnWeight, value -> config.moopSpawnWeight = value,
+                () -> config.moopMinGroupSize, value -> config.moopMinGroupSize = value,
+                () -> config.moopMaxGroupSize, value -> config.moopMaxGroupSize = value,
+                null, null, true,
+                SaintsDragonsConfig.MOOP_SPAWN_WEIGHT_DEFAULT,
+                SaintsDragonsConfig.MOOP_MIN_GROUP_SIZE_DEFAULT,
+                SaintsDragonsConfig.MOOP_MAX_GROUP_SIZE_DEFAULT));
+        entries.add(buildSpawnEntries(entryBuilder, Component.translatable("config.saintsdragons.spawn.mossback"),
+                () -> config.mossbackSpawningEnabled, value -> config.mossbackSpawningEnabled = value,
+                SaintsDragonsConfig.MOSSBACK_SPAWNING_ENABLED_DEFAULT,
+                () -> config.mossbackSpawnWeight, value -> config.mossbackSpawnWeight = value,
+                () -> config.mossbackMinGroupSize, value -> config.mossbackMinGroupSize = value,
+                () -> config.mossbackMaxGroupSize, value -> config.mossbackMaxGroupSize = value,
+                null, null, true,
+                SaintsDragonsConfig.MOSSBACK_SPAWN_WEIGHT_DEFAULT,
+                SaintsDragonsConfig.MOSSBACK_MIN_GROUP_SIZE_DEFAULT,
+                SaintsDragonsConfig.MOSSBACK_MAX_GROUP_SIZE_DEFAULT));
+        entries.add(buildStructureSpawnEntry(entryBuilder, Component.translatable("config.saintsdragons.spawn.ivy"),
+                () -> config.ivySpawningEnabled, value -> config.ivySpawningEnabled = value,
+                SaintsDragonsConfig.IVY_SPAWNING_ENABLED_DEFAULT));
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(
+                Component.translatable("config.saintsdragons.spawn.other"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private static AbstractConfigListEntry<Double> buildPercentChanceEntry(ConfigEntryBuilder entryBuilder,
+                                                                           Component label,
+                                                                           double storedValue,
+                                                                           double defaultStoredValue,
+                                                                           DoubleConsumer saveConsumer) {
+        return entryBuilder.startDoubleField(label, toPercentChance(storedValue))
+                .setDefaultValue(toPercentChance(defaultStoredValue))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> saveConsumer.accept(fromPercentChance(value)))
+                .build();
+    }
+
+    private static double toPercentChance(double storedValue) {
+        return clampChance(storedValue) * 100.0D;
+    }
+
+    private static double fromPercentChance(double percentValue) {
+        return clampChance(percentValue / 100.0D);
+    }
+
+    private static double clampChance(double value) {
+        return Math.max(0.0D, Math.min(1.0D, value));
+    }
+
+    private void addCindervaneAttributes(ConfigCategory category,
+                                         ConfigEntryBuilder entryBuilder,
+                                         CindervaneAttributeBuffer buffer,
+                                         DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.max_health"), buffer.maxHealth)
+                .setDefaultValue(defaults.maxHealth())
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.maxHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.armor"), buffer.armor)
+                .setDefaultValue(defaults.armor())
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.armor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.rider_flying_speed"), buffer.flyingSpeed)
+                .setDefaultValue(defaults.flyingSpeed())
+                .setMin(0.0D)
+                .setMax(2.0D)
+                .setSaveConsumer(value -> buffer.flyingSpeed = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.wild_flying_speed_multiplier"), buffer.wildFlyingSpeedMultiplier)
+                .setDefaultValue(defaults.extraDouble("wild_flying_speed_multiplier", 1.0D))
+                .setMin(0.05D)
+                .setMax(10.0D)
+                .setSaveConsumer(value -> buffer.wildFlyingSpeedMultiplier = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.bite_damage"), buffer.biteDamage)
+                .setDefaultValue(defaults.abilityDamage("bite", 12.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.biteDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.double_bite_damage"), buffer.doubleBiteDamage)
+                .setDefaultValue(defaults.abilityDamage("double_bite", 15.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.doubleBiteDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.slash_grab_hit1_damage"), buffer.slashGrabHit1Damage)
+                .setDefaultValue(defaults.abilityDamage("slash_grab_hit1", 5.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.slashGrabHit1Damage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.slash_grab_hit2_damage"), buffer.slashGrabHit2Damage)
+                .setDefaultValue(defaults.abilityDamage("slash_grab_hit2", 7.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.slashGrabHit2Damage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.volley_damage"), buffer.volleyDamage)
+                .setDefaultValue(defaults.abilityDamage("magma_volley", 20.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.volleyDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.magma_volley_cooldown_seconds"), buffer.magmaVolleyCooldownSeconds)
+                .setDefaultValue(defaults.extraDouble("magma_volley_cooldown_seconds", 20.0D))
+                .setMin(0.0D)
+                .setMax(6000.0D)
+                .setSaveConsumer(value -> buffer.magmaVolleyCooldownSeconds = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.fire_body_damage"), buffer.fireBodyDamage)
+                .setDefaultValue(defaults.abilityDamage("fire_body", 3.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.fireBodyDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.taming_base"), buffer.tamingChanceBase)
+                .setDefaultValue(defaults.extraDouble("taming_chance_base", 25.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceBase = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.taming_chicken"), buffer.tamingChanceChicken)
+                .setDefaultValue(defaults.extraDouble("taming_chance_chicken", 33.3333D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceChicken = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.taming_hearty"), buffer.tamingChanceHearty)
+                .setDefaultValue(defaults.extraDouble("taming_chance_hearty", 50.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceHearty = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.egg_hatch_time_ticks_normal"), buffer.eggHatchChanceNormal)
+                .setDefaultValue(defaults.extraDouble("egg_hatch_time_ticks_normal", 12000.0D))
+                .setMin(20.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.eggHatchChanceNormal = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.fire_body_explosion_damage"), buffer.fireBodyExplosionDamage)
+                .setDefaultValue(defaults.extraDouble("fire_body_explosion_damage", 200.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.fireBodyExplosionDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.cindervane.fire_body_self_damage_on_crash"), buffer.fireBodySelfDamageOnCrash)
+                .setDefaultValue(defaults.extraDouble("fire_body_self_damage_on_crash", 40.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.fireBodySelfDamageOnCrash = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.cindervane.aggressive_wild"), buffer.aggressiveWild)
+                .setDefaultValue(defaults.extraBoolean("aggressive_wild", false))
+                .setSaveConsumer(value -> buffer.aggressiveWild = value)
+                .build());
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(Component.translatable("config.saintsdragons.attributes.cindervane"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void addStegonautAttributes(ConfigCategory category,
+                                        ConfigEntryBuilder entryBuilder,
+                                        StegonautAttributeBuffer buffer,
+                                        DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.max_health"), buffer.maxHealth)
+                .setDefaultValue(defaults.maxHealth())
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.maxHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.armor"), buffer.armor)
+                .setDefaultValue(defaults.armor())
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.armor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.bite_damage"), buffer.biteDamage)
+                .setDefaultValue(defaults.abilityDamage("bite", 5.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.biteDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.chin_slam_damage"), buffer.chinSlamDamage)
+                .setDefaultValue(defaults.abilityDamage("chin_slam", 8.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.chinSlamDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.ground_eating_damage"), buffer.groundEatingDamage)
+                .setDefaultValue(defaults.abilityDamage("ground_eating", 10.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.groundEatingDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.ground_slam_damage"), buffer.groundSlamDamage)
+                .setDefaultValue(defaults.abilityDamage("ground_slam", 20.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.groundSlamDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.ground_slam_knockback"), buffer.groundSlamKnockback)
+                .setDefaultValue(defaults.extraDouble("ground_slam_knockback", 1.35D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.groundSlamKnockback = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.ground_slam2_damage"), buffer.groundSlam2Damage)
+                .setDefaultValue(defaults.abilityDamage("ground_slam2", 25.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.groundSlam2Damage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.ground_slam2_knockback"), buffer.groundSlam2Knockback)
+                .setDefaultValue(defaults.extraDouble("ground_slam2_knockback", 1.8D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.groundSlam2Knockback = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.ground_slam_pillar_damage"), buffer.groundSlamPillarDamage)
+                .setDefaultValue(defaults.abilityDamage("ground_slam_pillar", 10.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.groundSlamPillarDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.ground_slam_pillar_knockback"), buffer.groundSlamPillarKnockback)
+                .setDefaultValue(defaults.extraDouble("ground_slam_pillar_knockback", 0.9D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.groundSlamPillarKnockback = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.taming_base"), buffer.tamingChanceBase)
+                .setDefaultValue(defaults.extraDouble("taming_chance_base", 100.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceBase = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.taming_hearty"), buffer.tamingChanceHearty)
+                .setDefaultValue(defaults.extraDouble("taming_chance_hearty", 100.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceHearty = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.stegonaut.egg_hatch_time_ticks_normal"), buffer.eggHatchChanceNormal)
+                .setDefaultValue(defaults.extraDouble("egg_hatch_time_ticks_normal", 30000.0D))
+                .setMin(20.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.eggHatchChanceNormal = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.stegonaut.aggressive_wild"), buffer.aggressiveWild)
+                .setDefaultValue(defaults.extraBoolean("aggressive_wild", false))
+                .setSaveConsumer(value -> buffer.aggressiveWild = value)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(Component.translatable("config.saintsdragons.attributes.stegonaut"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void addRaevyxAttributes(ConfigCategory category,
+                                     ConfigEntryBuilder entryBuilder,
+                                     RaevyxAttributeBuffer buffer,
+                                     DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.max_health"), buffer.maxHealth)
+                .setDefaultValue(defaults.maxHealth())
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.maxHealth = value)
+                .build());
+        entries.add(entryBuilder.startTextDescription(
+                Component.translatable("config.saintsdragons.attributes.taming_stun_health.warning")
+        ).setColor(0xFFFFAA00).build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.armor"), buffer.armor)
+                .setDefaultValue(defaults.armor())
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.armor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.rider_flying_speed"), buffer.flyingSpeed)
+                .setDefaultValue(defaults.flyingSpeed())
+                .setMin(0.0D)
+                .setMax(2.0D)
+                .setSaveConsumer(value -> buffer.flyingSpeed = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(
+                        Component.translatable("config.saintsdragons.attributes.raevyx.dive_loop"),
+                        buffer.diveLoopEnabled)
+                .setDefaultValue(defaults.extraBoolean("dive_loop_enabled", true))
+                .setTooltip(Component.translatable("config.saintsdragons.attributes.raevyx.dive_loop.tooltip"))
+                .setSaveConsumer(value -> buffer.diveLoopEnabled = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.wild_flying_speed_multiplier"), buffer.wildFlyingSpeedMultiplier)
+                .setDefaultValue(defaults.extraDouble("wild_flying_speed_multiplier", 1.0D))
+                .setMin(0.05D)
+                .setMax(10.0D)
+                .setSaveConsumer(value -> buffer.wildFlyingSpeedMultiplier = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.bite_damage"), buffer.biteDamage)
+                .setDefaultValue(defaults.abilityDamage("bite", 15.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.biteDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.beam_damage"), buffer.beamDamage)
+                .setDefaultValue(defaults.abilityDamage("lightning_beam", 35.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.beamDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.horn_damage"), buffer.hornDamage)
+                .setDefaultValue(defaults.abilityDamage("horn_gore", 15.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.hornDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.dash_damage"), buffer.dashDamage)
+                .setDefaultValue(defaults.abilityDamage("dash", 10.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.dashDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.taming_base"), buffer.tamingChanceBase)
+                .setDefaultValue(defaults.extraDouble("taming_chance_base", 20.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceBase = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.taming_mutton"), buffer.tamingChanceMutton)
+                .setDefaultValue(defaults.extraDouble("taming_chance_mutton", 20.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceMutton = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.taming_porkchop"), buffer.tamingChancePorkchop)
+                .setDefaultValue(defaults.extraDouble("taming_chance_porkchop", 20.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChancePorkchop = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.taming_hearty"), buffer.tamingChanceHearty)
+                .setDefaultValue(defaults.extraDouble("taming_chance_hearty", 33.3333D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceHearty = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.taming_stun_health"), buffer.tamingStunHealth)
+                .setDefaultValue(defaults.extraDouble("taming_stun_health", 60.0D))
+                .setMin(0.0D)
+                .setMax(1000.0D)
+                .setSaveConsumer(value -> buffer.tamingStunHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.beam_drain_per_tick"), buffer.beamDrainPerTick)
+                .setDefaultValue(defaults.extraDouble("beam_drain_per_tick", 0.014D))
+                .setMin(0.0D)
+                .setMax(1.0D)
+                .setSaveConsumer(value -> buffer.beamDrainPerTick = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.beam_regen_per_tick"), buffer.beamRegenPerTick)
+                .setDefaultValue(defaults.extraDouble("beam_regen_per_tick", 0.0025D))
+                .setMin(0.0D)
+                .setMax(1.0D)
+                .setSaveConsumer(value -> buffer.beamRegenPerTick = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.summon_storm_cooldown_ticks"), buffer.summonStormCooldownTicks)
+                .setDefaultValue(defaults.extraDouble("summon_storm_cooldown_ticks", 4800.0D))
+                .setMin(20.0D)
+                .setMax(120000.0D)
+                .setSaveConsumer(value -> buffer.summonStormCooldownTicks = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.summon_storm_supercharge_ticks"), buffer.summonStormSuperchargeTicks)
+                .setDefaultValue(defaults.extraDouble("summon_storm_supercharge_ticks", 1200.0D))
+                .setMin(20.0D)
+                .setMax(120000.0D)
+                .setSaveConsumer(value -> buffer.summonStormSuperchargeTicks = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.summon_storm_supercharge_damage_multiplier"), buffer.summonStormSuperchargeDamageMultiplier)
+                .setDefaultValue(defaults.extraDouble("summon_storm_supercharge_damage_multiplier", 2.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.summonStormSuperchargeDamageMultiplier = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.summon_storm_duration_ticks"), buffer.summonStormDurationTicks)
+                .setDefaultValue(defaults.extraDouble("summon_storm_duration_ticks", 1200.0D))
+                .setMin(20.0D)
+                .setMax(120000.0D)
+                .setSaveConsumer(value -> buffer.summonStormDurationTicks = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.egg_hatch_time_ticks_normal"), buffer.eggHatchTimeTicksNormal)
+                .setDefaultValue(defaults.extraDouble("egg_hatch_time_ticks_normal", 18000.0D))
+                .setMin(20.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.eggHatchTimeTicksNormal = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.raevyx.egg_hatch_time_ticks_thunder"), buffer.eggHatchTimeTicksThunder)
+                .setDefaultValue(defaults.extraDouble("egg_hatch_time_ticks_thunder", 9600.0D))
+                .setMin(20.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.eggHatchTimeTicksThunder = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.raevyx.legacy_taming"), buffer.legacyTaming)
+                .setDefaultValue(defaults.extraBoolean("legacy_taming", false))
+                .setTooltip(Component.translatable("config.saintsdragons.attributes.legacy_taming.tooltip"))
+                .setSaveConsumer(value -> buffer.legacyTaming = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.raevyx.aggressive_wild"), buffer.aggressiveWild)
+                .setDefaultValue(defaults.extraBoolean("aggressive_wild", false))
+                .setSaveConsumer(value -> buffer.aggressiveWild = value)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(Component.translatable("config.saintsdragons.attributes.raevyx"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void addVarasuchusAttributes(ConfigCategory category,
+                                     ConfigEntryBuilder entryBuilder,
+                                     VarasuchusAttributeBuffer buffer,
+                                     DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.max_health"), buffer.maxHealth)
+                .setDefaultValue(defaults.maxHealth())
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.maxHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.armor"), buffer.armor)
+                .setDefaultValue(defaults.armor())
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.armor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.swim_speed"), buffer.swimSpeed)
+                .setDefaultValue(defaults.extraDouble("swim_speed", 1.45D))
+                .setMin(0.1D)
+                .setMax(5.0D)
+                .setSaveConsumer(value -> buffer.swimSpeed = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.bite_phase1"), buffer.bitePhase1)
+                .setDefaultValue(defaults.abilityDamage("bite_phase1", 15.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.bitePhase1 = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.bite_phase2"), buffer.bitePhase2)
+                .setDefaultValue(defaults.abilityDamage("bite_phase2", 25.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.bitePhase2 = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.tail_attack"), buffer.tailAttack)
+                .setDefaultValue(defaults.abilityDamage("tail_attack", 7.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.tailAttack = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.tailguard_parry"), buffer.tailguardParry)
+                .setDefaultValue(defaults.abilityDamage("tailguard_parry", 10.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.tailguardParry = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.dash_tail_swipe"), buffer.dashTailSwipe)
+                .setDefaultValue(defaults.abilityDamage("dash_tail_swipe", 10.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.dashTailSwipe = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.dash_claw"), buffer.dashClaw)
+                .setDefaultValue(defaults.abilityDamage("dash_claw", 15.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.dashClaw = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.claw_attack"), buffer.clawAttack)
+                .setDefaultValue(defaults.abilityDamage("claw_attack", 8.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.clawAttack = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.horn_phase1"), buffer.hornPhase1)
+                .setDefaultValue(defaults.abilityDamage("horn_gore_phase1", 8.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.hornPhase1 = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.horn_phase2"), buffer.hornPhase2)
+                .setDefaultValue(defaults.abilityDamage("horn_gore_phase2", 15.8D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.hornPhase2 = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.taming_chance"), buffer.tamingChance)
+                .setDefaultValue(defaults.extraDouble("taming_chance", 16.6667D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChance = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.taming_beef"), buffer.tamingChanceBeef)
+                .setDefaultValue(defaults.extraDouble("taming_chance_beef", 16.6667D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceBeef = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.taming_tropical"), buffer.tamingChanceTropical)
+                .setDefaultValue(defaults.extraDouble("taming_chance_tropical", 25.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceTropical = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.varasuchus.egg_hatch_time_ticks_normal"), buffer.eggHatchChanceNormal)
+                .setDefaultValue(defaults.extraDouble("egg_hatch_time_ticks_normal", 24000.0D))
+                .setMin(20.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.eggHatchChanceNormal = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.varasuchus.legacy_taming"), buffer.legacyTaming)
+                .setDefaultValue(defaults.extraBoolean("legacy_taming", false))
+                .setTooltip(Component.translatable("config.saintsdragons.attributes.legacy_taming.tooltip"))
+                .setSaveConsumer(value -> buffer.legacyTaming = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.varasuchus.aggressive_wild"), buffer.aggressiveWild)
+                .setDefaultValue(defaults.extraBoolean("aggressive_wild", true))
+                .setSaveConsumer(value -> buffer.aggressiveWild = value)
+                .build());
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(Component.translatable("config.saintsdragons.attributes.varasuchus"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void addIgnivorusAttributes(ConfigCategory category,
+                                        ConfigEntryBuilder entryBuilder,
+                                        IgnivorusAttributeBuffer buffer,
+                                        DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.max_health"), buffer.maxHealth)
+                .setDefaultValue(defaults.maxHealth())
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.maxHealth = value)
+                .build());
+        entries.add(entryBuilder.startTextDescription(
+                Component.translatable("config.saintsdragons.attributes.ignivorus.thresholds.warning")
+        ).setColor(0xFFFFAA00).build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.armor"), buffer.armor)
+                .setDefaultValue(defaults.armor())
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.armor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.rider_flying_speed"), buffer.flyingSpeed)
+                .setDefaultValue(defaults.flyingSpeed())
+                .setMin(0.0D)
+                .setMax(2.0D)
+                .setSaveConsumer(value -> buffer.flyingSpeed = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.wild_flying_speed_multiplier"), buffer.wildFlyingSpeedMultiplier)
+                .setDefaultValue(defaults.extraDouble("wild_flying_speed_multiplier", 1.0D))
+                .setMin(0.05D)
+                .setMax(10.0D)
+                .setSaveConsumer(value -> buffer.wildFlyingSpeedMultiplier = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.bite_damage"), buffer.biteDamage)
+                .setDefaultValue(defaults.abilityDamage("bite", 50.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.biteDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.body_slam_damage"), buffer.bodySlamDamage)
+                .setDefaultValue(defaults.abilityDamage("body_slam", 40.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.bodySlamDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.leap_slam_damage"), buffer.leapSlamDamage)
+                .setDefaultValue(defaults.abilityDamage("leap_slam", 50.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.leapSlamDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.fire_breath_damage"), buffer.fireBreathDamage)
+                .setDefaultValue(defaults.abilityDamage("fire_breath", 80.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.fireBreathDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.fireball_damage"), buffer.fireballDamage)
+                .setDefaultValue(defaults.abilityDamage("fireball", 70.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.fireballDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.magma_pillar_damage"), buffer.magmaPillarDamage)
+                .setDefaultValue(defaults.abilityDamage("magma_pillar", 18.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.magmaPillarDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.wing_swipe_damage"), buffer.wingSwipeDamage)
+                .setDefaultValue(defaults.abilityDamage("wing_swipe", 15.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.wingSwipeDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.stomp_damage"), buffer.stompDamage)
+                .setDefaultValue(defaults.abilityDamage("stomp", 18.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.stompDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.bulldoze_damage"), buffer.bulldozeDamage)
+                .setDefaultValue(defaults.abilityDamage("bulldoze", 10.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.bulldozeDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.ultimate_damage"), buffer.ultimateDamage)
+                .setDefaultValue(defaults.abilityDamage("ultimate", 200.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.ultimateDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.ultimate_penalty"), buffer.ultimatePenalty)
+                .setDefaultValue(defaults.extraDouble("ultimate_penalty_health", 50.0D))
+                .setMin(1.0D)
+                .setMax(10000.0D)
+                .setSaveConsumer(value -> buffer.ultimatePenalty = value)
+                .build());
+        entries.add(buildPercentChanceEntry(entryBuilder,
+                Component.translatable("config.saintsdragons.attributes.ignivorus.ultimate_trigger_health_fraction"),
+                buffer.ultimateTriggerHealthFraction,
+                defaults.extraDouble("ultimate_trigger_health_fraction", 0.6D),
+                value -> buffer.ultimateTriggerHealthFraction = value));
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.taming_base"), buffer.tamingChanceBase)
+                .setDefaultValue(defaults.extraDouble("taming_chance_base", 14.2857D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceBase = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.taming_beef"), buffer.tamingChanceBeef)
+                .setDefaultValue(defaults.extraDouble("taming_chance_beef", 20.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceBeef = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.taming_mutton"), buffer.tamingChanceMutton)
+                .setDefaultValue(defaults.extraDouble("taming_chance_mutton", 14.2857D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceMutton = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.taming_porkchop"), buffer.tamingChancePorkchop)
+                .setDefaultValue(defaults.extraDouble("taming_chance_porkchop", 14.2857D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChancePorkchop = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.taming_hearty"), buffer.tamingChanceHearty)
+                .setDefaultValue(defaults.extraDouble("taming_chance_hearty", 25.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceHearty = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.taming_stun_health"), buffer.tamingStunHealth)
+                .setDefaultValue(defaults.extraDouble("taming_stun_health", 100.0D))
+                .setMin(0.0D)
+                .setMax(1000.0D)
+                .setSaveConsumer(value -> buffer.tamingStunHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.fire_breath_drain_per_tick"), buffer.fireBreathDrainPerTick)
+                .setDefaultValue(defaults.extraDouble("fire_breath_drain_per_tick", 0.004166666666666667D))
+                .setMin(0.0D)
+                .setMax(1.0D)
+                .setSaveConsumer(value -> buffer.fireBreathDrainPerTick = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.fire_breath_regen_per_tick"), buffer.fireBreathRegenPerTick)
+                .setDefaultValue(defaults.extraDouble("fire_breath_regen_per_tick", 0.0025D))
+                .setMin(0.0D)
+                .setMax(1.0D)
+                .setSaveConsumer(value -> buffer.fireBreathRegenPerTick = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.ignivorus.egg_hatch_time_ticks_normal"), buffer.eggHatchChanceNormal)
+                .setDefaultValue(defaults.extraDouble("egg_hatch_time_ticks_normal", 36000.0D))
+                .setMin(20.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.eggHatchChanceNormal = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.ignivorus.legacy_taming"), buffer.legacyTaming)
+                .setDefaultValue(defaults.extraBoolean("legacy_taming", false))
+                .setTooltip(Component.translatable("config.saintsdragons.attributes.legacy_taming.tooltip"))
+                .setSaveConsumer(value -> buffer.legacyTaming = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.ignivorus.aggressive_wild"), buffer.aggressiveWild)
+                .setDefaultValue(defaults.extraBoolean("aggressive_wild", false))
+                .setSaveConsumer(value -> buffer.aggressiveWild = value)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(Component.translatable("config.saintsdragons.attributes.ignivorus"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void addVolitansAttributes(ConfigCategory category,
+                                       ConfigEntryBuilder entryBuilder,
+                                       VolitansAttributeBuffer buffer,
+                                       DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.max_health"), buffer.maxHealth)
+                .setDefaultValue(defaults.maxHealth())
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.maxHealth = value)
+                .build());
+        entries.add(entryBuilder.startTextDescription(
+                Component.translatable("config.saintsdragons.attributes.taming_stun_health.warning")
+        ).setColor(0xFFFFAA00).build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.armor"), buffer.armor)
+                .setDefaultValue(defaults.armor())
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.armor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.rider_flying_speed"), buffer.flyingSpeed)
+                .setDefaultValue(defaults.flyingSpeed())
+                .setMin(0.0D)
+                .setMax(2.0D)
+                .setSaveConsumer(value -> buffer.flyingSpeed = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.rider_swim_speed"), buffer.riderSwimSpeed)
+                .setDefaultValue(defaults.extraDouble("rider_swim_speed", 1.42D))
+                .setMin(0.1D)
+                .setMax(5.0D)
+                .setSaveConsumer(value -> buffer.riderSwimSpeed = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.wild_flying_speed_multiplier"), buffer.wildFlyingSpeedMultiplier)
+                .setDefaultValue(defaults.extraDouble("wild_flying_speed_multiplier", 1.0D))
+                .setMin(0.05D)
+                .setMax(10.0D)
+                .setSaveConsumer(value -> buffer.wildFlyingSpeedMultiplier = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.bite_damage"), buffer.biteDamage)
+                .setDefaultValue(defaults.abilityDamage("bite", 12.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.biteDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.claw_damage"), buffer.clawDamage)
+                .setDefaultValue(defaults.abilityDamage("claw", 11.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.clawDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.horn_gore_damage"), buffer.hornGoreDamage)
+                .setDefaultValue(defaults.abilityDamage("horn_gore", 15.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.hornGoreDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.roar_ground_damage"), buffer.roarGroundDamage)
+                .setDefaultValue(defaults.abilityDamage("roar_ground", 10.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.roarGroundDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.roar_air_water_damage"), buffer.roarAirWaterDamage)
+                .setDefaultValue(defaults.abilityDamage("roar_air_water", 7.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.roarAirWaterDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.burrow_damage"), buffer.burrowDamage)
+                .setDefaultValue(defaults.abilityDamage("burrow", 30.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.burrowDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.poison_ball_damage"), buffer.poisonBallDamage)
+                .setDefaultValue(defaults.abilityDamage("poison_ball", 12.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.poisonBallDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.water_breath_damage"), buffer.waterBreathDamage)
+                .setDefaultValue(defaults.abilityDamage("water_breath", 1.8D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.waterBreathDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.poison_breath_damage"), buffer.poisonBreathDamage)
+                .setDefaultValue(defaults.abilityDamage("poison_breath", 1.4D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.poisonBreathDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.taming_chance_base"), buffer.tamingChanceBase)
+                .setDefaultValue(defaults.extraDouble("taming_chance_base", 5.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceBase = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.taming_chance_hearty"), buffer.tamingChanceHearty)
+                .setDefaultValue(defaults.extraDouble("taming_chance_hearty", 3.0D))
+                .setMin(0.0D)
+                .setMax(100.0D)
+                .setSaveConsumer(value -> buffer.tamingChanceHearty = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.taming_stun_health"), buffer.tamingStunHealth)
+                .setDefaultValue(defaults.extraDouble("taming_stun_health", 60.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.tamingStunHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.breath_active_ticks_max"), buffer.breathActiveTicksMax)
+                .setDefaultValue(defaults.extraDouble("breath_active_ticks_max", 240.0D))
+                .setMin(1.0D)
+                .setMax(24000.0D)
+                .setSaveConsumer(value -> buffer.breathActiveTicksMax = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.breath_drain_per_tick"), buffer.breathDrainPerTick)
+                .setDefaultValue(defaults.extraDouble("breath_drain_per_tick", 1.0D / (20.0D * 12.0D)))
+                .setMin(0.0D)
+                .setMax(1.0D)
+                .setSaveConsumer(value -> buffer.breathDrainPerTick = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.breath_regen_per_tick"), buffer.breathRegenPerTick)
+                .setDefaultValue(defaults.extraDouble("breath_regen_per_tick", 0.0025D))
+                .setMin(0.0D)
+                .setMax(1.0D)
+                .setSaveConsumer(value -> buffer.breathRegenPerTick = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.poison_breath_poison_duration_ticks"), buffer.poisonBreathPoisonDurationTicks)
+                .setDefaultValue(defaults.extraDouble("poison_breath_poison_duration_ticks", 80.0D))
+                .setMin(0.0D)
+                .setMax(12000.0D)
+                .setSaveConsumer(value -> buffer.poisonBreathPoisonDurationTicks = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.poison_breath_poison_level"), buffer.poisonBreathPoisonLevel)
+                .setDefaultValue(defaults.extraDouble("poison_breath_poison_level", 1.0D))
+                .setMin(0.0D)
+                .setMax(4.0D)
+                .setSaveConsumer(value -> buffer.poisonBreathPoisonLevel = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.poison_ball_poison_duration_ticks"), buffer.poisonBallPoisonDurationTicks)
+                .setDefaultValue(defaults.extraDouble("poison_ball_poison_duration_ticks", 120.0D))
+                .setMin(0.0D)
+                .setMax(12000.0D)
+                .setSaveConsumer(value -> buffer.poisonBallPoisonDurationTicks = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.poison_ball_poison_level"), buffer.poisonBallPoisonLevel)
+                .setDefaultValue(defaults.extraDouble("poison_ball_poison_level", 1.0D))
+                .setMin(0.0D)
+                .setMax(4.0D)
+                .setSaveConsumer(value -> buffer.poisonBallPoisonLevel = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.roar_ground_poison_duration_ticks"), buffer.roarGroundPoisonDurationTicks)
+                .setDefaultValue(defaults.extraDouble("roar_ground_poison_duration_ticks", 1200.0D))
+                .setMin(0.0D)
+                .setMax(12000.0D)
+                .setSaveConsumer(value -> buffer.roarGroundPoisonDurationTicks = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.roar_ground_poison_level"), buffer.roarGroundPoisonLevel)
+                .setDefaultValue(defaults.extraDouble("roar_ground_poison_level", 3.0D))
+                .setMin(0.0D)
+                .setMax(4.0D)
+                .setSaveConsumer(value -> buffer.roarGroundPoisonLevel = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.roar_air_water_poison_duration_ticks"), buffer.roarAirWaterPoisonDurationTicks)
+                .setDefaultValue(defaults.extraDouble("roar_air_water_poison_duration_ticks", 200.0D))
+                .setMin(0.0D)
+                .setMax(12000.0D)
+                .setSaveConsumer(value -> buffer.roarAirWaterPoisonDurationTicks = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.roar_air_water_poison_level"), buffer.roarAirWaterPoisonLevel)
+                .setDefaultValue(defaults.extraDouble("roar_air_water_poison_level", 2.0D))
+                .setMin(0.0D)
+                .setMax(4.0D)
+                .setSaveConsumer(value -> buffer.roarAirWaterPoisonLevel = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.volitans.egg_hatch_time_ticks_normal"), buffer.eggHatchChanceNormal)
+                .setDefaultValue(defaults.extraDouble("egg_hatch_time_ticks_normal", 18000.0D))
+                .setMin(20.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.eggHatchChanceNormal = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.volitans.legacy_taming"), buffer.legacyTaming)
+                .setDefaultValue(defaults.extraBoolean("legacy_taming", false))
+                .setTooltip(Component.translatable("config.saintsdragons.attributes.legacy_taming.tooltip"))
+                .setSaveConsumer(value -> buffer.legacyTaming = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(Component.translatable("config.saintsdragons.attributes.volitans.aggressive_wild"), buffer.aggressiveWild)
+                .setDefaultValue(defaults.extraBoolean("aggressive_wild", true))
+                .setSaveConsumer(value -> buffer.aggressiveWild = value)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(Component.translatable("config.saintsdragons.attributes.volitans"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void addNulljawAttributes(ConfigCategory category,
+                                      ConfigEntryBuilder entryBuilder,
+                                      NulljawAttributeBuffer buffer,
+                                      DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.nulljaw.max_health"), buffer.maxHealth)
+                .setDefaultValue(defaults.maxHealth())
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.maxHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.nulljaw.armor"), buffer.armor)
+                .setDefaultValue(defaults.armor())
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.armor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.nulljaw.bite_damage"), buffer.biteDamage)
+                .setDefaultValue(defaults.abilityDamage("bite", 8.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.biteDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.nulljaw.invisibility_duration_ticks"), buffer.invisibilityDurationTicks)
+                .setDefaultValue(defaults.extraDouble("invisibility_duration_ticks", 6000.0D))
+                .setMin(1.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.invisibilityDurationTicks = value)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(Component.translatable("config.saintsdragons.attributes.nulljaw"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void addAtroxiiaAttributes(ConfigCategory category,
+                                       ConfigEntryBuilder entryBuilder,
+                                       AtroxiiaAttributeBuffer buffer,
+                                       DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startTextDescription(
+                Component.translatable("config.saintsdragons.attributes.taming_stun_health.warning")
+        ).setColor(0xFFFFAA00).build());
+        entries.add(entryBuilder.startDoubleField(
+                        Component.translatable("config.saintsdragons.attributes.atroxiia.taming_stun_health"),
+                        buffer.tamingStunHealth)
+                .setDefaultValue(defaults.extraDouble("taming_stun_health", 60.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.tamingStunHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(
+                        Component.translatable("config.saintsdragons.attributes.atroxiia.gungnir_stab_damage"),
+                        buffer.gungnirStabDamage)
+                .setDefaultValue(defaults.abilityDamage("gungnir_stab", 40.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.gungnirStabDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(
+                        Component.translatable("config.saintsdragons.attributes.atroxiia.slither_damage"),
+                        buffer.slitherDamage)
+                .setDefaultValue(defaults.abilityDamage("slither", 5.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.slitherDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(
+                        Component.translatable("config.saintsdragons.attributes.atroxiia.egg_hatch_time_ticks_normal"),
+                        buffer.eggHatchTimeTicksNormal)
+                .setDefaultValue(defaults.extraDouble("egg_hatch_time_ticks_normal", 24000.0D))
+                .setMin(20.0D)
+                .setMax(72000.0D)
+                .setSaveConsumer(value -> buffer.eggHatchTimeTicksNormal = value)
+                .build());
+        entries.add(entryBuilder.startBooleanToggle(
+                        Component.translatable("config.saintsdragons.attributes.atroxiia.aggressive_wild"),
+                        buffer.aggressiveWild)
+                .setDefaultValue(defaults.extraBoolean("aggressive_wild", false))
+                .setSaveConsumer(value -> buffer.aggressiveWild = value)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(
+                        Component.translatable("config.saintsdragons.attributes.atroxiia"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void addDraconianSwarmAttributes(ConfigCategory category,
+                                             ConfigEntryBuilder entryBuilder,
+                                             DraconianSwarmAttributeBuffer buffer,
+                                             DragonAttributeConfig defaults) {
+        List<AbstractConfigListEntry<?>> entries = new ArrayList<>();
+        entries.add(entryBuilder.startIntField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.wave_1_count"), buffer.wave1Count)
+                .setDefaultValue(DragonAttributeConfigLoader.swarmWaveCount(defaults, 1))
+                .setMin(DragonAttributeConfigLoader.SWARM_WAVE_MIN_COUNT)
+                .setMax(DragonAttributeConfigLoader.SWARM_WAVE_MAX_COUNT)
+                .setSaveConsumer(value -> buffer.wave1Count = DragonAttributeConfigLoader.clampSwarmWaveCount(value))
+                .build());
+        entries.add(entryBuilder.startIntField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.wave_2_count"), buffer.wave2Count)
+                .setDefaultValue(DragonAttributeConfigLoader.swarmWaveCount(defaults, 2))
+                .setMin(DragonAttributeConfigLoader.SWARM_WAVE_MIN_COUNT)
+                .setMax(DragonAttributeConfigLoader.SWARM_WAVE_MAX_COUNT)
+                .setSaveConsumer(value -> buffer.wave2Count = DragonAttributeConfigLoader.clampSwarmWaveCount(value))
+                .build());
+        entries.add(entryBuilder.startIntField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.wave_3_count"), buffer.wave3Count)
+                .setDefaultValue(DragonAttributeConfigLoader.swarmWaveCount(defaults, 3))
+                .setMin(DragonAttributeConfigLoader.SWARM_WAVE_MIN_COUNT)
+                .setMax(DragonAttributeConfigLoader.SWARM_WAVE_MAX_COUNT)
+                .setSaveConsumer(value -> buffer.wave3Count = DragonAttributeConfigLoader.clampSwarmWaveCount(value))
+                .build());
+        entries.add(entryBuilder.startTextDescription(Component.translatable("config.saintsdragons.attributes.draconian_swarm.latcher")).build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.latcher.max_health"), buffer.latcherMaxHealth)
+                .setDefaultValue(defaults.extraDouble("latcher_max_health", 12.0D))
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.latcherMaxHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.latcher.armor"), buffer.latcherArmor)
+                .setDefaultValue(defaults.extraDouble("latcher_armor", 0.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.latcherArmor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.latcher.chase_speed"), buffer.latcherChaseSpeed)
+                .setDefaultValue(defaults.extraDouble("latcher_chase_speed", 0.80D))
+                .setMin(0.0D)
+                .setMax(2.0D)
+                .setSaveConsumer(value -> buffer.latcherChaseSpeed = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.latcher.bite"), buffer.latcherBiteDamage)
+                .setDefaultValue(defaults.abilityDamage("latcher_bite", 4.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.latcherBiteDamage = value)
+                .build());
+        entries.add(entryBuilder.startTextDescription(Component.translatable("config.saintsdragons.attributes.draconian_swarm.winged")).build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.winged.max_health"), buffer.wingedMaxHealth)
+                .setDefaultValue(defaults.extraDouble("winged_max_health", 6.0D))
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.wingedMaxHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.winged.armor"), buffer.wingedArmor)
+                .setDefaultValue(defaults.extraDouble("winged_armor", 0.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.wingedArmor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.winged.chase_speed"), buffer.wingedChaseSpeed)
+                .setDefaultValue(defaults.extraDouble("winged_chase_speed", 1.0D))
+                .setMin(0.0D)
+                .setMax(2.0D)
+                .setSaveConsumer(value -> buffer.wingedChaseSpeed = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.winged.attack"), buffer.wingedHookAndPullDamage)
+                .setDefaultValue(defaults.abilityDamage("winged_attack", 1.5D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.wingedHookAndPullDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.winged.attack2"), buffer.wingedDiveBombDamage)
+                .setDefaultValue(defaults.abilityDamage("winged_attack2", 2.025D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.wingedDiveBombDamage = value)
+                .build());
+        entries.add(entryBuilder.startTextDescription(Component.translatable("config.saintsdragons.attributes.draconian_swarm.whettled")).build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.whettled.max_health"), buffer.whettledMaxHealth)
+                .setDefaultValue(defaults.extraDouble("whettled_max_health", 16.0D))
+                .setMin(1.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.whettledMaxHealth = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.whettled.armor"), buffer.whettledArmor)
+                .setDefaultValue(defaults.extraDouble("whettled_armor", 0.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.whettledArmor = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.whettled.chase_speed"), buffer.whettledChaseSpeed)
+                .setDefaultValue(defaults.extraDouble("whettled_chase_speed", 0.90D))
+                .setMin(0.0D)
+                .setMax(2.0D)
+                .setSaveConsumer(value -> buffer.whettledChaseSpeed = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.whettled.clawattack"), buffer.whettledClawAttackDamage)
+                .setDefaultValue(defaults.abilityDamage("whettled_clawattack", 4.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.whettledClawAttackDamage = value)
+                .build());
+        entries.add(entryBuilder.startDoubleField(Component.translatable("config.saintsdragons.attributes.draconian_swarm.whettled.movehornattack"), buffer.whettledLungeDamage)
+                .setDefaultValue(defaults.abilityDamage("whettled_movehornattack", 9.0D))
+                .setMin(0.0D)
+                .setMax(100000.0D)
+                .setSaveConsumer(value -> buffer.whettledLungeDamage = value)
+                .build());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<AbstractConfigListEntry> rawEntries = (List) entries;
+        category.addEntry(entryBuilder.startSubCategory(Component.translatable("config.saintsdragons.attributes.draconian_swarm"), rawEntries)
+                .setExpanded(false)
+                .build());
+    }
+
+    private void persistDragonAttributes(CindervaneAttributeBuffer cindervaneBuffer,
+                                         StegonautAttributeBuffer stegonautBuffer,
+                                         RaevyxAttributeBuffer raevyxBuffer,
+                                         VarasuchusAttributeBuffer varasuchusBuffer,
+                                         IgnivorusAttributeBuffer ignivorusBuffer,
+                                         VolitansAttributeBuffer volitansBuffer,
+                                         NulljawAttributeBuffer nulljawBuffer,
+                                         AtroxiiaAttributeBuffer atroxiiaBuffer,
+                                         DraconianSwarmAttributeBuffer swarmBuffer) {
+        DragonAttributeConfigLoader loader = DragonAttributeConfigLoader.getInstance();
+        DragonAttributeConfig current = loader.getConfig(DragonAttributeConfigLoader.CINDERVANE_ID);
+        Map<String, DragonAbilityOverride> abilities = new HashMap<>(current.abilities());
+        abilities.put("bite", DragonAbilityOverride.ofDamage(cindervaneBuffer.biteDamage));
+        abilities.put("double_bite", DragonAbilityOverride.ofDamage(cindervaneBuffer.doubleBiteDamage));
+        abilities.put("slash_grab_hit1", DragonAbilityOverride.ofDamage(cindervaneBuffer.slashGrabHit1Damage));
+        abilities.put("slash_grab_hit2", DragonAbilityOverride.ofDamage(cindervaneBuffer.slashGrabHit2Damage));
+        abilities.put("magma_volley", DragonAbilityOverride.ofDamage(cindervaneBuffer.volleyDamage));
+        abilities.put("fire_body", DragonAbilityOverride.ofDamage(cindervaneBuffer.fireBodyDamage));
+        DragonAttributeConfig updated = new DragonAttributeConfig(
+                cindervaneBuffer.maxHealth,
+                cindervaneBuffer.armor,
+                cindervaneBuffer.flyingSpeed,
+                abilities,
+                Map.of(
+                        "taming_chance_base", cindervaneBuffer.tamingChanceBase,
+                        "taming_chance_chicken", cindervaneBuffer.tamingChanceChicken,
+                        "taming_chance_hearty", cindervaneBuffer.tamingChanceHearty,
+                        "egg_hatch_time_ticks_normal", cindervaneBuffer.eggHatchChanceNormal,
+                        "magma_volley_cooldown_seconds", cindervaneBuffer.magmaVolleyCooldownSeconds,
+                        "fire_body_explosion_damage", cindervaneBuffer.fireBodyExplosionDamage,
+                        "fire_body_self_damage_on_crash", cindervaneBuffer.fireBodySelfDamageOnCrash,
+                        "wild_flying_speed_multiplier", cindervaneBuffer.wildFlyingSpeedMultiplier
+                ),
+                Map.of(
+                        "aggressive_wild", cindervaneBuffer.aggressiveWild
+                )
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.CINDERVANE_ID, updated);
+
+        DragonAttributeConfig stegonautCurrent = loader.getConfig(DragonAttributeConfigLoader.STEGONAUT_ID);
+        Map<String, DragonAbilityOverride> stegonautAbilities = new HashMap<>(stegonautCurrent.abilities());
+        stegonautAbilities.put("bite", DragonAbilityOverride.ofDamage(stegonautBuffer.biteDamage));
+        stegonautAbilities.put("chin_slam", DragonAbilityOverride.ofDamage(stegonautBuffer.chinSlamDamage));
+        stegonautAbilities.put("ground_eating", DragonAbilityOverride.ofDamage(stegonautBuffer.groundEatingDamage));
+        stegonautAbilities.put("ground_slam", DragonAbilityOverride.ofDamage(stegonautBuffer.groundSlamDamage));
+        stegonautAbilities.put("ground_slam2", DragonAbilityOverride.ofDamage(stegonautBuffer.groundSlam2Damage));
+        stegonautAbilities.put("ground_slam_pillar", DragonAbilityOverride.ofDamage(stegonautBuffer.groundSlamPillarDamage));
+        DragonAttributeConfig updatedStegonaut = new DragonAttributeConfig(
+                stegonautBuffer.maxHealth,
+                stegonautBuffer.armor,
+                0.0D,
+                stegonautAbilities,
+                Map.of(
+                        "taming_chance_base", stegonautBuffer.tamingChanceBase,
+                        "taming_chance_hearty", stegonautBuffer.tamingChanceHearty,
+                        "egg_hatch_time_ticks_normal", stegonautBuffer.eggHatchChanceNormal,
+                        "ground_slam_knockback", stegonautBuffer.groundSlamKnockback,
+                        "ground_slam2_knockback", stegonautBuffer.groundSlam2Knockback,
+                        "ground_slam_pillar_knockback", stegonautBuffer.groundSlamPillarKnockback
+                ),
+                Map.of(
+                        "aggressive_wild", stegonautBuffer.aggressiveWild
+                )
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.STEGONAUT_ID, updatedStegonaut);
+
+        DragonAttributeConfig raevyxCurrent = loader.getConfig(DragonAttributeConfigLoader.RAEVYX_ID);
+        Map<String, DragonAbilityOverride> raevyxAbilities = new HashMap<>(raevyxCurrent.abilities());
+        raevyxAbilities.put("bite", DragonAbilityOverride.ofDamage(raevyxBuffer.biteDamage));
+        raevyxAbilities.put("lightning_beam", DragonAbilityOverride.ofDamage(raevyxBuffer.beamDamage));
+        raevyxAbilities.put("horn_gore", DragonAbilityOverride.ofDamage(raevyxBuffer.hornDamage));
+        raevyxAbilities.put("dash", DragonAbilityOverride.ofDamage(raevyxBuffer.dashDamage));
+        DragonAttributeConfig updatedRaevyx = new DragonAttributeConfig(
+                raevyxBuffer.maxHealth,
+                raevyxBuffer.armor,
+                raevyxBuffer.flyingSpeed,
+                raevyxAbilities,
+                buildRaevyxExtras(raevyxBuffer),
+                Map.of(
+                        "legacy_taming", raevyxBuffer.legacyTaming,
+                        "dive_loop_enabled", raevyxBuffer.diveLoopEnabled,
+                        "aggressive_wild", raevyxBuffer.aggressiveWild
+                )
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.RAEVYX_ID, updatedRaevyx);
+
+        Map<String, DragonAbilityOverride> varasuchusAbilities = new HashMap<>();
+        varasuchusAbilities.put("bite_phase1", DragonAbilityOverride.ofDamage(varasuchusBuffer.bitePhase1));
+        varasuchusAbilities.put("bite_phase2", DragonAbilityOverride.ofDamage(varasuchusBuffer.bitePhase2));
+        varasuchusAbilities.put("tail_attack", DragonAbilityOverride.ofDamage(varasuchusBuffer.tailAttack));
+        varasuchusAbilities.put("tailguard_parry", DragonAbilityOverride.ofDamage(varasuchusBuffer.tailguardParry));
+        varasuchusAbilities.put("dash_tail_swipe", DragonAbilityOverride.ofDamage(varasuchusBuffer.dashTailSwipe));
+        varasuchusAbilities.put("dash_claw", DragonAbilityOverride.ofDamage(varasuchusBuffer.dashClaw));
+        varasuchusAbilities.put("claw_attack", DragonAbilityOverride.ofDamage(varasuchusBuffer.clawAttack));
+        varasuchusAbilities.put("horn_gore_phase1", DragonAbilityOverride.ofDamage(varasuchusBuffer.hornPhase1));
+        varasuchusAbilities.put("horn_gore_phase2", DragonAbilityOverride.ofDamage(varasuchusBuffer.hornPhase2));
+        DragonAttributeConfig updatedVarasuchus = new DragonAttributeConfig(
+                varasuchusBuffer.maxHealth,
+                varasuchusBuffer.armor,
+                0.0D,
+                varasuchusAbilities,
+                Map.of(
+                        "swim_speed", varasuchusBuffer.swimSpeed,
+                        "taming_chance", varasuchusBuffer.tamingChance,
+                        "taming_chance_beef", varasuchusBuffer.tamingChanceBeef,
+                        "taming_chance_tropical", varasuchusBuffer.tamingChanceTropical,
+                        "egg_hatch_time_ticks_normal", varasuchusBuffer.eggHatchChanceNormal
+                ),
+                Map.of(
+                        "legacy_taming", varasuchusBuffer.legacyTaming,
+                        "aggressive_wild", varasuchusBuffer.aggressiveWild
+                )
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.VARASUCHUS_ID, updatedVarasuchus);
+
+        DragonAttributeConfig ignivorusCurrent = loader.getConfig(DragonAttributeConfigLoader.IGNIVORUS_ID);
+        Map<String, DragonAbilityOverride> ignivorusAbilities = new HashMap<>(ignivorusCurrent.abilities());
+        ignivorusAbilities.put("bite", DragonAbilityOverride.ofDamage(ignivorusBuffer.biteDamage));
+        ignivorusAbilities.put("body_slam", DragonAbilityOverride.ofDamage(ignivorusBuffer.bodySlamDamage));
+        ignivorusAbilities.put("leap_slam", DragonAbilityOverride.ofDamage(ignivorusBuffer.leapSlamDamage));
+        ignivorusAbilities.put("fire_breath", DragonAbilityOverride.ofDamage(ignivorusBuffer.fireBreathDamage));
+        ignivorusAbilities.put("fireball", DragonAbilityOverride.ofDamage(ignivorusBuffer.fireballDamage));
+        ignivorusAbilities.put("magma_pillar", DragonAbilityOverride.ofDamage(ignivorusBuffer.magmaPillarDamage));
+        ignivorusAbilities.put("wing_swipe", DragonAbilityOverride.ofDamage(ignivorusBuffer.wingSwipeDamage));
+        ignivorusAbilities.put("stomp", DragonAbilityOverride.ofDamage(ignivorusBuffer.stompDamage));
+        ignivorusAbilities.put("bulldoze", DragonAbilityOverride.ofDamage(ignivorusBuffer.bulldozeDamage));
+        ignivorusAbilities.put("ultimate", DragonAbilityOverride.ofDamage(ignivorusBuffer.ultimateDamage));
+        DragonAttributeConfig updatedIgnivorus = new DragonAttributeConfig(
+                ignivorusBuffer.maxHealth,
+                ignivorusBuffer.armor,
+                ignivorusBuffer.flyingSpeed,
+                ignivorusAbilities,
+                buildIgnivorusExtras(ignivorusBuffer),
+                Map.of(
+                        "legacy_taming", ignivorusBuffer.legacyTaming,
+                        "aggressive_wild", ignivorusBuffer.aggressiveWild
+                )
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.IGNIVORUS_ID, updatedIgnivorus);
+
+        DragonAttributeConfig volitansCurrent = loader.getConfig(DragonAttributeConfigLoader.VOLITANS_ID);
+        Map<String, DragonAbilityOverride> volitansAbilities = new HashMap<>(volitansCurrent.abilities());
+        volitansAbilities.put("bite", DragonAbilityOverride.ofDamage(volitansBuffer.biteDamage));
+        volitansAbilities.put("claw", DragonAbilityOverride.ofDamage(volitansBuffer.clawDamage));
+        volitansAbilities.put("horn_gore", DragonAbilityOverride.ofDamage(volitansBuffer.hornGoreDamage));
+        volitansAbilities.put("roar_ground", DragonAbilityOverride.ofDamage(volitansBuffer.roarGroundDamage));
+        volitansAbilities.put("roar_air_water", DragonAbilityOverride.ofDamage(volitansBuffer.roarAirWaterDamage));
+        volitansAbilities.put("burrow", DragonAbilityOverride.ofDamage(volitansBuffer.burrowDamage));
+        volitansAbilities.put("poison_ball", DragonAbilityOverride.ofDamage(volitansBuffer.poisonBallDamage));
+        volitansAbilities.put("water_breath", DragonAbilityOverride.ofDamage(volitansBuffer.waterBreathDamage));
+        volitansAbilities.put("poison_breath", DragonAbilityOverride.ofDamage(volitansBuffer.poisonBreathDamage));
+        DragonAttributeConfig updatedVolitans = new DragonAttributeConfig(
+                volitansBuffer.maxHealth,
+                volitansBuffer.armor,
+                volitansBuffer.flyingSpeed,
+                volitansAbilities,
+                buildVolitansExtras(volitansBuffer),
+                Map.of(
+                        "legacy_taming", volitansBuffer.legacyTaming,
+                        "aggressive_wild", volitansBuffer.aggressiveWild
+                )
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.VOLITANS_ID, updatedVolitans);
+
+        DragonAttributeConfig nulljawCurrent = loader.getConfig(DragonAttributeConfigLoader.NULLJAW_ID);
+        Map<String, DragonAbilityOverride> nulljawAbilities = new HashMap<>(nulljawCurrent.abilities());
+        nulljawAbilities.put("bite", DragonAbilityOverride.ofDamage(nulljawBuffer.biteDamage));
+        Map<String, Double> nulljawDoubles = new HashMap<>(nulljawCurrent.extraDoubles());
+        nulljawDoubles.put("invisibility_duration_ticks", nulljawBuffer.invisibilityDurationTicks);
+        DragonAttributeConfig updatedNulljaw = new DragonAttributeConfig(
+                nulljawBuffer.maxHealth,
+                nulljawBuffer.armor,
+                nulljawCurrent.flyingSpeed(),
+                nulljawAbilities,
+                nulljawDoubles,
+                new HashMap<>(nulljawCurrent.extraBooleans())
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.NULLJAW_ID, updatedNulljaw);
+
+        DragonAttributeConfig atroxiiaCurrent = loader.getConfig(DragonAttributeConfigLoader.ATROXIIA_ID);
+        Map<String, DragonAbilityOverride> atroxiiaAbilities = new HashMap<>(atroxiiaCurrent.abilities());
+        atroxiiaAbilities.put("gungnir_stab", DragonAbilityOverride.ofDamage(atroxiiaBuffer.gungnirStabDamage));
+        atroxiiaAbilities.put("slither", DragonAbilityOverride.ofDamage(atroxiiaBuffer.slitherDamage));
+        Map<String, Double> atroxiiaDoubles = new HashMap<>(atroxiiaCurrent.extraDoubles());
+        atroxiiaDoubles.put("taming_stun_health", atroxiiaBuffer.tamingStunHealth);
+        atroxiiaDoubles.put("egg_hatch_time_ticks_normal", atroxiiaBuffer.eggHatchTimeTicksNormal);
+        Map<String, Boolean> atroxiiaBooleans = new HashMap<>(atroxiiaCurrent.extraBooleans());
+        atroxiiaBooleans.put("aggressive_wild", atroxiiaBuffer.aggressiveWild);
+        DragonAttributeConfig updatedAtroxiia = new DragonAttributeConfig(
+                atroxiiaCurrent.maxHealth(),
+                atroxiiaCurrent.armor(),
+                atroxiiaCurrent.flyingSpeed(),
+                atroxiiaAbilities,
+                atroxiiaDoubles,
+                atroxiiaBooleans
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.ATROXIIA_ID, updatedAtroxiia);
+
+        Map<String, DragonAbilityOverride> swarmAbilities = new HashMap<>();
+        swarmAbilities.put("latcher_bite", DragonAbilityOverride.ofDamage(swarmBuffer.latcherBiteDamage));
+        swarmAbilities.put("winged_attack", DragonAbilityOverride.ofDamage(swarmBuffer.wingedHookAndPullDamage));
+        swarmAbilities.put("winged_attack2", DragonAbilityOverride.ofDamage(swarmBuffer.wingedDiveBombDamage));
+        swarmAbilities.put("whettled_clawattack", DragonAbilityOverride.ofDamage(swarmBuffer.whettledClawAttackDamage));
+        swarmAbilities.put("whettled_movehornattack", DragonAbilityOverride.ofDamage(swarmBuffer.whettledLungeDamage));
+        DragonAttributeConfig updatedSwarm = new DragonAttributeConfig(
+                swarmBuffer.latcherMaxHealth,
+                swarmBuffer.latcherArmor,
+                0.0D,
+                swarmAbilities,
+                Map.ofEntries(
+                        Map.entry("wave_1_count", (double) DragonAttributeConfigLoader.clampSwarmWaveCount(swarmBuffer.wave1Count)),
+                        Map.entry("wave_2_count", (double) DragonAttributeConfigLoader.clampSwarmWaveCount(swarmBuffer.wave2Count)),
+                        Map.entry("wave_3_count", (double) DragonAttributeConfigLoader.clampSwarmWaveCount(swarmBuffer.wave3Count)),
+                        Map.entry("latcher_max_health", swarmBuffer.latcherMaxHealth),
+                        Map.entry("latcher_armor", swarmBuffer.latcherArmor),
+                        Map.entry("latcher_chase_speed", swarmBuffer.latcherChaseSpeed),
+                        Map.entry("winged_max_health", swarmBuffer.wingedMaxHealth),
+                        Map.entry("winged_armor", swarmBuffer.wingedArmor),
+                        Map.entry("winged_chase_speed", swarmBuffer.wingedChaseSpeed),
+                        Map.entry("whettled_max_health", swarmBuffer.whettledMaxHealth),
+                        Map.entry("whettled_armor", swarmBuffer.whettledArmor),
+                        Map.entry("whettled_chase_speed", swarmBuffer.whettledChaseSpeed)
+                ),
+                Map.of()
+        );
+        loader.overwriteConfig(DragonAttributeConfigLoader.DRACONIAN_SWARM_ID, updatedSwarm);
+    }
+
+    private static final class CindervaneAttributeBuffer {
+        double maxHealth;
+        double armor;
+        double flyingSpeed;
+        double biteDamage;
+        double doubleBiteDamage;
+        double slashGrabHit1Damage;
+        double slashGrabHit2Damage;
+        double volleyDamage;
+        double magmaVolleyCooldownSeconds;
+        double fireBodyDamage;
+        double tamingChanceBase;
+        double tamingChanceChicken;
+        double tamingChanceHearty;
+        double eggHatchChanceNormal;
+        double fireBodyExplosionDamage;
+        double fireBodySelfDamageOnCrash;
+        double wildFlyingSpeedMultiplier;
+        boolean aggressiveWild;
+    }
+
+    private static final class StegonautAttributeBuffer {
+        double maxHealth;
+        double armor;
+        double biteDamage;
+        double chinSlamDamage;
+        double groundEatingDamage;
+        double groundSlamDamage;
+        double groundSlamKnockback;
+        double groundSlam2Damage;
+        double groundSlam2Knockback;
+        double groundSlamPillarDamage;
+        double groundSlamPillarKnockback;
+        double tamingChanceBase;
+        double tamingChanceHearty;
+        double eggHatchChanceNormal;
+        boolean aggressiveWild;
+    }
+
+    private static final class RaevyxAttributeBuffer {
+        double maxHealth;
+        double armor;
+        double flyingSpeed;
+        double biteDamage;
+        double beamDamage;
+        double hornDamage;
+        double dashDamage;
+        double tamingChanceBase;
+        double tamingChanceMutton;
+        double tamingChancePorkchop;
+        double tamingChanceHearty;
+        double tamingStunHealth;
+        double wildFlyingSpeedMultiplier;
+        double beamDrainPerTick;
+        double beamRegenPerTick;
+        double summonStormCooldownTicks;
+        double summonStormSuperchargeTicks;
+        double summonStormSuperchargeDamageMultiplier;
+        double summonStormDurationTicks;
+        boolean legacyTaming;
+        boolean diveLoopEnabled;
+        double eggHatchTimeTicksNormal;
+        double eggHatchTimeTicksThunder;
+        boolean aggressiveWild;
+    }
+
+    private static final class VarasuchusAttributeBuffer {
+        double maxHealth;
+        double armor;
+        double swimSpeed;
+        double bitePhase1;
+        double bitePhase2;
+        double tailAttack;
+        double tailguardParry;
+        double dashTailSwipe;
+        double dashClaw;
+        double clawAttack;
+        double hornPhase1;
+        double hornPhase2;
+        double tamingChance;
+        double tamingChanceBeef;
+        double tamingChanceTropical;
+        boolean legacyTaming;
+        double eggHatchChanceNormal;
+        boolean aggressiveWild;
+    }
+
+    private static final class IgnivorusAttributeBuffer {
+        double maxHealth;
+        double armor;
+        double flyingSpeed;
+        double biteDamage;
+        double bodySlamDamage;
+        double leapSlamDamage;
+        double fireBreathDamage;
+        double fireballDamage;
+        double magmaPillarDamage;
+        double wingSwipeDamage;
+        double stompDamage;
+        double bulldozeDamage;
+        double ultimateDamage;
+        double ultimatePenalty;
+        double ultimateTriggerHealthFraction;
+        double tamingChanceBase;
+        double tamingChanceBeef;
+        double tamingChanceMutton;
+        double tamingChancePorkchop;
+        double tamingChanceHearty;
+        double tamingStunHealth;
+        double wildFlyingSpeedMultiplier;
+        double fireBreathDrainPerTick;
+        double fireBreathRegenPerTick;
+        boolean legacyTaming;
+        double eggHatchChanceNormal;
+        boolean aggressiveWild;
+    }
+
+    private static final class VolitansAttributeBuffer {
+        double riderSwimSpeed;
+        double maxHealth;
+        double armor;
+        double flyingSpeed;
+        double wildFlyingSpeedMultiplier;
+        double biteDamage;
+        double clawDamage;
+        double hornGoreDamage;
+        double roarGroundDamage;
+        double roarAirWaterDamage;
+        double burrowDamage;
+        double poisonBallDamage;
+        double waterBreathDamage;
+        double poisonBreathDamage;
+        double tamingChanceBase;
+        double tamingChanceHearty;
+        double tamingStunHealth;
+        boolean legacyTaming;
+        double eggHatchChanceNormal;
+        double breathActiveTicksMax;
+        double breathDrainPerTick;
+        double breathRegenPerTick;
+        double poisonBreathPoisonDurationTicks;
+        double poisonBreathPoisonLevel;
+        double poisonBallPoisonDurationTicks;
+        double poisonBallPoisonLevel;
+        double roarGroundPoisonDurationTicks;
+        double roarGroundPoisonLevel;
+        double roarAirWaterPoisonDurationTicks;
+        double roarAirWaterPoisonLevel;
+        boolean aggressiveWild;
+    }
+
+    private static final class NulljawAttributeBuffer {
+        double maxHealth;
+        double armor;
+        double biteDamage;
+        double invisibilityDurationTicks;
+    }
+
+    private static final class AtroxiiaAttributeBuffer {
+        double gungnirStabDamage;
+        double slitherDamage;
+        double tamingStunHealth;
+        double eggHatchTimeTicksNormal;
+        boolean aggressiveWild;
+    }
+
+    private static final class DraconianSwarmAttributeBuffer {
+        int wave1Count;
+        int wave2Count;
+        int wave3Count;
+        double latcherMaxHealth;
+        double latcherArmor;
+        double latcherChaseSpeed;
+        double latcherBiteDamage;
+        double wingedMaxHealth;
+        double wingedArmor;
+        double wingedChaseSpeed;
+        double wingedHookAndPullDamage;
+        double wingedDiveBombDamage;
+        double whettledMaxHealth;
+        double whettledArmor;
+        double whettledChaseSpeed;
+        double whettledClawAttackDamage;
+        double whettledLungeDamage;
+    }
+
+    private static Map<String, Double> buildRaevyxExtras(RaevyxAttributeBuffer buffer) {
+        Map<String, Double> extras = new HashMap<>();
+        extras.put("taming_chance_base", buffer.tamingChanceBase);
+        extras.put("taming_chance_mutton", buffer.tamingChanceMutton);
+        extras.put("taming_chance_porkchop", buffer.tamingChancePorkchop);
+        extras.put("taming_chance_hearty", buffer.tamingChanceHearty);
+        extras.put("taming_stun_health", buffer.tamingStunHealth);
+        extras.put("wild_flying_speed_multiplier", buffer.wildFlyingSpeedMultiplier);
+        extras.put("beam_drain_per_tick", buffer.beamDrainPerTick);
+        extras.put("beam_regen_per_tick", buffer.beamRegenPerTick);
+        extras.put("summon_storm_cooldown_ticks", buffer.summonStormCooldownTicks);
+        extras.put("summon_storm_supercharge_ticks", buffer.summonStormSuperchargeTicks);
+        extras.put("summon_storm_supercharge_damage_multiplier", buffer.summonStormSuperchargeDamageMultiplier);
+        extras.put("summon_storm_duration_ticks", buffer.summonStormDurationTicks);
+        extras.put("egg_hatch_time_ticks_normal", buffer.eggHatchTimeTicksNormal);
+        extras.put("egg_hatch_time_ticks_thunder", buffer.eggHatchTimeTicksThunder);
+        return extras;
+    }
+
+    private static Map<String, Double> buildIgnivorusExtras(IgnivorusAttributeBuffer buffer) {
+        Map<String, Double> extras = new HashMap<>();
+        extras.put("ultimate_penalty_health", buffer.ultimatePenalty);
+        extras.put("ultimate_trigger_health_fraction", buffer.ultimateTriggerHealthFraction);
+        extras.put("taming_chance_base", buffer.tamingChanceBase);
+        extras.put("taming_chance_beef", buffer.tamingChanceBeef);
+        extras.put("taming_chance_mutton", buffer.tamingChanceMutton);
+        extras.put("taming_chance_porkchop", buffer.tamingChancePorkchop);
+        extras.put("taming_chance_hearty", buffer.tamingChanceHearty);
+        extras.put("taming_stun_health", buffer.tamingStunHealth);
+        extras.put("wild_flying_speed_multiplier", buffer.wildFlyingSpeedMultiplier);
+        extras.put("fire_breath_drain_per_tick", buffer.fireBreathDrainPerTick);
+        extras.put("fire_breath_regen_per_tick", buffer.fireBreathRegenPerTick);
+        extras.put("egg_hatch_time_ticks_normal", buffer.eggHatchChanceNormal);
+        return extras;
+    }
+
+    private static Map<String, Double> buildVolitansExtras(VolitansAttributeBuffer buffer) {
+        Map<String, Double> extras = new HashMap<>();
+        extras.put("rider_swim_speed", buffer.riderSwimSpeed);
+        extras.put("taming_chance_base", buffer.tamingChanceBase);
+        extras.put("taming_chance_hearty", buffer.tamingChanceHearty);
+        extras.put("taming_stun_health", buffer.tamingStunHealth);
+        extras.put("wild_flying_speed_multiplier", buffer.wildFlyingSpeedMultiplier);
+        extras.put("egg_hatch_time_ticks_normal", buffer.eggHatchChanceNormal);
+        extras.put("breath_active_ticks_max", buffer.breathActiveTicksMax);
+        extras.put("breath_drain_per_tick", buffer.breathDrainPerTick);
+        extras.put("breath_regen_per_tick", buffer.breathRegenPerTick);
+        extras.put("poison_breath_poison_duration_ticks", buffer.poisonBreathPoisonDurationTicks);
+        extras.put("poison_breath_poison_level", buffer.poisonBreathPoisonLevel);
+        extras.put("poison_ball_poison_duration_ticks", buffer.poisonBallPoisonDurationTicks);
+        extras.put("poison_ball_poison_level", buffer.poisonBallPoisonLevel);
+        extras.put("roar_ground_poison_duration_ticks", buffer.roarGroundPoisonDurationTicks);
+        extras.put("roar_ground_poison_level", buffer.roarGroundPoisonLevel);
+        extras.put("roar_air_water_poison_duration_ticks", buffer.roarAirWaterPoisonDurationTicks);
+        extras.put("roar_air_water_poison_level", buffer.roarAirWaterPoisonLevel);
+        return extras;
+    }
+
+    private void refreshLoadedDragonAttributesOnIntegratedServer() {
+        var integratedServer = Minecraft.getInstance().getSingleplayerServer();
+        if (integratedServer == null) {
+            return;
+        }
+
+        integratedServer.execute(() -> {
+            for (var level : integratedServer.getAllLevels()) {
+                for (var entity : level.getAllEntities()) {
+                    if (entity instanceof Cindervane dragon) {
+                        dragon.applyConfiguredAttributes();
+                    } else if (entity instanceof Stegonaut dragon) {
+                        dragon.applyConfiguredAttributes();
+                    } else if (entity instanceof Raevyx dragon) {
+                        dragon.applyConfiguredAttributes();
+                    } else if (entity instanceof Varasuchus dragon) {
+                        dragon.applyConfiguredAttributes();
+                    } else if (entity instanceof Ignivorus dragon) {
+                        dragon.applyConfiguredAttributes();
+                    } else if (entity instanceof Volitans dragon) {
+                        dragon.applyConfiguredAttributes();
+                    } else if (entity instanceof Nulljaw dragon) {
+                        dragon.applyConfiguredAttributes();
+                    } else if (entity instanceof AbstractDraconianSwarmEntity swarm) {
+                        swarm.applyConfiguredAttributes();
+                    }
+                }
+            }
+        });
+    }
+
+    private static boolean isRemoteServerSession() {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft.level != null && minecraft.getSingleplayerServer() == null;
+    }
+}

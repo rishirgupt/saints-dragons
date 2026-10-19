@@ -1,0 +1,20 @@
+package com.leon.saintsdragons.common.network;
+
+public enum DragonRiderAction {
+    NONE,
+    TAKEOFF_REQUEST,
+    ACCELERATE,
+    STOP_ACCELERATE,
+    ABILITY_USE,
+    ABILITY_STOP,
+    TOGGLE_MELEE,
+    DOUBLE_TAP_W,
+    DOUBLE_TAP_A,
+    DOUBLE_TAP_S,
+    DOUBLE_TAP_D,
+    START_PITCH_MODE,
+    STOP_PITCH_MODE,
+    FLEX,
+    GROUND_JUMP,
+    OPEN_INVENTORY,
+}

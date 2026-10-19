@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "saintsdragons:item/spawn_egg/draconian_swarm_spawn_egg"
+  }
+}

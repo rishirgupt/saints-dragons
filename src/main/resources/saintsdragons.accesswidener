@@ -1,0 +1,4 @@
+accessWidener v2 official
+
+# PORT TODO: the 1.20.1 entry widened ParticleEngine.textureAtlas, which no longer exists in 26.2.
+accessible method net/minecraft/client/Minecraft pick (F)V

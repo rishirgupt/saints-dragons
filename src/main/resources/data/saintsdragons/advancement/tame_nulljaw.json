@@ -1,0 +1,26 @@
+{
+  "parent": "saintsdragons:encounter_dragon",
+  "display": {
+    "icon": {
+      "id": "saintsdragons:nulljaw_binder"
+    },
+    "title": {
+      "translate": "advancement.saintsdragons.tame_nulljaw.title"
+    },
+    "description": {
+      "translate": "advancement.saintsdragons.tame_nulljaw.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "tame_nulljaw": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "rewards": {
+    "experience": 300
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "parent": "saintsdragons:folded_horizon",
+  "display": {
+    "icon": {
+      "id": "saintsdragons:raevyx_binder"
+    },
+    "title": {
+      "translate": "advancement.saintsdragons.pocket_dragon.title"
+    },
+    "description": {
+      "translate": "advancement.saintsdragons.pocket_dragon.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "bind_dragon": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

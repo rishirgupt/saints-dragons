@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "saintsdragons:item/spawn_egg/ivy_the_merchant_spawn_egg"
+  }
+}

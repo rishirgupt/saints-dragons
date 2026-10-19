@@ -1,0 +1,168 @@
+package com.leon.saintsdragons.client.renderer.volitans;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.leon.saintsdragons.client.render26.MultiBufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.culling.Frustum;
+import com.geckolib.cache.model.GeoBone;
+import com.geckolib.util.RenderUtil;
+import com.leon.saintsdragons.client.model.volitans.VolitansModel;
+import com.leon.saintsdragons.client.renderer.DragonGeoEntityRenderer;
+import com.leon.saintsdragons.client.renderer.ShaderPassCompatibility;
+import com.leon.saintsdragons.client.renderer.layer.volitans.VolitansNightEmissiveLayer;
+import com.leon.saintsdragons.client.renderer.vfx.DragonDiveTrailRenderer;
+import com.leon.saintsdragons.client.renderer.vfx.VolitansBreathIntroRenderer;
+import com.leon.saintsdragons.client.renderer.vfx.VolitansWaterRingRenderer;
+import com.leon.saintsdragons.client.renderer.vfx.VolitansPoisonBallChargeRenderer;
+import com.leon.saintsdragons.common.network.MessageDragonBonePositions;
+import com.leon.saintsdragons.common.network.NetworkHandler;
+import com.leon.saintsdragons.common.particle.VolitansBreathMotion;
+import com.leon.saintsdragons.server.entity.dragons.volitans.Volitans;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.WeakHashMap;
+
+import org.joml.Vector3f;
+
+public class VolitansRenderer extends DragonGeoEntityRenderer<Volitans> {
+    private Vec3 renderedMouthOffset;
+    private static final float PASSENGER_X = 0.0f;
+    private static final float PASSENGER_Y = -3.0f;
+    private static final float PASSENGER_Z = 0.0f;
+    private static final String PASSENGER_BONE = "passengerBone";
+    private static final String BREATH_BONE = "breathBone";
+    private static final int SYNC_INTERVAL_TICKS = 2;
+    private final Map<Volitans, Integer> lastBreathSnapshotHashes = new WeakHashMap<>();
+
+    public VolitansRenderer(EntityRendererProvider.Context context) {
+        super(context, new VolitansModel());
+        this.withRenderLayer(new VolitansNightEmissiveLayer(this));
+    }
+
+    @Override
+    public void render(Volitans entity, float yaw, float partialTick, PoseStack poses,
+                       MultiBufferSource buffers, int packedLight) {
+        renderedMouthOffset = null;
+        super.render(entity, yaw, partialTick, poses, buffers, packedLight);
+    }
+
+    @Override
+    protected boolean wantsBoneTransforms(Volitans entity) {
+        return true;
+    }
+
+    @Override
+    protected void onBoneTransform(Volitans entity, GeoBone bone, org.joml.Matrix4f entityRelative) {
+        if (!BREATH_BONE.equals(bone.name())) return;
+        var point = entityRelative.transformPosition(
+                new Vector3f(bone.pivotX() / 16.0F, bone.pivotY() / 16.0F, bone.pivotZ() / 16.0F));
+        renderedMouthOffset = new Vec3(point.x, point.y, point.z);
+    }
+
+    @Override
+    protected float getBabyShadowRadius(Volitans entity) {
+        return 1.1f;
+    }
+
+    @Override
+    protected float getAdultShadowRadius(Volitans entity) {
+        return 2.4f;
+    }
+
+    @Override
+    protected String[] trackedBoneNames() {
+        return new String[] {PASSENGER_BONE, BREATH_BONE, DragonDiveTrailRenderer.LEFT_WING_TRAIL_BONE,
+                DragonDiveTrailRenderer.RIGHT_WING_TRAIL_BONE, DragonDiveTrailRenderer.TIP_WING_TRAIL_BONE};
+    }
+
+    @Override
+    protected LocatorSpec[] locatorSpecs(Volitans entity) {
+        return new LocatorSpec[] {
+                new LocatorSpec(PASSENGER_BONE, PASSENGER_X, PASSENGER_Y, PASSENGER_Z,
+                        "passengerLocator", "passengerSeat0"),
+                new LocatorSpec(BREATH_BONE, 0.0f, 0.0f, 0.0f, "breathBoneOrigin")
+        };
+    }
+
+    @Override
+    protected void afterDragonRender(Volitans entity, PoseStack poseStack,
+                                     MultiBufferSource bufferSource, float partialTick) {
+        if (ShaderPassCompatibility.isIrisShadowPass()) return;
+        if (renderedMouthOffset != null) {
+            entity.setClientLocatorPosition("breathVisualOrigin",
+                    entity.getPosition(partialTick).add(renderedMouthOffset));
+        }
+        sendBreathLocatorToServer(entity);
+        VolitansWaterRingRenderer.render(entity, poseStack, bufferSource, partialTick);
+        VolitansBreathIntroRenderer.render(entity, poseStack, bufferSource, partialTick);
+        VolitansPoisonBallChargeRenderer.render(entity, renderedMouthOffset, poseStack, bufferSource, partialTick);
+        DragonDiveTrailRenderer.render(entity,
+                getBoneWorldPosition(DragonDiveTrailRenderer.LEFT_WING_TRAIL_BONE),
+                getBoneWorldPosition(DragonDiveTrailRenderer.RIGHT_WING_TRAIL_BONE),
+                getBoneWorldPosition(DragonDiveTrailRenderer.TIP_WING_TRAIL_BONE),
+                bufferSource,
+                poseStack.last());
+    }
+
+    @Override
+    public boolean shouldRender(Volitans entity, Frustum frustum, double camX, double camY, double camZ) {
+        if (super.shouldRender(entity, frustum, camX, camY, camZ)) return true;
+        return entity.isBreathing() && entity.distanceToSqr(camX, camY, camZ) <= 256.0D * 256.0D
+                && frustum.isVisible(entity.getBoundingBox().inflate(VolitansBreathMotion.RANGE + 24.0D));
+    }
+
+    private void sendBreathLocatorToServer(Volitans entity) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null || !entity.isAlive()) {
+            return;
+        }
+        if (minecraft.player.distanceToSqr(entity) > 96.0D * 96.0D) {
+            return;
+        }
+        if ((entity.tickCount + entity.getId()) % SYNC_INTERVAL_TICKS != 0) {
+            return;
+        }
+
+        Map<String, Vec3> positions = new HashMap<>(1);
+        Vec3 breath = entity.getClientLocatorPosition("breathBoneOrigin");
+        if (breath != null) {
+            positions.put("breathBoneOrigin", breath);
+        }
+
+        if (positions.isEmpty()) {
+            return;
+        }
+
+        int snapshotHash = computeSnapshotHash(positions);
+        Integer previousHash = lastBreathSnapshotHashes.put(entity, snapshotHash);
+        if (previousHash != null && previousHash == snapshotHash) {
+            return;
+        }
+
+        NetworkHandler.sendToServer(new MessageDragonBonePositions(entity.getId(), positions));
+    }
+
+    private static int computeSnapshotHash(Map<String, Vec3> positions) {
+        int hash = 1;
+        for (String boneName : new String[] {"breathBoneOrigin"}) {
+            Vec3 pos = positions.get(boneName);
+            if (pos == null) {
+                continue;
+            }
+            hash = 31 * hash + boneName.hashCode();
+            hash = 31 * hash + quantize(pos.x);
+            hash = 31 * hash + quantize(pos.y);
+            hash = 31 * hash + quantize(pos.z);
+        }
+        return hash;
+    }
+
+    private static int quantize(double value) {
+        return (int) Math.round(value * 1000.0D);
+    }
+}

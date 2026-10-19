@@ -1,0 +1,160 @@
+package com.leon.saintsdragons.client.ui;
+
+import com.leon.saintsdragons.common.SaintsDragonsCommon;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import com.leon.saintsdragons.server.entity.dragons.atroxiia.Atroxiia;
+import com.leon.saintsdragons.server.entity.dragons.cindervane.Cindervane;
+import com.leon.saintsdragons.server.entity.dragons.ignivorus.Ignivorus;
+import com.leon.saintsdragons.server.entity.dragons.nulljaw.Nulljaw;
+import com.leon.saintsdragons.server.entity.dragons.varasuchus.Varasuchus;
+import com.leon.saintsdragons.server.entity.dragons.raevyx.Raevyx;
+import com.leon.saintsdragons.server.entity.dragons.stegonaut.Stegonaut;
+import com.leon.saintsdragons.server.entity.dragons.volitans.Volitans;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
+
+public class DragonRideHealthBar {
+    private static final Identifier RAEVYX_BASE = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/raevyx/raevyx_base.png");
+    private static final Identifier RAEVYX_OVERLAY = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/raevyx/raevyx_overlay.png");
+    private static final Identifier IGNIVORUS_BASE = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/ignivorus/ignivorus_base.png");
+    private static final Identifier IGNIVORUS_OVERLAY = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/ignivorus/ignivorus_overlay.png");
+    private static final Identifier CINDERVANE_BASE = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/cindervane/cindervane_base.png");
+    private static final Identifier CINDERVANE_OVERLAY = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/cindervane/cindervane_overlay.png");
+    private static final Identifier VARASUCHUS_BASE = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/varasuchus/varasuchus_base.png");
+    private static final Identifier VARASUCHUS_OVERLAY = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/varasuchus/varasuchus_overlay.png");
+    private static final Identifier STEGONAUT_BASE = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/stegonaut/stegonaut_base.png");
+    private static final Identifier STEGONAUT_OVERLAY = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/stegonaut/stegonaut_overlay.png");
+    private static final Identifier VOLITANS_BASE = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/volitans/volitans_base.png");
+    private static final Identifier VOLITANS_OVERLAY = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/volitans/volitans_overlay.png");
+    private static final Identifier ATROXIIA_BASE = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/atroxiia/atroxiia_base.png");
+    private static final Identifier ATROXIIA_OVERLAY = Identifier.fromNamespaceAndPath(SaintsDragonsCommon.MOD_ID, "textures/gui/healthbar/atroxiia/atroxiia_overlay.png");
+    private static final int BAR_WIDTH = 182;
+    private static final int BAR_HEIGHT = 22;
+    private DragonEntity dragon;
+    private float currentHealthPercent = 1.0f;
+    private float targetHealthPercent = 1.0f;
+    private long lastHealthUpdate = 0;
+    private String cachedHealthText = "";
+    private int cachedTextWidth = 0;
+    private float cachedHealth = -1;
+    private float cachedMaxHealth = -1;
+
+    private final Minecraft minecraft;
+
+    public DragonRideHealthBar() {
+        this.minecraft = Minecraft.getInstance();
+    }
+
+    public void setDragon(DragonEntity dragon) {
+        this.dragon = dragon;
+        updateHealth();
+    }
+
+    public DragonEntity getDragon() {
+        return dragon;
+    }
+
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int screenWidth, int screenHeight, float partialTicks) {
+        if (dragon == null || dragon.isDeadOrDying()) {
+            return;
+        }
+        if (dragon instanceof Nulljaw) {
+            return;
+        }
+
+        updateHealth();
+        int x = (screenWidth - BAR_WIDTH) / 2;
+        int y = screenHeight - 57;
+        if (dragon instanceof Cindervane || dragon instanceof Varasuchus) {
+            y += 6;
+        }
+
+        if (dragon instanceof Raevyx) {
+            renderTexturedHealthBar(guiGraphics, x, y, RAEVYX_BASE, RAEVYX_OVERLAY);
+        } else if (dragon instanceof Ignivorus) {
+            renderTexturedHealthBar(guiGraphics, x, y, IGNIVORUS_BASE, IGNIVORUS_OVERLAY);
+        } else if (dragon instanceof Cindervane) {
+            renderTexturedHealthBar(guiGraphics, x, y, CINDERVANE_BASE, CINDERVANE_OVERLAY);
+        } else if (dragon instanceof Varasuchus) {
+            renderTexturedHealthBar(guiGraphics, x, y, VARASUCHUS_BASE, VARASUCHUS_OVERLAY);
+        } else if (dragon instanceof Stegonaut) {
+            renderTexturedHealthBar(guiGraphics, x, y, STEGONAUT_BASE, STEGONAUT_OVERLAY);
+        } else if (dragon instanceof Volitans) {
+            renderTexturedHealthBar(guiGraphics, x, y, VOLITANS_BASE, VOLITANS_OVERLAY);
+        } else if (dragon instanceof Atroxiia) {
+            renderTexturedHealthBar(guiGraphics, x, y, ATROXIIA_BASE, ATROXIIA_OVERLAY);
+        } else {
+            renderFallbackHealthBar(guiGraphics, x, y);
+        }
+
+        renderHealthText(guiGraphics, x, y);
+        com.leon.saintsdragons.client.ui.Gui26.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    private void renderTexturedHealthBar(GuiGraphicsExtractor guiGraphics, int x, int y, Identifier baseTexture, Identifier overlayTexture) {
+        int fillWidth = Math.max(0, Math.min(BAR_WIDTH, Math.round(BAR_WIDTH * currentHealthPercent)));
+        if (fillWidth > 0) {
+            com.leon.saintsdragons.client.ui.Gui26.blit(guiGraphics, baseTexture, x, y, 0, 0, fillWidth, BAR_HEIGHT, BAR_WIDTH, BAR_HEIGHT);
+        }
+        com.leon.saintsdragons.client.ui.Gui26.blit(guiGraphics, overlayTexture, x, y, 0, 0, BAR_WIDTH, BAR_HEIGHT, BAR_WIDTH, BAR_HEIGHT);
+    }
+
+    private void renderFallbackHealthBar(GuiGraphicsExtractor guiGraphics, int x, int y) {
+        guiGraphics.fill(x, y, x + BAR_WIDTH, y + BAR_HEIGHT, 0xFF333333);
+        guiGraphics.fill(x + 1, y + 1, x + BAR_WIDTH - 1, y + BAR_HEIGHT - 1, 0xFF1A1A1A);
+        int fillWidth = Math.max(0, Math.round((BAR_WIDTH - 2) * currentHealthPercent));
+        if (fillWidth > 0) {
+            int color = getHealthColor(currentHealthPercent);
+            guiGraphics.fill(x + 1, y + 1, x + 1 + fillWidth, y + BAR_HEIGHT - 1, color);
+        }
+    }
+
+    private int getHealthColor(float healthPercent) {
+        if (healthPercent > 0.75f) {
+            return 0xFF00FF00;
+        } else if (healthPercent > 0.5f) {
+            return 0xFFFFFF00;
+        } else if (healthPercent > 0.25f) {
+            return 0xFFFF8800;
+        } else {
+            return 0xFFFF0000;
+        }
+    }
+
+    private void renderHealthText(GuiGraphicsExtractor guiGraphics, int x, int y) {
+        float currentHealth = dragon.getHealth();
+        float maxHealth = dragon.getMaxHealth();
+        if (currentHealth != cachedHealth || maxHealth != cachedMaxHealth) {
+            cachedHealthText = String.format("%.0f/%.0f", currentHealth, maxHealth);
+            cachedTextWidth = minecraft.font.width(cachedHealthText);
+            cachedHealth = currentHealth;
+            cachedMaxHealth = maxHealth;
+        }
+        int textX = x + (BAR_WIDTH - cachedTextWidth) / 2;
+        int textY = y + (BAR_HEIGHT - minecraft.font.lineHeight) / 2;
+        int textColor = getHealthTextColor();
+        com.leon.saintsdragons.client.ui.Gui26.text(guiGraphics, minecraft.font, cachedHealthText, textX, textY, textColor, true);
+    }
+
+    private int getHealthTextColor() {
+        return 0xFFFFFF;
+    }
+
+    private void updateHealth() {
+        if (dragon == null) return;
+        float newHealthPercent = dragon.getHealth() / dragon.getMaxHealth();
+        if (newHealthPercent != targetHealthPercent) {
+            targetHealthPercent = newHealthPercent;
+            lastHealthUpdate = System.currentTimeMillis();
+        }
+        long timeSinceUpdate = System.currentTimeMillis() - lastHealthUpdate;
+        if (timeSinceUpdate < 500) {
+            float animationProgress = timeSinceUpdate / 500.0f;
+            currentHealthPercent = currentHealthPercent + (targetHealthPercent - currentHealthPercent) * animationProgress;
+        } else {
+            currentHealthPercent = targetHealthPercent;
+        }
+    }
+}

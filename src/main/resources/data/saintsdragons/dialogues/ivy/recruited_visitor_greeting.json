@@ -1,0 +1,78 @@
+{
+  "start_at": "visitor_greeting",
+  "states": {
+    "visitor_greeting": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "texts": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.visitor_greeting.text.0"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.visitor_greeting.text.1"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.visitor_greeting.text.2"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.visitor_greeting.text.3"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.visitor_greeting.text.4"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.visitor_greeting.text.5"
+        }
+      ],
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.visitor_greeting.choice.0"
+          },
+          "next": "trade"
+        },
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.visitor_greeting.choice.1"
+          },
+          "next": "goodbye"
+        }
+      ]
+    },
+    "trade": {
+      "type": "open_trade",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "text": {
+        "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.trade.text"
+      },
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.trade.choice.0"
+          },
+          "next": "visitor_greeting"
+        }
+      ]
+    },
+    "goodbye": {
+      "type": "end_dialogue",
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "texts": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.goodbye.text.0"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.goodbye.text.1"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_visitor_greeting.goodbye.text.2"
+        }
+      ]
+    }
+  }
+}

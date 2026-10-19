@@ -1,0 +1,148 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+repositories {
+	// Add repositories to retrieve artifacts from in here.
+	// You should only use this when depending on other mods because
+	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
+	// for more information about repositories.
+	maven {
+		name = 'Modrinth'
+		url = 'https://api.modrinth.com/maven'
+		content {
+			includeGroup 'maven.modrinth'
+		}
+	}
+	maven {
+		name = 'GeckoLib'
+		url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+		content {
+			includeGroup 'com.geckolib'
+		}
+	}
+}
+
+sourceSets {
+	// Dev-only automated client tests (never packaged into the mod jar).
+	gametest {
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+	}
+}
+
+loom {
+	accessWidenerPath = file("src/main/resources/saintsdragons.accesswidener")
+
+	mods {
+		"saintsdragons" {
+			sourceSet sourceSets.main
+		}
+		"saintsdragons-gametest" {
+			sourceSet sourceSets.gametest
+		}
+	}
+
+	runs {
+		clientGameTest {
+			client()
+			source sourceSets.gametest
+			vmArg "-Dfabric.client.gametest"
+			vmArg "-Dfabric.client.gametest.modid=saintsdragons-gametest"
+			if (project.hasProperty("sdScript")) {
+				vmArg "-Dsd.script=" + project.property("sdScript")
+			}
+			runDir "build/run-gametest"
+			ideConfigGenerated false
+		}
+	}
+}
+
+dependencies {
+	// Minecraft 26.x is unobfuscated: no mappings line, and plain implementation instead of modImplementation.
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	implementation "com.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
+	// The instance may not carry GeckoLib, so ship it inside the jar.
+	include "com.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
+
+	// Optional integrations. The jars are plain (unobfuscated) mods, so no remapping is involved.
+	implementation "maven.modrinth:cloth-config:${project.cloth_config_version}"
+	implementation "maven.modrinth:modmenu:${project.modmenu_version}"
+	implementation "maven.modrinth:jei:${project.jei_version}"
+	implementation "maven.modrinth:jade:${project.jade_version}"
+	compileOnly "com.google.code.findbugs:jsr305:3.0.2"
+}
+
+
+
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	it.options.compilerArgs += ["-Xmaxerrs", "100000", "-Xmaxwarns", "0"]
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName"}
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}
+
+// PORTING: packages not yet ported to the 26.2 render pipeline. They stay in the tree but are not compiled.
+// Remove an entry once that package has been ported.
+sourceSets.main.java {
+	// One source file per line; delete a line once that file has been ported.
+	file("port-excludes.txt").readLines().findAll { it.trim() }.each { exclude it.trim() }
+	if (project.hasProperty('serverOnly')) {
+		exclude 'com/leon/saintsdragons/client/**'
+		exclude 'com/leon/saintsdragons/fabric/client/**'
+		exclude 'com/leon/saintsdragons/fabric/mixin/**'
+		exclude 'com/leon/saintsdragons/fabric/SaintsDragonsFabricClient.java'
+		exclude 'com/leon/saintsdragons/fabric/SaintsDragonsModMenuIntegration.java'
+		exclude 'com/leon/saintsdragons/fabric/integration/**'
+	}
+}

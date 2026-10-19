@@ -1,0 +1,68 @@
+{
+  "start_at": "recruited_greeting",
+  "states": {
+    "recruited_greeting": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "texts": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.0",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.1",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.2"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.3"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.4"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.5"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.6"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.7"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.8"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.9"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.text.10",
+          "with": [
+            {
+              "text": "{name}"
+            }
+          ]
+        }
+      ],
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.recruited_greeting.recruited_greeting.choice.0"
+          },
+          "next": "saintsdragons:ivy/known_greeting#return_prompt"
+        }
+      ]
+    }
+  }
+}

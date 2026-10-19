@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DDD",
+    "DED",
+    "DDD"
+  ],
+  "key": {
+    "E": "minecraft:ender_pearl",
+    "D": "saintsdragons:draconian_flesh"
+  },
+  "result": {
+    "id": "saintsdragons:draconian_controller",
+    "count": 1
+  }
+}

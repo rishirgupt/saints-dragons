@@ -1,0 +1,44 @@
+{
+  "start_at": "return_greeting",
+  "states": {
+    "return_greeting": {
+      "speaker": {
+        "translate": "entity.saintsdragons.ivy_oleander"
+      },
+      "texts": [
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting_trespasser.return_greeting.text.0"
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting_trespasser.return_greeting.text.1",
+          "with": [
+            {
+              "translate": "dialogue.saintsdragons.ivy.known_greeting_trespasser.return_greeting.text.1.emphasis.0",
+              "italic": true
+            }
+          ]
+        },
+        {
+          "translate": "dialogue.saintsdragons.ivy.known_greeting_trespasser.return_greeting.text.2",
+          "with": [
+            {
+              "translate": "dialogue.saintsdragons.ivy.known_greeting_trespasser.return_greeting.text.2.emphasis.0",
+              "italic": true
+            },
+            {
+              "text": "{name}"
+            }
+          ]
+        }
+      ],
+      "choices": [
+        {
+          "text": {
+            "translate": "dialogue.saintsdragons.ivy.known_greeting_trespasser.return_greeting.choice.0"
+          },
+          "next": "saintsdragons:ivy/known_greeting#return_prompt"
+        }
+      ]
+    }
+  }
+}

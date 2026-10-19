@@ -1,0 +1,26 @@
+{
+  "parent": "saintsdragons:encounter_dragon",
+  "display": {
+    "icon": {
+      "id": "saintsdragons:varasuchus_binder"
+    },
+    "title": {
+      "translate": "advancement.saintsdragons.tame_varasuchus.title"
+    },
+    "description": {
+      "translate": "advancement.saintsdragons.tame_varasuchus.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "tame_varasuchus": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "rewards": {
+    "experience": 180
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " FF",
+    " SF",
+    "I  "
+  ],
+  "key": {
+    "I": "minecraft:iron_nugget",
+    "S": "minecraft:stick",
+    "F": "minecraft:feather"
+  },
+  "result": {
+    "id": "saintsdragons:dragon_brush",
+    "count": 1
+  }
+}

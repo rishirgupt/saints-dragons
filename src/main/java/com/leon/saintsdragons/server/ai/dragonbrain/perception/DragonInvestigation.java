@@ -1,0 +1,219 @@
+package com.leon.saintsdragons.server.ai.dragonbrain.perception;
+
+import com.leon.saintsdragons.server.ai.DragonAirCombatHelper;
+import com.leon.saintsdragons.server.ai.DragonTargetingHelper;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonMemories;
+import com.leon.saintsdragons.server.ai.dragonbrain.DragonTargetLifecycle;
+import com.leon.saintsdragons.server.entity.base.DragonEntity;
+import com.leon.saintsdragons.server.entity.base.RideableFlyingDragon;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.phys.Vec3;
+
+public final class DragonInvestigation {
+    private static final long STRONGER_OBSERVATION_GRACE_TICKS = 20L;
+    private static final long SAME_SOURCE_PROJECTILE_COALESCE_TICKS = 20L * 3L;
+    private static final long OWNERLESS_PROJECTILE_COALESCE_TICKS = 10L;
+    private static final double OWNERLESS_PROJECTILE_COALESCE_DISTANCE_SQR = 4.0D * 4.0D;
+
+    private DragonInvestigation() {
+    }
+
+    public static boolean shouldPreserveAirbornePursuit(DragonEntity dragon) {
+        if (!(dragon instanceof RideableFlyingDragon flying)
+                || !flying.isAerial() || flying.onGround()
+                || dragon.isInWater() || dragon.isVehicle() || dragon.isPassenger()
+                || dragon.isOrderedToSit() || dragon.isSleepLocked() || dragon.isDying()) {
+            return false;
+        }
+        var brain = dragon.getBrain();
+        LivingEntity target = brain.getMemory(DragonMemories.ATTACK_TARGET).orElse(null);
+        if (brain.hasMemoryValue(DragonMemories.RESCUE_TARGET)) {
+            return false;
+        }
+        if (target == null) {
+
+            DragonSensoryObservation observation = brain.getMemory(DragonMemories.INVESTIGATION_TARGET)
+                    .orElse(null);
+            if (observation != null && observation.kind() == DragonSensoryObservation.Kind.PROJECTILE) {
+                return true;
+            }
+            if (observation == null || observation.sourceUuid() == null
+                    || !(dragon.level() instanceof ServerLevel level)) {
+                return false;
+            }
+            Entity source = level.getEntity(observation.sourceUuid());
+            return source instanceof LivingEntity living
+                    && DragonTargetLifecycle.isValidTarget(dragon, living)
+                    && (dragon.getTarget() == null || dragon.getTarget() == living);
+        }
+        boolean withinCombatRange = flying.distanceToSqr(DragonTargetingHelper.movementAnchor(target))
+                <= DragonAirCombatHelper.maxPursuitDistanceSqr(flying, target, 32.0D);
+        if (!DragonTargetLifecycle.isValidTarget(dragon, target)
+                || (brain.getMemory(DragonMemories.TARGET_VISIBLE).orElse(true) && withinCombatRange)) {
+            return false;
+        }
+        DragonTargetTrack targetTrack = DragonTargetMemory.get(brain);
+        return brain.getMemory(DragonMemories.INVESTIGATION_TARGET)
+                .filter(observation -> target.getUUID().equals(observation.sourceUuid())).isPresent()
+                || brain.getMemory(DragonMemories.LAST_SEEN_TARGET)
+                .filter(observation -> target.getUUID().equals(observation.sourceUuid())).isPresent()
+                || brain.getMemory(DragonMemories.HEARD_TARGET)
+                .filter(observation -> target.getUUID().equals(observation.sourceUuid())).isPresent()
+                || targetTrack != null
+                && targetTrack.sourceUuid().equals(target.getUUID())
+                && DragonTargetMemory.hasActive(brain, dragon.level().getGameTime());
+    }
+
+    public static boolean remember(DragonEntity dragon, DragonSensoryObservation observation) {
+        DragonSensoryObservation existing = dragon.getBrain()
+                .getMemory(DragonMemories.INVESTIGATION_TARGET)
+                .orElse(null);
+        // Replaying a stored observation is not fresh evidence and must not extend its lifetime.
+        if (observation.equals(existing)) return false;
+        DragonPerceptionProfile profile = DragonPerceptionProfile.forDragon(dragon);
+        if (dragon.level().getGameTime() - observation.observedAt()
+                >= profile.investigationMemoryTicks(dragon, observation.position())) return false;
+        if (shouldCoalesce(existing, observation)) {
+            dragon.getBrain().setMemoryWithExpiry(
+                    DragonMemories.INVESTIGATION_TARGET,
+                    existing,
+                    profile.investigationMemoryTicks(dragon, observation.position())
+            );
+            return true;
+        }
+        if (!shouldReplace(existing, observation)) {
+            return false;
+        }
+
+        dragon.getBrain().setMemoryWithExpiry(
+                DragonMemories.INVESTIGATION_TARGET,
+                observation,
+                profile.investigationMemoryTicks(dragon, observation.position())
+        );
+        if (observation.sourceUuid() != null) {
+            LivingEntity target = dragon.getBrain().getMemory(DragonMemories.ATTACK_TARGET).orElse(null);
+            LivingEntity hurtBy = dragon.getLastHurtByMob();
+            boolean hostile = target != null && observation.sourceUuid().equals(target.getUUID())
+                    || hurtBy != null && observation.sourceUuid().equals(hurtBy.getUUID())
+                    || observation.kind() == DragonSensoryObservation.Kind.COMBAT
+                    || observation.kind() == DragonSensoryObservation.Kind.PROJECTILE;
+            DragonTargetTrack currentTrack = DragonTargetMemory.get(dragon.getBrain());
+            long gameTime = dragon.level().getGameTime();
+            if (hostile && (currentTrack == null
+                    || !currentTrack.isActive(gameTime)
+                    || currentTrack.sourceUuid().equals(observation.sourceUuid()))) {
+                DragonTargetMemory.observe(
+                        dragon.getBrain(), observation, true, gameTime);
+            }
+        }
+        return true;
+    }
+
+    private static boolean shouldCoalesce(DragonSensoryObservation existing,
+                                          DragonSensoryObservation candidate) {
+        if (existing == null
+                || existing.kind() != DragonSensoryObservation.Kind.PROJECTILE
+                || candidate.kind() != DragonSensoryObservation.Kind.PROJECTILE
+                || candidate.observedAt() < existing.observedAt()) {
+            return false;
+        }
+        long age = candidate.observedAt() - existing.observedAt();
+        if (existing.sourceUuid() != null && existing.sourceUuid().equals(candidate.sourceUuid())) {
+            return age <= SAME_SOURCE_PROJECTILE_COALESCE_TICKS;
+        }
+        return existing.sourceUuid() == null
+                && candidate.sourceUuid() == null
+                && age <= OWNERLESS_PROJECTILE_COALESCE_TICKS
+                && existing.position().distanceToSqr(candidate.position())
+                <= OWNERLESS_PROJECTILE_COALESCE_DISTANCE_SQR;
+    }
+
+    public static boolean rememberProjectileOrigin(DragonEntity dragon, Projectile projectile) {
+        return dragon.getVision().observeProjectileImpact(projectile, true);
+    }
+
+    public static boolean isMeaningfulSound(DragonSensoryObservation observation) {
+        if (observation.confidence() < 0.15F) {
+            return false;
+        }
+        return switch (observation.kind()) {
+            case EXPLOSION, ROAR, COMBAT, PROJECTILE, BLOCK, TELEPORT -> true;
+            case SIGHT, SCENT, SPLASH, STEP, IMPACT, OTHER -> false;
+        };
+    }
+
+    public static boolean isVisibleAmbientSource(DragonEntity dragon, LivingEntity source,
+                                                  DragonSensoryObservation.Kind kind) {
+        return source != null && source.isAlive()
+                && kind != DragonSensoryObservation.Kind.SIGHT
+                && kind != DragonSensoryObservation.Kind.PROJECTILE
+                && source != dragon.getTarget()
+                && source != dragon.getLastHurtByMob()
+                && source != dragon.getBrain().getMemory(MemoryModuleType.ATTACK_TARGET).orElse(null)
+                && dragon.getVision().canSee(source);
+    }
+
+    public static boolean refreshesAmbientSearch(DragonSensoryObservation current,
+                                                 DragonSensoryObservation candidate,
+                                                 Vec3 searchOrigin, boolean pursuingTarget) {
+        // Repeated hurt sounds describe the same nearby event. Keep the search's
+        // original destination and time budget instead of chasing every sound sample.
+        return !pursuingTarget && current != null && searchOrigin != null
+                && current.kind() == candidate.kind()
+                && candidate.kind() != DragonSensoryObservation.Kind.PROJECTILE
+                && isMeaningfulSound(candidate)
+                && current.sourceUuid() != null
+                && current.sourceUuid().equals(candidate.sourceUuid())
+                && candidate.position().distanceToSqr(searchOrigin) <= 64.0D;
+    }
+
+    private static boolean shouldReplace(DragonSensoryObservation existing,
+                                         DragonSensoryObservation candidate) {
+        if (existing == null) {
+            return true;
+        }
+        if (existing.observedAt() > candidate.observedAt()) {
+            return false;
+        }
+
+        int existingPriority = priority(existing.kind());
+        int candidatePriority = priority(candidate.kind());
+        // A well-resolved projectile origin is an active threat direction, not
+        // just another sound. Let it redirect a stale sight investigation even
+        // during the short grace window used to suppress noisy evidence.
+        if (existing.kind() == DragonSensoryObservation.Kind.SIGHT
+                && candidate.kind() == DragonSensoryObservation.Kind.PROJECTILE
+                && candidate.confidence() >= 0.65F) {
+            return true;
+        }
+        if (existing.observedAt() == candidate.observedAt()) {
+            return candidatePriority > existingPriority
+                    || (candidatePriority == existingPriority
+                    && candidate.confidence() > existing.confidence());
+        }
+        long age = candidate.observedAt() - existing.observedAt();
+        if (existingPriority > candidatePriority && age < STRONGER_OBSERVATION_GRACE_TICKS) {
+            return false;
+        }
+        return candidatePriority > existingPriority
+                || candidate.confidence() >= existing.confidence()
+                || age >= STRONGER_OBSERVATION_GRACE_TICKS;
+    }
+
+    private static int priority(DragonSensoryObservation.Kind kind) {
+        return switch (kind) {
+            case SIGHT -> 7;
+            case EXPLOSION -> 6;
+            case COMBAT, PROJECTILE -> 5;
+            case ROAR, TELEPORT -> 4;
+            case BLOCK -> 3;
+            case SPLASH, IMPACT -> 2;
+            case SCENT, STEP -> 1;
+            case OTHER -> 0;
+        };
+    }
+}
